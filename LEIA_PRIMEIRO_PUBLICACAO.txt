@@ -1,0 +1,8 @@
+REINOS TRIBAIS V18 ONLINE - PUBLICADOR SEM CLI - CORRIGIDO 2
+
+Esta revisão corrige o erro do PowerShell:
+"Os tipos de argumentos não correspondem" / "Argument types do not match"
+na criação da árvore Git do GitHub.
+
+Não requer Git, GitHub CLI, Node ou winget.
+Execute PUBLICAR_ONLINE_GRATIS.ps1.
