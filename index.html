@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#5d3a1a">
-<meta name="description" content="Jogo de estratégia medieval independente, totalmente em português e jogável offline.">
-<title>Reinos Tribais — V17 Layout Tribal Pro PT-BR</title>
+<meta name="description" content="Jogo de estratégia medieval independente em português, com conta e save online via Supabase.">
+<title>Reinos Tribais — V18 Online Supabase PT-BR</title>
 <style>
 :root {
   --ink: #2a1a0f;
@@ -1663,6 +1663,38 @@ body { background:#0e0d0a url('assets/ui/bg-tile.jpg') repeat; color:#2a1a0d; }
 
 .rt11-start{background:linear-gradient(90deg,rgba(12,9,4,.86),rgba(12,9,4,.48) 45%,rgba(12,9,4,.10)),url('assets/v17/village_art.png') center/cover no-repeat!important}.rt11-panel{border-radius:3px!important;border-color:#8a672f!important;background:linear-gradient(160deg,rgba(26,25,19,.97),rgba(12,14,11,.96))!important}.rt11-submit{border-radius:2px!important;background:linear-gradient(#a7771c,#68490d)!important;border-color:#c79535!important}
 </style>
+
+<style id="rt18-online-style">
+.rt18-auth-screen{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(90deg,rgba(8,8,7,.88),rgba(8,8,7,.48)),url('assets/v17/village_art.png') center/cover fixed no-repeat;color:#eadbb8}
+.rt18-auth-card{width:min(980px,100%);display:grid;grid-template-columns:1.05fr .95fr;background:rgba(15,15,14,.96);border:1px solid #8e6c31;box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.rt18-auth-copy{padding:38px 40px;border-right:1px solid rgba(202,158,72,.3)}
+.rt18-auth-copy h1{margin:10px 0 8px;font-size:44px;color:#f2d391;letter-spacing:.02em}
+.rt18-auth-copy p{color:#c8b994;line-height:1.55}
+.rt18-online-badge{display:inline-flex;gap:8px;align-items:center;padding:7px 10px;border:1px solid #8e6c31;background:#211b11;color:#e9cd89;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.rt18-auth-forms{padding:32px;display:grid;gap:18px;background:linear-gradient(180deg,#1c1c1a,#121211)}
+.rt18-auth-box{border:1px solid #574526;background:#191713;padding:20px}
+.rt18-auth-box h2{margin:0 0 13px;color:#e7ca87;font-size:20px}
+.rt18-auth-box form{display:grid;gap:10px}
+.rt18-auth-box label{display:grid;gap:5px;color:#cdbf9f;font-size:13px;font-weight:700}
+.rt18-auth-box input{width:100%;min-height:42px;border:1px solid #6c5730;background:#0e0e0d;color:#f4ead0;padding:8px 10px;border-radius:2px}
+.rt18-auth-btn{min-height:42px;border:1px solid #a98039;background:linear-gradient(#8a6325,#684816);color:#fff3d3;font-weight:800;border-radius:2px}
+.rt18-auth-btn.secondary{background:#26231d;border-color:#6e5a36;color:#dfcca1}
+.rt18-auth-message{min-height:20px;color:#e7c37b;font-size:13px;line-height:1.4}
+.rt18-auth-message.error{color:#f39a8e}
+.rt18-auth-message.success{color:#9ed1a3}
+.rt18-account-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 14px;padding:9px 11px;background:rgba(20,18,14,.72);border:1px solid rgba(184,142,61,.45);color:#d9c69c;font-size:12px}
+.rt18-account-strip b{color:#f0d48f}
+.rt18-account-actions{display:flex;gap:7px;flex-wrap:wrap}
+.rt18-account-actions button,.rt18-cloud-action{border:1px solid #695431;background:#1d1a15;color:#d9c69c;padding:6px 9px;border-radius:2px;font-size:11px;font-weight:700}
+.rt18-cloud-action.online{border-color:#517552;color:#b9dcb8}
+.rt18-cloud-action.offline{border-color:#83513f;color:#e7ad9a}
+.rt18-cloud-action.saving{border-color:#8e6c31;color:#e9cd89}
+.rt18-auth-loading{min-height:100vh;display:grid;place-items:center;background:#0e0e0d;color:#e8cf94;font-family:Georgia,'Times New Roman',serif}
+.rt18-auth-loading>div{padding:24px 30px;border:1px solid #755a2d;background:#171612;box-shadow:0 18px 50px rgba(0,0,0,.5);text-align:center}
+.rt18-auth-loading strong{display:block;font-size:22px;margin-bottom:8px}
+@media(max-width:820px){.rt18-auth-card{grid-template-columns:1fr}.rt18-auth-copy{border-right:0;border-bottom:1px solid rgba(202,158,72,.3);padding:28px}.rt18-auth-forms{padding:22px}.rt18-auth-copy h1{font-size:36px}}
+</style>
+
 </head>
 <body>
 <noscript>Este jogo precisa do JavaScript ativado no navegador.</noscript>
@@ -1742,8 +1774,9 @@ window.GAME_DATA = (() => {
 
 (() => {
   const D = window.GAME_DATA;
-  const SAVE_KEY = 'reinos_tribais_ptbr_save_v17';
-  const VERSION = 17;
+  const SAVE_KEY = 'reinos_tribais_ptbr_save_v18';
+  const LEGACY_SAVE_KEY = 'reinos_tribais_ptbr_save_v17';
+  const VERSION = 18;
   const RESOURCE_KEYS = ['wood', 'clay', 'iron'];
   const RESOURCE_NAMES = { wood: 'Madeira', clay: 'Argila', iron: 'Ferro' };
   const RESOURCE_ICONS = { wood: '🪵', clay: '🧱', iron: '⛓️' };
@@ -1931,6 +1964,360 @@ window.GAME_DATA = (() => {
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
   const sum = values => values.reduce((acc, value) => acc + value, 0);
   const deepClone = value => JSON.parse(JSON.stringify(value));
+
+
+  const CLOUD = {
+    url: 'https://rlyiwlwzrdgvcwawrnpl.supabase.co',
+    key: 'sb_publishable_S9LtSpLhLKFOU9iSd8b4yQ_EziH1Arr',
+    worldId: 'd5a546fb-316d-4332-ae92-1886d80b07df',
+    worldSlug: 'mundo-1',
+    sessionKey: 'reinos_tribais_supabase_session_v18',
+    localMetaKey: 'reinos_tribais_local_meta_v18',
+    session: null,
+    user: null,
+    ready: false,
+    saving: false,
+    pending: false,
+    saveTimer: null,
+    lastSaveAt: 0,
+    lastError: ''
+  };
+
+  function cloudHeaders(auth = true, extra = {}) {
+    const headers = { apikey: CLOUD.key, 'Content-Type': 'application/json', ...extra };
+    if (auth && CLOUD.session?.access_token) headers.Authorization = `Bearer ${CLOUD.session.access_token}`;
+    return headers;
+  }
+
+  async function cloudRequest(path, options = {}) {
+    const method = options.method || 'GET';
+    const response = await fetch(`${CLOUD.url}${path}`, {
+      method,
+      headers: cloudHeaders(options.auth !== false, options.headers || {}),
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      cache: 'no-store'
+    });
+    const text = await response.text();
+    let data = null;
+    if (text) {
+      try { data = JSON.parse(text); } catch { data = text; }
+    }
+    if (!response.ok) {
+      const message = data?.message || data?.msg || data?.error_description || data?.error || `${response.status} ${response.statusText}`;
+      const err = new Error(String(message));
+      err.status = response.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
+  function normalizeSession(session) {
+    if (!session) return null;
+    if (!session.expires_at && session.expires_in) session.expires_at = Math.floor(Date.now() / 1000) + Number(session.expires_in);
+    return session;
+  }
+
+  function storeCloudSession(session) {
+    CLOUD.session = normalizeSession(session);
+    CLOUD.user = CLOUD.session?.user || null;
+    if (CLOUD.session) localStorage.setItem(CLOUD.sessionKey, JSON.stringify(CLOUD.session));
+    else localStorage.removeItem(CLOUD.sessionKey);
+  }
+
+  async function refreshCloudSession(refreshToken) {
+    const session = await cloudRequest('/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST', auth: false, body: { refresh_token: refreshToken }
+    });
+    storeCloudSession(session);
+    return Boolean(CLOUD.user?.id);
+  }
+
+  async function restoreCloudSession() {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(CLOUD.sessionKey) || 'null'); } catch {}
+    if (!cached?.access_token || !cached?.user?.id) return false;
+    cached = normalizeSession(cached);
+    const expiresAt = Number(cached.expires_at || 0);
+    if (expiresAt > Math.floor(Date.now() / 1000) + 90) {
+      storeCloudSession(cached);
+      return true;
+    }
+    if (!cached.refresh_token) return false;
+    try { return await refreshCloudSession(cached.refresh_token); }
+    catch {
+      storeCloudSession(null);
+      return false;
+    }
+  }
+
+  async function signInCloud(email, password) {
+    const session = await cloudRequest('/auth/v1/token?grant_type=password', {
+      method: 'POST', auth: false, body: { email, password }
+    });
+    storeCloudSession(session);
+    return session;
+  }
+
+  async function signUpCloud(email, password) {
+    const result = await cloudRequest('/auth/v1/signup', {
+      method: 'POST', auth: false, body: { email, password }
+    });
+    if (result?.access_token && result?.user) storeCloudSession(result);
+    return result;
+  }
+
+  async function signOutCloud() {
+    try {
+      if (CLOUD.session?.access_token) await cloudRequest('/auth/v1/logout', { method: 'POST', body: {} });
+    } catch {}
+    if (CLOUD.saveTimer) clearTimeout(CLOUD.saveTimer);
+    storeCloudSession(null);
+    CLOUD.ready = false;
+    CLOUD.saving = false;
+    CLOUD.pending = false;
+    state = null;
+    modalHtml = '';
+    currentView = 'overview';
+    renderAuthScreen('Sessão encerrada.');
+  }
+
+  function getLocalSavedAt() {
+    const value = Number(localStorage.getItem(CLOUD.localMetaKey) || 0);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  function setLocalSavedAt(value = Date.now()) {
+    localStorage.setItem(CLOUD.localMetaKey, String(Number(value) || Date.now()));
+  }
+
+  async function loadCloudSave() {
+    if (!CLOUD.user?.id) return null;
+    const user = encodeURIComponent(CLOUD.user.id);
+    const world = encodeURIComponent(CLOUD.worldId);
+    const rows = await cloudRequest(`/rest/v1/game_saves?user_id=eq.${user}&world_id=eq.${world}&select=state,updated_at&limit=1`);
+    return Array.isArray(rows) && rows.length ? rows[0] : null;
+  }
+
+  async function upsertPlayerSummary() {
+    if (!CLOUD.ready || !CLOUD.user?.id || !state) return;
+    const p = state.player || {};
+    const body = {
+      world_id: CLOUD.worldId,
+      user_id: CLOUD.user.id,
+      player_name: String(p.name || CLOUD.user.email || 'Governante').slice(0, 64),
+      points: Math.max(0, Math.floor(Number(p.points) || 0)),
+      crowns: Math.max(0, Math.floor(Number(p.premium?.crowns) || 0)),
+      academy_coins: Math.max(0, Math.floor(Number(p.academyCoins) || 0)),
+      hero: p.hero || {},
+      inventory: p.inventory || {},
+      flags_inventory: p.flagsInventory || {},
+      premium: p.premium || {},
+      research: p.research || {},
+      updated_at: new Date().toISOString()
+    };
+    await cloudRequest('/rest/v1/player_worlds?on_conflict=world_id,user_id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body
+    });
+  }
+
+  async function saveCloudNow(showToast = false) {
+    if (!CLOUD.ready || !CLOUD.user?.id || !state) return false;
+    if (CLOUD.saving) {
+      CLOUD.pending = true;
+      return false;
+    }
+    CLOUD.saving = true;
+    CLOUD.lastError = '';
+    updateCloudButtons();
+    try {
+      const savedAt = new Date().toISOString();
+      await cloudRequest('/rest/v1/game_saves?on_conflict=user_id,world_id', {
+        method: 'POST',
+        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: { user_id: CLOUD.user.id, world_id: CLOUD.worldId, state, updated_at: savedAt }
+      });
+      await upsertPlayerSummary();
+      CLOUD.lastSaveAt = Date.now();
+      setLocalSavedAt(CLOUD.lastSaveAt);
+      if (showToast) toast('Reino sincronizado com a nuvem.', 'success');
+      return true;
+    } catch (error) {
+      CLOUD.lastError = error.message || String(error);
+      CLOUD.ready = false;
+      console.error('Falha no save em nuvem:', error);
+      if (showToast) toast(`Falha ao sincronizar: ${CLOUD.lastError}`, 'error');
+      return false;
+    } finally {
+      CLOUD.saving = false;
+      updateCloudButtons();
+      if (CLOUD.pending) {
+        CLOUD.pending = false;
+        scheduleCloudSave(3000);
+      }
+    }
+  }
+
+  function scheduleCloudSave(delay = 45000) {
+    if (!CLOUD.ready || !state) return;
+    if (CLOUD.saveTimer) clearTimeout(CLOUD.saveTimer);
+    const elapsed = Date.now() - Number(CLOUD.lastSaveAt || 0);
+    const wait = Math.max(1500, Math.min(delay, Math.max(1500, 45000 - elapsed)));
+    CLOUD.saveTimer = setTimeout(() => { saveCloudNow(false); }, wait);
+  }
+
+  async function deleteCloudSave() {
+    if (!CLOUD.user?.id) return;
+    const user = encodeURIComponent(CLOUD.user.id);
+    const world = encodeURIComponent(CLOUD.worldId);
+    await cloudRequest(`/rest/v1/game_saves?user_id=eq.${user}&world_id=eq.${world}`, { method: 'DELETE' });
+  }
+
+  function cloudLabel() {
+    if (CLOUD.saving) return '☁ Salvando...';
+    if (CLOUD.ready) return '☁ Online';
+    return '☁ Offline';
+  }
+
+  function updateCloudButtons() {
+    document.querySelectorAll('[data-cloud-sync]').forEach(btn => {
+      btn.textContent = cloudLabel();
+      btn.classList.toggle('online', CLOUD.ready && !CLOUD.saving);
+      btn.classList.toggle('offline', !CLOUD.ready && !CLOUD.saving);
+      btn.classList.toggle('saving', CLOUD.saving);
+    });
+  }
+
+  function renderCloudLoading(text = 'Conectando ao mundo online...') {
+    $('#app').innerHTML = `<main class="rt18-auth-loading"><div><strong>Reinos Tribais V18 Online</strong><span>${escapeHtml(text)}</span></div></main>`;
+  }
+
+  function renderAuthScreen(message = '', type = '') {
+    const messageClass = type ? ` ${type}` : '';
+    $('#app').innerHTML = `
+      <main class="rt18-auth-screen">
+        <section class="rt18-auth-card">
+          <div class="rt18-auth-copy">
+            <span class="rt18-online-badge">☁ Mundo 1 • Supabase</span>
+            <h1>Reinos Tribais</h1>
+            <p>Entre com sua conta para carregar e salvar o mesmo reino pela internet. O jogo continua mantendo uma cópia local de segurança neste navegador.</p>
+            <p class="small">Backend: São Paulo • Mundo online: Mundo 1 • V18</p>
+          </div>
+          <div class="rt18-auth-forms">
+            <div class="rt18-auth-box">
+              <h2>Entrar</h2>
+              <form id="rt18-login-form">
+                <label>E-mail<input type="email" name="email" autocomplete="email" required></label>
+                <label>Senha<input type="password" name="password" autocomplete="current-password" minlength="6" required></label>
+                <button class="rt18-auth-btn" type="submit">Entrar no reino</button>
+              </form>
+            </div>
+            <div class="rt18-auth-box">
+              <h2>Criar conta</h2>
+              <form id="rt18-signup-form">
+                <label>E-mail<input type="email" name="email" autocomplete="email" required></label>
+                <label>Senha<input type="password" name="password" autocomplete="new-password" minlength="6" required></label>
+                <button class="rt18-auth-btn secondary" type="submit">Criar conta gratuita</button>
+              </form>
+            </div>
+            <div id="rt18-auth-message" class="rt18-auth-message${messageClass}">${escapeHtml(message)}</div>
+          </div>
+        </section>
+      </main>`;
+  }
+
+  function setAuthMessage(message, type = '') {
+    const el = $('#rt18-auth-message');
+    if (!el) return;
+    el.className = `rt18-auth-message${type ? ` ${type}` : ''}`;
+    el.textContent = message;
+  }
+
+  async function activateLoadedState(loaded) {
+    state = loaded;
+    if (!state) return renderStart();
+    migrateState(state);
+    Object.values(state.villages).filter(v => v.owner === 'player').forEach(v => updateResources(v));
+    processQueues(now());
+    processResearchQueue(now());
+    processCommands(now());
+    recalcAllPoints();
+    checkQuests();
+    renderAll();
+  }
+
+  async function enterCloudGame() {
+    renderCloudLoading('Carregando seu reino...');
+    let local = loadState();
+    let remote = null;
+    try {
+      remote = await loadCloudSave();
+      CLOUD.ready = true;
+      CLOUD.lastError = '';
+    } catch (error) {
+      CLOUD.ready = false;
+      CLOUD.lastError = error.message || String(error);
+      console.error('Falha ao carregar nuvem:', error);
+      if (local) {
+        await activateLoadedState(local);
+        toast('Sem conexão com a nuvem. Jogando com o save local.', 'error');
+        return;
+      }
+      throw error;
+    }
+
+    let chosen = null;
+    let uploadLocal = false;
+    const localAt = getLocalSavedAt();
+    const remoteAt = remote?.updated_at ? Date.parse(remote.updated_at) : 0;
+    const remoteState = remote?.state && typeof remote.state === 'object' ? remote.state : null;
+
+    if (remoteState && (!local || remoteAt >= localAt)) {
+      chosen = remoteState;
+      migrateState(chosen);
+      localStorage.setItem(SAVE_KEY, JSON.stringify(chosen));
+      setLocalSavedAt(remoteAt || Date.now());
+      CLOUD.lastSaveAt = remoteAt || Date.now();
+    } else if (local) {
+      chosen = local;
+      uploadLocal = true;
+    }
+
+    if (chosen) await activateLoadedState(chosen);
+    else renderStart();
+
+    if (uploadLocal || !remoteState) scheduleCloudSave(2000);
+    updateCloudButtons();
+  }
+
+  async function manualCloudSync() {
+    if (!state) return;
+    saveState(true);
+    if (!CLOUD.ready) {
+      try {
+        if (!CLOUD.session?.access_token && !(await restoreCloudSession())) throw new Error('Sessão online expirada. Entre novamente.');
+        CLOUD.ready = true;
+      } catch (error) {
+        return toast(error.message || 'Não foi possível reconectar.', 'error');
+      }
+    }
+    await saveCloudNow(true);
+  }
+
+  async function bootstrapOnline() {
+    renderCloudLoading();
+    try {
+      const hasSession = await restoreCloudSession();
+      if (!hasSession) return renderAuthScreen();
+      await enterCloudGame();
+    } catch (error) {
+      console.error(error);
+      renderAuthScreen(`Não foi possível conectar: ${error.message || error}`, 'error');
+    }
+  }
+
 
   const heroStoryEmpty = () => ({ completed: [], inventory: [], equipment: { weapon: null, relic: null, mount: null, trinket: null }, current: null });
 
@@ -3089,10 +3476,10 @@ ${reportBody}` });
 
   function loadState() {
     try {
-      const raw = localStorage.getItem(SAVE_KEY);
+      const raw = localStorage.getItem(SAVE_KEY) || localStorage.getItem(LEGACY_SAVE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      if (!parsed || parsed.version !== VERSION || !parsed.villages) return null;
+      if (!parsed || ![17, 18].includes(Number(parsed.version)) || !parsed.villages) return null;
       migrateState(parsed);
       return parsed;
     } catch (error) {
@@ -3102,6 +3489,7 @@ ${reportBody}` });
   }
 
   function migrateState(s) {
+    s.version = VERSION;
     s.lastTick ||= now();
     s.commands ||= [];
     s.reports ||= [];
@@ -3163,8 +3551,11 @@ ${reportBody}` });
     if (!state) return;
     if (!force && !dirty) return;
     try {
+      state.version = VERSION;
       localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+      setLocalSavedAt(Date.now());
       dirty = false;
+      scheduleCloudSave(force ? 2500 : 45000);
     } catch (error) {
       toast('Não foi possível salvar no navegador.', 'error');
       console.error(error);
@@ -3647,9 +4038,9 @@ ${reportBody}` });
     $('#app').innerHTML = `
       <main class="rt11-start">
         <section class="rt11-panel" aria-label="Criar novo mundo">
-          <div class="rt11-brandline"><img src="assets/icons/reinos_tribais_icon.png" alt=""><span>Reinos Tribais • V17</span></div>
+          <div class="rt11-brandline"><img src="assets/icons/reinos_tribais_icon.png" alt=""><span>Reinos Tribais • V18 Online</span></div>
           <h1 class="rt11-title">Reinos Tribais</h1>
-          <p class="rt11-subtitle">Crie o mundo e entre no jogo. A V17 aplica o novo layout medieval ao jogo funcional, mantendo IA, mundo vivo, mapa, Paladino e os sistemas da versão anterior.</p>
+          <p class="rt11-subtitle">Crie seu mundo e jogue com save sincronizado pela internet. O visual da V17 foi preservado e a V18 adiciona conta e nuvem Supabase.</p>
           <form id="start-form" class="rt11-form">
             <label class="rt11-wide">Nome do governante
               <input name="playerName" maxlength="24" value="Governante" required>
@@ -3671,6 +4062,7 @@ ${reportBody}` });
             </label>
             <button class="rt11-submit" type="submit">Entrar no mundo</button>
           </form>
+          <div class="rt18-account-strip"><span>☁ Conta: <b>${escapeHtml(CLOUD.user?.email || 'sem sessão')}</b></span><span class="rt18-account-actions"><button type="button" data-cloud-sync class="rt18-cloud-action ${CLOUD.ready?'online':'offline'}">${cloudLabel()}</button><button type="button" data-cloud-logout>Sair</button></span></div>
           <p class="rt11-note">Projeto independente inspirado em jogos de estratégia medieval. Não é o Tribal Wars oficial e não possui vínculo com a InnoGames.</p>
         </section>
         <aside class="rt11-corner"><b>Aldeia ao fundo, formulário em primeiro plano</b><span>Esta tela não usa mais o mockup de mapa/herói/loja como imagem de fundo.</span></aside>
@@ -3688,7 +4080,7 @@ ${reportBody}` });
         <div class="main-layout">
           <main class="content-panel">${renderView()}</main>
         </div>
-        <div class="footer-note">Reinos Tribais — V17 Layout Tribal Pro • Salvamento automático</div>
+        <div class="footer-note">Reinos Tribais — V18 Online • Salvamento local + nuvem Supabase</div>
       </div>
       ${modalHtml}
       <div class="toast-stack" id="toast-stack"></div>`;
@@ -3703,7 +4095,7 @@ ${reportBody}` });
       <div class="rt17-brand-block"><img src="assets/icons/reinos_tribais_icon.png" alt="Reinos Tribais" class="rt17-brand-crest"><div class="rt17-brand-copy"><strong>REINOS<br>TRIBAIS</strong><select id="active-village" class="village-select rt17-village-select">${owned.map(v=>`<option value="${v.id}" ${v.id===village.id?'selected':''}>${escapeHtml(v.name)} • ${v.x}|${v.y}</option>`).join('')}</select></div></div>
       <div class="resources rt17-resources">${RESOURCE_KEYS.map(key=>`<div class="rt17-resource ${village.resources[key]>=cap?'full':''}"><span class="rt17-resource-icon">${RESOURCE_ICONS[key]}</span><span><small>${RESOURCE_NAMES[key]}</small><b class="js-resource" data-resource="${key}">${nfmt(village.resources[key])}</b><em>+${prod(key)}/h</em></span></div>`).join('')}<div class="rt17-resource"><span class="rt17-resource-icon">📦</span><span><small>Armazém</small><b>${nfmt(cap)}</b><em>capacidade</em></span></div><div class="rt17-resource"><span class="rt17-resource-icon">👥</span><span><small>População</small><b><span class="js-pop">${nfmt(used)}</span>/<span class="js-farm">${nfmt(farm)}</span></b><em>fazenda</em></span></div></div>
       <button class="rt17-crowns" data-view="premium"><span>♛</span><small>Coroas</small><b>${nfmt(premiumState().crowns)}</b></button>
-      <button class="rt17-hero-chip" data-view="hero"><img src="assets/v17/paladin_portrait.png" alt="Paladino"><span><b>${escapeHtml(hero.name)}</b><small>Paladino • Nível ${hero.level}</small><i><u style="width:${clamp(hero.xp/hero.xpNext*100,0,100)}%"></u></i></span></button><span class="server-clock js-clock rt17-clock"></span>
+      <button class="rt17-hero-chip" data-view="hero"><img src="assets/v17/paladin_portrait.png" alt="Paladino"><span><b>${escapeHtml(hero.name)}</b><small>Paladino • Nível ${hero.level}</small><i><u style="width:${clamp(hero.xp/hero.xpNext*100,0,100)}%"></u></i></span></button><button type="button" data-cloud-sync class="rt18-cloud-action ${CLOUD.ready?'online':'offline'}">${cloudLabel()}</button><button type="button" data-cloud-logout class="rt18-cloud-action">Sair</button><span class="server-clock js-clock rt17-clock"></span>
     </div></header>`;
   }
 
@@ -4171,7 +4563,7 @@ ${reportBody}` });
   }
 
   function renderSettings() {
-    return `<h1 class="panel-title">Configurações do mundo</h1><form id="settings-form" class="game-card"><div class="card-grid"><label>Velocidade do mundo<select class="select-input" name="worldSpeed">${[1,4,8,20,50].map(x=>`<option value="${x}" ${state.settings.worldSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Velocidade das unidades<select class="select-input" name="unitSpeed">${[1,2,3,5,10].map(x=>`<option value="${x}" ${state.settings.unitSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Sistema do Ferreiro<select class="select-input" name="researchSystem"><option value="simple" ${state.settings.researchSystem==='simple'?'selected':''}>Pesquisa simples</option><option value="three" ${state.settings.researchSystem==='three'?'selected':''}>3 níveis</option><option value="ten" ${state.settings.researchSystem==='ten'?'selected':''}>10 níveis</option></select></label></div><h3>Recursos do mundo</h3><div class="card-grid"><label><input type="checkbox" name="archers" ${state.settings.archers?'checked':''}> Arqueiros</label><label><input type="checkbox" name="militia" ${state.settings.militia?'checked':''}> Milícia</label><label><input type="checkbox" name="church" ${state.settings.church?'checked':''}> Igreja</label><label><input type="checkbox" name="watchtower" ${state.settings.watchtower?'checked':''}> Torre de Vigia</label><label><input type="checkbox" name="flags" ${state.settings.flags?'checked':''}> Bandeiras</label><label><input type="checkbox" name="scavenging" ${state.settings.scavenging?'checked':''}> Coleta</label></div><button class="btn primary" type="submit">Salvar configurações</button></form><h2 class="section-title">Salvamento</h2><div class="btn-row"><button class="btn" data-export-save>Exportar salvamento</button><label class="btn secondary">Importar salvamento<input id="import-save" type="file" accept="application/json" hidden></label><button class="btn danger" data-reset-game>Apagar mundo e recomeçar</button></div><h2 class="section-title">Informações</h2><div class="notice">Versão ${VERSION}. Sistema de pesquisa: ${state.settings.researchSystem}. Mundo ${state.world.radius*2+1}×${state.world.radius*2+1}. Edição local/offline independente.</div>`;
+    return `<h1 class="panel-title">Configurações do mundo</h1><form id="settings-form" class="game-card"><div class="card-grid"><label>Velocidade do mundo<select class="select-input" name="worldSpeed">${[1,4,8,20,50].map(x=>`<option value="${x}" ${state.settings.worldSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Velocidade das unidades<select class="select-input" name="unitSpeed">${[1,2,3,5,10].map(x=>`<option value="${x}" ${state.settings.unitSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Sistema do Ferreiro<select class="select-input" name="researchSystem"><option value="simple" ${state.settings.researchSystem==='simple'?'selected':''}>Pesquisa simples</option><option value="three" ${state.settings.researchSystem==='three'?'selected':''}>3 níveis</option><option value="ten" ${state.settings.researchSystem==='ten'?'selected':''}>10 níveis</option></select></label></div><h3>Recursos do mundo</h3><div class="card-grid"><label><input type="checkbox" name="archers" ${state.settings.archers?'checked':''}> Arqueiros</label><label><input type="checkbox" name="militia" ${state.settings.militia?'checked':''}> Milícia</label><label><input type="checkbox" name="church" ${state.settings.church?'checked':''}> Igreja</label><label><input type="checkbox" name="watchtower" ${state.settings.watchtower?'checked':''}> Torre de Vigia</label><label><input type="checkbox" name="flags" ${state.settings.flags?'checked':''}> Bandeiras</label><label><input type="checkbox" name="scavenging" ${state.settings.scavenging?'checked':''}> Coleta</label></div><button class="btn primary" type="submit">Salvar configurações</button></form><h2 class="section-title">Salvamento</h2><div class="btn-row"><button class="btn" data-export-save>Exportar salvamento</button><label class="btn secondary">Importar salvamento<input id="import-save" type="file" accept="application/json" hidden></label><button class="btn danger" data-reset-game>Apagar mundo e recomeçar</button></div><h2 class="section-title">Informações</h2><div class="notice">Versão ${VERSION}. Sistema de pesquisa: ${state.settings.researchSystem}. Mundo ${state.world.radius*2+1}×${state.world.radius*2+1}. V18 com conta e salvamento online via Supabase.</div>`;
   }
 
 
@@ -4222,7 +4614,7 @@ ${reportBody}` });
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      if (!parsed || parsed.version !== VERSION || !parsed.villages || !parsed.player) throw new Error('Arquivo incompatível');
+      if (!parsed || ![17, 18].includes(Number(parsed.version)) || !parsed.villages || !parsed.player) throw new Error('Arquivo incompatível');
       migrateState(parsed);
       state = parsed;
       dirty = true;
@@ -4236,9 +4628,12 @@ ${reportBody}` });
     }
   }
 
-  function resetGame() {
-    if (!confirm('Apagar definitivamente este mundo e todo o progresso?')) return;
+  async function resetGame() {
+    if (!confirm('Apagar definitivamente este mundo e todo o progresso local e na nuvem?')) return;
+    try { await deleteCloudSave(); } catch (error) { console.error('Falha ao apagar save na nuvem:', error); }
     localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(LEGACY_SAVE_KEY);
+    localStorage.removeItem(CLOUD.localMetaKey);
     state = null;
     modalHtml = '';
     currentView = 'overview';
@@ -4246,6 +4641,8 @@ ${reportBody}` });
   }
 
   document.addEventListener('click', event => {
+    if (event.target.closest('[data-cloud-logout]')) return signOutCloud();
+    if (event.target.closest('[data-cloud-sync]')) return manualCloudSync();
     const viewButton = event.target.closest('[data-view]');
     if (viewButton) {
       currentView = viewButton.dataset.view;
@@ -4372,6 +4769,38 @@ ${reportBody}` });
   document.addEventListener('submit', event => {
     event.preventDefault();
     const form = event.target;
+    if (form.id === 'rt18-login-form') {
+      const data = new FormData(form);
+      const email = String(data.get('email') || '').trim();
+      const password = String(data.get('password') || '');
+      if (!email || password.length < 6) return setAuthMessage('Informe e-mail e senha com pelo menos 6 caracteres.', 'error');
+      const button = form.querySelector('button[type="submit"]');
+      if (button) { button.disabled = true; button.textContent = 'Entrando...'; }
+      setAuthMessage('Validando sua conta...');
+      signInCloud(email, password).then(() => enterCloudGame()).catch(error => {
+        setAuthMessage(`Não foi possível entrar: ${error.message || error}`, 'error');
+        if (button) { button.disabled = false; button.textContent = 'Entrar no reino'; }
+      });
+      return;
+    }
+    if (form.id === 'rt18-signup-form') {
+      const data = new FormData(form);
+      const email = String(data.get('email') || '').trim();
+      const password = String(data.get('password') || '');
+      if (!email || password.length < 6) return setAuthMessage('Informe e-mail e senha com pelo menos 6 caracteres.', 'error');
+      const button = form.querySelector('button[type="submit"]');
+      if (button) { button.disabled = true; button.textContent = 'Criando...'; }
+      setAuthMessage('Criando sua conta...');
+      signUpCloud(email, password).then(result => {
+        if (CLOUD.user?.id) return enterCloudGame();
+        setAuthMessage('Conta criada. Se o Supabase exigir confirmação, abra o e-mail de confirmação e depois use Entrar.', 'success');
+        if (button) { button.disabled = false; button.textContent = 'Criar conta gratuita'; }
+      }).catch(error => {
+        setAuthMessage(`Não foi possível criar a conta: ${error.message || error}`, 'error');
+        if (button) { button.disabled = false; button.textContent = 'Criar conta gratuita'; }
+      });
+      return;
+    }
     if (form.id === 'start-form') {
       const data = new FormData(form);
       const playerName = String(data.get('playerName') || '').trim().slice(0, 24);
@@ -4438,18 +4867,7 @@ ${reportBody}` });
 
   window.addEventListener('beforeunload', () => saveState(true));
 
-  state = loadState();
-  if (state) {
-    Object.values(state.villages).filter(v => v.owner === 'player').forEach(v => updateResources(v));
-    processQueues(now());
-    processResearchQueue(now());
-    processCommands(now());
-    recalcAllPoints();
-    checkQuests();
-    renderAll();
-  } else {
-    renderStart();
-  }
+  bootstrapOnline();
   setInterval(tick, 1000);
 })();
 
