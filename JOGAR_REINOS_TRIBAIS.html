@@ -2657,6 +2657,7 @@ body { background:#0e0d0a url('assets/ui/bg-tile.jpg') repeat; color:#2a1a0d; }
 @media(max-width:1100px){.rt58-admin-kpi{grid-template-columns:repeat(3,1fr)!important}.rt58-admin-ops{grid-template-columns:1fr!important}}
 </style>
 
+<meta name="rt58-session-security" content="sessionStorage-only-no-persistent-token">
 </head>
 <body>
 <noscript>Este jogo precisa do JavaScript ativado no navegador.</noscript>
@@ -2965,7 +2966,7 @@ const HERO_SET_BONUSES = {
     realtimeDebounce: null,
     realtimeConnected: false,
     eventData: { events:[], progress:[], entitlements:[], seasons:[], ratings:[], matches:[], nodes:[] },
-    sessionKey: 'reinos_tribais_supabase_session_v21',
+    sessionKey: 'reinos_tribais_supabase_session_v58_browser',
     localMetaKey: 'reinos_tribais_local_meta_v21',
     session: null,
     user: null,
@@ -3327,8 +3328,12 @@ const HERO_SET_BONUSES = {
   function storeCloudSession(session) {
     CLOUD.session = normalizeSession(session);
     CLOUD.user = CLOUD.session?.user || null;
-    if (CLOUD.session) localStorage.setItem(CLOUD.sessionKey, JSON.stringify(CLOUD.session));
-    else localStorage.removeItem(CLOUD.sessionKey);
+    // RT58 security: online auth tokens live only for the current browser tab/session.
+    // Never persist access/refresh tokens in localStorage on a shared computer.
+    if (CLOUD.session) sessionStorage.setItem(CLOUD.sessionKey, JSON.stringify(CLOUD.session));
+    else sessionStorage.removeItem(CLOUD.sessionKey);
+    // Purge every legacy persistent cloud-session key from older builds.
+    ['reinos_tribais_supabase_session_v21','reinos_tribais_supabase_session_v58_browser'].forEach(key=>localStorage.removeItem(key));
   }
 
   async function refreshCloudSession(refreshToken) {
@@ -3341,7 +3346,10 @@ const HERO_SET_BONUSES = {
 
   async function restoreCloudSession() {
     let cached = null;
-    try { cached = JSON.parse(localStorage.getItem(CLOUD.sessionKey) || 'null'); } catch {}
+    // Only resume an online session that belongs to this still-open browser session.
+    // Old localStorage tokens are deliberately discarded for shared-PC safety.
+    ['reinos_tribais_supabase_session_v21','reinos_tribais_supabase_session_v58_browser'].forEach(key=>localStorage.removeItem(key));
+    try { cached = JSON.parse(sessionStorage.getItem(CLOUD.sessionKey) || 'null'); } catch {}
     if (!cached?.access_token || !cached?.user?.id) return false;
     cached = normalizeSession(cached);
     const expiresAt = Number(cached.expires_at || 0);
@@ -3501,8 +3509,10 @@ const HERO_SET_BONUSES = {
   }
 
   function hasCachedCloudSession() {
+    // Never expose a previous account merely because this PC/browser was used before.
+    ['reinos_tribais_supabase_session_v21','reinos_tribais_supabase_session_v58_browser'].forEach(key=>localStorage.removeItem(key));
     try {
-      const cached = JSON.parse(localStorage.getItem(CLOUD.sessionKey) || 'null');
+      const cached = JSON.parse(sessionStorage.getItem(CLOUD.sessionKey) || 'null');
       return Boolean(cached?.access_token && cached?.user?.id);
     } catch { return false; }
   }
@@ -3526,10 +3536,10 @@ const HERO_SET_BONUSES = {
         <aside class="rt55-entry-panel">
           <span class="rt55-kicker">ACESSO AO REINO</span>
           <h2>Escolha como entrar</h2>
-          <p>O jogo não cria mais uma aldeia antes de você decidir a conta e o mundo.</p>
+          <p>O jogo não cria mais uma aldeia antes de você decidir a conta e o mundo.</p><p class="small"><b>Continuar</b> só retoma uma sessão online ainda aberta nesta aba. Fechar o navegador exige login novamente. <b>Modo Local</b> é separado e nunca entra em conta online.</p>
           <div class="rt55-entry-actions">
             <button data-entry-online>ENTRAR / CRIAR CONTA →</button>
-            ${cached?'<button class="secondary" data-cloud-continue>CONTINUAR SESSÃO SALVA →</button>':''}
+            ${cached?'<button class="secondary" data-cloud-continue>CONTINUAR SESSÃO ONLINE DESTA ABA →</button>':''}
             <button class="secondary" data-play-offline>JOGAR EM MODO LOCAL</button>
           </div>
           <div class="rt55-status">
@@ -3544,7 +3554,7 @@ const HERO_SET_BONUSES = {
   function renderAuthScreen(message = 'Pronto. Entre online ou jogue localmente.', type = '') {
     const messageClass = type ? ` ${type}` : '';
     const continueButton = hasCachedCloudSession()
-      ? '<button class="rt18-auth-btn secondary" type="button" data-cloud-continue>Continuar sessão salva</button>'
+      ? '<button class="rt18-auth-btn secondary" type="button" data-cloud-continue>Continuar sessão online desta aba</button>'
       : '';
     $('#app').innerHTML = `
       <main class="rt18-auth-screen">
@@ -3553,7 +3563,7 @@ const HERO_SET_BONUSES = {
             <span class="rt18-online-badge">☁ Mundos compartilhados • Supabase Realtime</span>
             <h1>Reinos Tribais</h1>
             <p>A tela abre primeiro e a internet só conecta quando você entra. Depois do login, escolha um mundo aberto; aldeias, ataques, mercado, eventos e ranking são compartilhados entre todos nele.</p>
-            <p class="small">Backend: São Paulo • Realtime + combate RT58 + sincronização</p>
+            <p class="small">Backend: São Paulo • Realtime + combate RT58 + sincronização</p><p class="small"><b>Segurança:</b> tokens online não são persistidos no PC. Fechou o navegador, precisa autenticar novamente.</p>
             <button class="rt18-auth-btn secondary" type="button" data-play-offline>Jogar agora em modo local</button>
             ${continueButton}
           </div>
@@ -3703,9 +3713,9 @@ const HERO_SET_BONUSES = {
   }
 
   async function continueCloudSession() {
-    setAuthMessage('Reconectando sua sessão salva...');
+    setAuthMessage('Reconectando a sessão online desta aba...');
     try {
-      if (!(await restoreCloudSession())) throw new Error('A sessão salva expirou. Entre novamente com e-mail e senha.');
+      if (!(await restoreCloudSession())) throw new Error('A sessão online desta aba expirou. Entre novamente com e-mail e senha.');
       await chooseWorldAndEnter();
     } catch (error) {
       storeCloudSession(null);

@@ -61,5 +61,12 @@
     "admin controla configurações de mundo, progresso do jogador e recursos/lealdade das aldeias",
     "admin inicia/encerra/cancela eventos e cria/derrota monstros",
     "dashboard admin recebe dados operacionais e auditoria real do Supabase"
-  ]
+  ],
+  "session_security_hotfix": {
+    "online_tokens": "sessionStorage_only",
+    "legacy_localStorage_tokens": "purged",
+    "continue_button": "only_current_open_browser_tab_session",
+    "local_mode": "separate_from_online_account",
+    "browser_close_requires_login": true
+  }
 }
