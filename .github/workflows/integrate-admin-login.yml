@@ -23,13 +23,7 @@ jobs:
           if grep -q 'rt58-integrated-admin' index.html; then
             echo 'Admin login already integrated.'
           else
-            python - <<'PY'
-            from pathlib import Path
-            p=Path('.github/rt58-integrated-admin.patch')
-            t=p.read_text(encoding='utf-8')
-            t=t.replace("+  });\n+\n \n   bootstrapOnline();","+  });\n+\n+\n \n   bootstrapOnline();")
-            p.write_text(t,encoding='utf-8')
-            PY
+            sed -i '248i +' .github/rt58-integrated-admin.patch
             git apply --check .github/rt58-integrated-admin.patch
             git apply .github/rt58-integrated-admin.patch
           fi
