@@ -3439,7 +3439,6 @@ const HERO_SET_BONUSES = {
             <button data-entry-online>ENTRAR / CRIAR CONTA →</button>
             ${cached?'<button class="secondary" data-cloud-continue>CONTINUAR SESSÃO SALVA →</button>':''}
             <button class="secondary" data-play-offline>JOGAR EM MODO LOCAL</button>
-            <button class="ghost" data-entry-admin>PAINEL DE ADMINISTRAÇÃO</button>
           </div>
           <div class="rt55-status">
             <span><b>Backend</b><i class="rt55-live">Supabase • São Paulo</i></span>
@@ -3639,7 +3638,7 @@ async function activateLoadedState(loaded) {
   }
 
   async function chooseWorldAndEnter() {
-    if (await isAdminOnlyAccount()) { renderAuthScreen('Esta é uma conta administrativa. Abra ADMIN_REINOS_TRIBAIS.html para usar o painel.', 'error'); return; }
+    if (await isAdminOnlyAccount()) { renderAuthScreen('Esta conta é reservada à administração e não pode entrar no cliente de jogador.', 'error'); return; }
     await loadAvailableWorlds();
     if (!CLOUD.availableWorlds.length) { renderAuthScreen('Nenhum mundo está aberto no momento.', 'error'); return; }
     if (CLOUD.availableWorlds.length===1) return selectCloudWorld(CLOUD.availableWorlds[0].id);
@@ -6704,7 +6703,6 @@ function renderMap() {
 
   document.addEventListener('click', event => {
     if (event.target.closest('[data-entry-online]')) return renderAuthScreen('Entre com sua conta ou crie uma nova conta.');
-    if (event.target.closest('[data-entry-admin]')) { window.open('ADMIN_REINOS_TRIBAIS.html','_blank'); return; }
     if (event.target.closest('[data-play-offline]')) return playOfflineMode();
     if (event.target.closest('[data-cloud-continue]')) return continueCloudSession();
     if (event.target.closest('[data-cloud-login]')) return renderAuthScreen('Entre com sua conta para sincronizar este reino.');
