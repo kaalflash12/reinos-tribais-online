@@ -2580,6 +2580,83 @@ body { background:#0e0d0a url('assets/ui/bg-tile.jpg') repeat; color:#2a1a0d; }
 @media(max-width:700px){.rt58-admin-shell{padding:8px}.rt58-admin-table{font-size:12px}}
 </style>
 
+
+<style id="rt58-professional-interaction-hotfix">
+/* HOTFIX: hitbox acompanha a arte do edifício, não o chão abaixo. */
+.game-shell .rt22-center .rt24-building .rt24-hitbox{
+  left:3%!important; right:3%!important; top:3%!important; bottom:3%!important;
+  width:auto!important; height:auto!important;
+  clip-path:polygon(14% 7%,86% 7%,98% 35%,96% 83%,82% 98%,18% 98%,4% 83%,2% 35%)!important;
+  cursor:pointer!important; pointer-events:auto!important;
+}
+.game-shell .rt22-center .rt24-building:hover .rt24-hitbox{
+  background:rgba(255,222,128,.045)!important;
+  border-color:rgba(247,205,104,.22)!important;
+}
+.game-shell .rt22-center .rt24-building.level-zero .rt24-hitbox{
+  left:12%!important;right:12%!important;top:20%!important;bottom:10%!important;
+  clip-path:ellipse(48% 43% at 50% 55%)!important;
+}
+
+/* Mapa: leitura visual, ícones e interação. */
+.game-shell .rt17-map-canvas{cursor:grab!important;position:relative!important;user-select:none!important}
+.game-shell .rt17-map-canvas.rt58-dragging{cursor:grabbing!important}
+.game-shell .rt19-world-map .map-cell{cursor:pointer!important;transition:transform .12s ease,filter .12s ease!important}
+.game-shell .rt19-world-map .map-cell:hover,.game-shell .rt19-world-map .map-cell:focus-visible{
+  transform:translateY(-2px) scale(1.09)!important;z-index:30!important;
+  filter:brightness(1.12) saturate(1.12)!important;
+  box-shadow:0 0 0 2px rgba(255,229,145,.88),0 8px 20px rgba(0,0,0,.42)!important;
+  background:rgba(255,235,166,.08)!important;
+}
+.game-shell .rt19-world-map .map-cell.village::before,.game-shell .rt19-world-map .map-cell.node::before{
+  content:''!important;position:absolute!important;left:50%!important;top:54%!important;width:70%!important;height:52%!important;
+  transform:translate(-50%,-50%)!important;border-radius:50%!important;pointer-events:none!important;z-index:0!important;
+  background:radial-gradient(circle,rgba(0,0,0,.18),transparent 70%)!important;
+}
+.game-shell .rt19-world-map .map-cell.player::before{box-shadow:0 0 0 2px rgba(244,206,80,.85),0 0 18px rgba(244,206,80,.35)!important}
+.game-shell .rt19-world-map .map-cell.tribe::before{box-shadow:0 0 0 2px rgba(92,153,211,.9),0 0 18px rgba(92,153,211,.32)!important}
+.game-shell .rt19-world-map .map-cell.enemy::before{box-shadow:0 0 0 2px rgba(204,77,63,.9),0 0 18px rgba(204,77,63,.3)!important}
+.game-shell .rt19-world-map .map-cell.barbarian::before{box-shadow:0 0 0 2px rgba(192,187,170,.82)!important}
+.game-shell .rt19-world-map .map-village-icon{width:124%!important;height:124%!important;position:relative!important;z-index:2!important}
+.game-shell .rt19-world-map .map-node-art{width:94%!important;height:94%!important;position:relative!important;z-index:2!important}
+.game-shell .rt19-world-map .map-points,.game-shell .rt19-world-map .map-node-level{
+  z-index:5!important;font-size:.5rem!important;border:1px solid rgba(255,224,151,.34)!important;border-radius:8px!important;
+  color:#fff2c8!important;box-shadow:0 2px 5px rgba(0,0,0,.35)!important;
+}
+.game-shell .rt19-world-map .map-coord{z-index:6!important;border-radius:6px!important;color:#fff0c5!important}
+.game-shell .rt17-map-legend{grid-template-columns:1fr!important;gap:4px!important}
+.game-shell .rt58-legend-item{display:grid!important;grid-template-columns:31px 1fr 18px!important;gap:7px!important;align-items:center!important;
+  width:100%!important;min-height:35px!important;padding:3px 6px!important;background:#12140f!important;border:1px solid #403722!important;color:#cbbb97!important;border-radius:7px!important;text-align:left!important}
+.game-shell .rt58-legend-item.on{border-color:#8f7135!important;background:#211e14!important;color:#f0d27d!important}
+.game-shell .rt58-legend-item img{width:29px!important;height:29px!important;object-fit:contain!important;filter:drop-shadow(0 2px 2px #0009)!important}
+.game-shell .rt58-legend-item em{font-style:normal!important;text-align:center!important;color:#d5b85e!important}
+.game-shell .rt58-map-inspector{min-height:148px!important}
+.game-shell .rt58-map-inspector .rt58-inspect-head{display:grid!important;grid-template-columns:54px 1fr!important;gap:8px!important;align-items:center!important}
+.game-shell .rt58-map-inspector .rt58-inspect-head img{width:52px!important;height:52px!important;object-fit:contain!important;filter:drop-shadow(0 3px 3px #0008)!important}
+.game-shell .rt58-map-inspector h4{margin:0!important;color:#e8c565!important;font-size:.72rem!important}
+.game-shell .rt58-map-inspector p{margin:3px 0!important;font-size:.56rem!important;color:#a99c80!important;line-height:1.35!important}
+.game-shell .rt58-map-inspector .rt58-inspect-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:4px!important;margin-top:7px!important}
+.game-shell .rt58-map-inspector .rt58-inspect-actions button{min-height:28px!important;font-size:.52rem!important;padding:3px!important}
+.game-shell .minimap-world[data-minimap-map]{cursor:crosshair!important;box-shadow:inset 0 0 0 1px rgba(242,207,117,.25)!important}
+
+/* Admin operacional: densidade, hierarquia e controles reais. */
+.rt58-admin-shell{background:#0a0c0a!important;color:#e4dbc1!important;padding:0!important;font-family:Inter,Segoe UI,system-ui,sans-serif!important}
+.rt58-admin-top{max-width:none!important;margin:0!important;border:0!important;border-bottom:1px solid #443820!important;border-radius:0!important;background:linear-gradient(180deg,#181913,#10110e)!important;padding:14px 22px!important;position:sticky!important;top:0!important;z-index:20!important}
+.rt58-admin-top h1{font:800 18px Georgia,serif!important;letter-spacing:.05em!important}.rt58-admin-top p{font-size:12px!important}
+.rt58-admin-wrap{max-width:none!important;margin:0!important;padding:14px 20px 28px!important}
+.rt58-admin-tabs{position:sticky!important;top:66px!important;z-index:15!important;background:#0a0c0af2!important;padding:7px 0!important;border-bottom:1px solid #302a1c!important}
+.rt58-admin-card{background:linear-gradient(180deg,#171813,#10110e)!important;border:1px solid #403722!important;border-radius:8px!important;box-shadow:none!important;padding:14px!important}
+.rt58-admin-card h2{font-size:14px!important;text-transform:uppercase!important;letter-spacing:.08em!important}.rt58-admin-card h3{font-size:24px!important}
+.rt58-admin-kpi{display:grid!important;grid-template-columns:repeat(6,minmax(120px,1fr))!important;gap:8px!important;margin-bottom:10px!important}
+.rt58-admin-kpi .rt58-admin-card{padding:12px!important}.rt58-admin-kpi strong{display:block!important;font-size:24px!important;color:#ebc963!important}.rt58-admin-kpi span{font-size:11px!important;color:#9d9277!important}
+.rt58-admin-table{font-size:12px!important}.rt58-admin-table th{position:sticky!important;top:0!important;background:#171813!important;color:#d9bb66!important;z-index:2!important}.rt58-admin-table td{border-bottom:1px solid #2c281c!important;padding:7px!important}
+.rt58-admin-table input,.rt58-admin-table select{min-width:72px!important;padding:5px!important;font-size:11px!important}.rt58-admin-table input[type=number]{width:86px!important}
+.rt58-admin-btn{min-height:32px!important;font-size:12px!important;border-radius:6px!important}.rt58-admin-btn.danger{background:#6f3029!important}
+.rt58-admin-world-health{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))!important;gap:8px!important}.rt58-admin-world-health .rt58-admin-card{border-left:3px solid #9d7b35!important}
+.rt58-admin-ops{display:grid!important;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr)!important;gap:10px!important}.rt58-admin-scroll{max-height:520px!important;overflow:auto!important}
+@media(max-width:1100px){.rt58-admin-kpi{grid-template-columns:repeat(3,1fr)!important}.rt58-admin-ops{grid-template-columns:1fr!important}}
+</style>
+
 </head>
 <body>
 <noscript>Este jogo precisa do JavaScript ativado no navegador.</noscript>
@@ -3582,68 +3659,31 @@ const HERO_SET_BONUSES = {
       try { data=await adminRequest('dashboard'); RTADMIN.data=data; }
       catch(e) { RTADMIN.token=''; sessionStorage.removeItem('rt58_admin_token'); return renderAuthScreen(`Admin: ${e.message||e}`,'error'); }
     }
-    const worlds=data?.worlds||[],players=data?.players||[],events=data?.events||[],monsters=data?.monsters||[];
+    const worlds=data?.worlds||[],players=data?.players||[],events=data?.events||[],monsters=data?.monsters||[],templates=data?.templates||[],villages=data?.villages||[],commands=data?.commands||[],tribes=data?.tribes||[],offers=data?.offers||[],auditLog=data?.auditLog||[],worldStats=data?.worldStats||[];
+    const activeWorlds=worlds.filter(w=>w.is_active).length,online=players.filter(p=>p.last_seen_at&&Date.now()-Date.parse(p.last_seen_at)<15*60*1000).length,openCommands=commands.filter(c=>!c.resolved_at).length;
+    const worldOptions=worlds.map(w=>`<option value="${w.id}">${escapeHtml(w.name)}</option>`).join('');
     $('#app').innerHTML=`<main class="rt58-admin-shell">
-      <header class="rt58-admin-top">
-        <div><h1>REINOS TRIBAIS • ADMIN RT58</h1><p>Conta: ${escapeHtml(RTADMIN.info?.username||RTADMIN.username)} • painel substitui completamente o jogo para esta conta.</p></div>
-        <span class="spacer"></span>
-        <button class="rt58-admin-btn secondary" data-admin-refresh>Atualizar</button>
-        <button class="rt58-admin-btn" data-admin-logout>Sair</button>
-      </header>
+      <header class="rt58-admin-top"><div><h1>REINOS TRIBAIS • CENTRAL ADMINISTRATIVA RT58</h1><p>${escapeHtml(RTADMIN.info?.username||RTADMIN.username)} • controle operacional do servidor</p></div><span class="spacer"></span><button class="rt58-admin-btn secondary" data-admin-refresh>↻ Atualizar dados</button><button class="rt58-admin-btn" data-admin-logout>Sair</button></header>
       <section class="rt58-admin-wrap">
-        <div class="rt58-admin-tabs">
-          <button class="rt58-admin-btn active" data-admin-tab="overview">Resumo</button>
-          <button class="rt58-admin-btn" data-admin-tab="worlds">Mundos</button>
-          <button class="rt58-admin-btn" data-admin-tab="players">Jogadores</button>
-          <button class="rt58-admin-btn" data-admin-tab="events">Eventos & Monstros</button>
-          <button class="rt58-admin-btn" data-admin-tab="security">Segurança</button>
-        </div>
-        <div id="rt58-admin-status" class="rt58-admin-status">Backend administrativo autenticado.</div>
+        <div class="rt58-admin-tabs"><button class="rt58-admin-btn active" data-admin-tab="overview">Visão geral</button><button class="rt58-admin-btn" data-admin-tab="worlds">Mundos</button><button class="rt58-admin-btn" data-admin-tab="players">Jogadores</button><button class="rt58-admin-btn" data-admin-tab="villages">Aldeias</button><button class="rt58-admin-btn" data-admin-tab="events">Eventos & Monstros</button><button class="rt58-admin-btn" data-admin-tab="audit">Auditoria</button><button class="rt58-admin-btn" data-admin-tab="security">Segurança</button></div>
+        <div id="rt58-admin-status" class="rt58-admin-status">Backend administrativo autenticado • v3 operacional.</div>
 
         <section class="rt58-admin-tab" data-admin-panel="overview">
-          <div class="rt58-admin-grid">
-            <article class="rt58-admin-card"><h3>${worlds.length}</h3><span>Mundos</span></article>
-            <article class="rt58-admin-card"><h3>${players.length}</h3><span>Jogadores</span></article>
-            <article class="rt58-admin-card"><h3>${events.length}</h3><span>Eventos</span></article>
-            <article class="rt58-admin-card"><h3>${monsters.length}</h3><span>Monstros</span></article>
-          </div>
+          <div class="rt58-admin-kpi"><article class="rt58-admin-card"><strong>${worlds.length}</strong><span>Mundos (${activeWorlds} ativos)</span></article><article class="rt58-admin-card"><strong>${players.length}</strong><span>Jogadores (${online} recentes)</span></article><article class="rt58-admin-card"><strong>${villages.length}</strong><span>Aldeias</span></article><article class="rt58-admin-card"><strong>${openCommands}</strong><span>Comandos em movimento</span></article><article class="rt58-admin-card"><strong>${tribes.length}</strong><span>Tribos</span></article><article class="rt58-admin-card"><strong>${offers.filter(o=>o.status==='open').length}</strong><span>Ofertas abertas</span></article></div>
+          <h2 style="color:#d6b657;font-size:14px">SAÚDE DOS MUNDOS</h2><div class="rt58-admin-world-health">${worlds.map(w=>{const s=worldStats.find(x=>x.world_id===w.id)||{};return `<article class="rt58-admin-card"><h2>${escapeHtml(w.name)}</h2><div class="rt58-admin-row"><span>${w.is_active?'🟢 Ativo':'🔴 Inativo'}</span><span>${escapeHtml(w.status||'open')}</span><span>Temporada ${Number(w.season_number)||1}</span></div><p class="rt58-admin-muted">${s.players||0} jogadores • ${s.online||0} recentes • ${s.villages||0} aldeias • ${s.commands||0} comandos • ${s.tribes||0} tribos</p><p><b>${Number(w.settings?.worldSpeed)||8}×</b> mundo • <b>${Number(w.settings?.unitSpeed)||3}×</b> unidades • raio <b>${Number(w.settings?.mapRadius)||35}</b></p></article>`}).join('')}</div>
         </section>
 
-        <section class="rt58-admin-tab hidden" data-admin-panel="worlds">
-          <div class="rt58-admin-grid">
-            <article class="rt58-admin-card">
-              <h2>Criar mundo</h2>
-              <form id="rt58-admin-create-world">
-                <label>Nome<input name="name" value="Novo Mundo" required></label>
-                <div class="rt58-admin-row"><label>Velocidade<input name="speed" type="number" value="8" min="2" max="100"></label><label>Raio<input name="mapRadius" type="number" value="35" min="12" max="60"></label></div>
-                <button class="rt58-admin-btn" type="submit">Criar e abrir</button>
-              </form>
-            </article>
-            <article class="rt58-admin-card" style="grid-column:span 2"><h2>Mundos existentes</h2><div style="overflow:auto"><table class="rt58-admin-table"><tr><th>Mundo</th><th>Estado</th><th>Vel.</th><th>Ações</th></tr>${adminWorldRows(worlds)}</table></div></article>
-          </div>
-        </section>
+        <section class="rt58-admin-tab hidden" data-admin-panel="worlds"><div class="rt58-admin-ops"><article class="rt58-admin-card"><h2>Mundos existentes</h2><div class="rt58-admin-scroll"><table class="rt58-admin-table"><thead><tr><th>Mundo</th><th>Estado</th><th>Configuração</th><th>Ações</th></tr></thead><tbody>${worlds.map(w=>`<tr><td><b>${escapeHtml(w.name)}</b><br><span class="rt58-admin-muted">${escapeHtml(w.slug||'')} • geração ${Number(w.generation)||1}</span></td><td>${w.is_active?'<span class="rt58-admin-good">ATIVO</span>':'<span class="rt58-admin-bad">INATIVO</span>'}<br>${escapeHtml(w.status||'open')}</td><td><form class="rt58-admin-world-form" data-world-id="${w.id}"><div class="rt58-admin-row"><label>Mundo ×<input name="worldSpeed" type="number" min="1" max="100" value="${Number(w.settings?.worldSpeed)||8}"></label><label>Unidade ×<input name="unitSpeed" type="number" min="1" max="100" value="${Number(w.settings?.unitSpeed)||3}"></label><label>Raio<input name="mapRadius" type="number" min="12" max="80" value="${Number(w.settings?.mapRadius)||35}"></label><label>Recursos ×<input name="resourceMultiplier" type="number" min="0.1" max="100" step="0.1" value="${Number(w.settings?.resourceMultiplier)||1}"></label><label>Máx. jogadores<input name="max_players" type="number" min="1" value="${Number(w.max_players)||50}"></label><label>Status<select name="status"><option value="open" ${(w.status||'open')==='open'?'selected':''}>Aberto</option><option value="closed" ${w.status==='closed'?'selected':''}>Fechado</option><option value="maintenance" ${w.status==='maintenance'?'selected':''}>Manutenção</option></select></label><button class="rt58-admin-btn" type="submit">Salvar</button></div></form></td><td><button class="rt58-admin-btn" data-admin-world-toggle="${w.id}" data-active="${w.is_active?'1':'0'}">${w.is_active?'Desativar':'Ativar'}</button> <button class="rt58-admin-btn danger" data-admin-world-reset="${w.id}" data-name="${escapeHtml(w.name)}">Resetar</button></td></tr>`).join('')}</tbody></table></div></article><article class="rt58-admin-card"><h2>Criar mundo</h2><form id="rt58-admin-create-world"><label>Nome<input name="name" value="Novo Mundo" required></label><label>Velocidade<input name="speed" type="number" value="8" min="2" max="100"></label><label>Raio<input name="mapRadius" type="number" value="35" min="12" max="60"></label><button class="rt58-admin-btn" type="submit">Criar e abrir</button></form></article></div></section>
 
-        <section class="rt58-admin-tab hidden" data-admin-panel="players">
-          <article class="rt58-admin-card"><h2>Jogadores</h2><div style="overflow:auto"><table class="rt58-admin-table"><tr><th>Jogador</th><th>Pontos</th><th>Coroas</th><th>Moedas</th><th>Controle</th></tr>${adminPlayerRows(players)}</table></div></article>
-        </section>
+        <section class="rt58-admin-tab hidden" data-admin-panel="players"><article class="rt58-admin-card"><h2>Jogadores</h2><div class="rt58-admin-scroll"><table class="rt58-admin-table"><thead><tr><th>Jogador</th><th>Mundo</th><th>Economia / progresso</th><th>Estado</th></tr></thead><tbody>${players.map(p=>`<tr><td><b>${escapeHtml(p.player_name||p.email||'Jogador')}</b><br><span class="rt58-admin-muted">${escapeHtml(p.email||p.user_id||'')}</span></td><td>${escapeHtml(worlds.find(w=>w.id===p.world_id)?.name||p.world_id)}</td><td><form class="rt58-admin-player-form" data-world-id="${p.world_id}" data-user-id="${p.user_id}"><div class="rt58-admin-row"><label>Pontos<input name="points" type="number" min="0" value="${Number(p.points)||0}"></label><label>Coroas<input name="crowns" type="number" min="0" value="${Number(p.crowns)||0}"></label><label>Moedas<input name="academy_coins" type="number" min="0" value="${Number(p.academy_coins)||0}"></label><button class="rt58-admin-btn" type="submit">Aplicar</button></div></form></td><td>${p.is_suspended?'<span class="rt58-admin-bad">SUSPENSO</span>':'<span class="rt58-admin-good">ATIVO</span>'}<br><button class="rt58-admin-btn ${p.is_suspended?'':'danger'}" data-admin-player="${p.world_id}:${p.user_id}:${p.is_suspended?'resume':'suspend'}">${p.is_suspended?'Reativar':'Suspender'}</button></td></tr>`).join('')}</tbody></table></div></article></section>
 
-        <section class="rt58-admin-tab hidden" data-admin-panel="events">
-          <div class="rt58-admin-grid">
-            <article class="rt58-admin-card"><h2>Eventos</h2>${events.length?events.map(e=>`<p><b>${escapeHtml(e.name||'Evento')}</b> • ${escapeHtml(e.status||'')}</p>`).join(''):'<p class="rt58-admin-muted">Nenhum evento.</p>'}</article>
-            <article class="rt58-admin-card"><h2>Monstros</h2>${monsters.length?monsters.map(m=>`<p><b>${escapeHtml(m.name||'Monstro')}</b> • Nv.${Number(m.level)||1} • HP ${Number(m.hp)||0}/${Number(m.max_hp)||0}</p>`).join(''):'<p class="rt58-admin-muted">Nenhum monstro.</p>'}</article>
-          </div>
-        </section>
+        <section class="rt58-admin-tab hidden" data-admin-panel="villages"><article class="rt58-admin-card"><h2>Aldeias</h2><div class="rt58-admin-scroll"><table class="rt58-admin-table"><thead><tr><th>Aldeia</th><th>Dono</th><th>Controle direto</th></tr></thead><tbody>${villages.slice(0,500).map(v=>`<tr><td><b>${escapeHtml(v.name)}</b><br><span class="rt58-admin-muted">${v.x}|${v.y} • ${Number(v.points)||0} pts</span></td><td>${escapeHtml(v.owner_name||v.owner_kind||'—')}<br><span class="rt58-admin-muted">${escapeHtml(v.tribe_name||'Sem tribo')}</span></td><td><form class="rt58-admin-village-form" data-village-id="${v.id}"><div class="rt58-admin-row"><label>Lealdade<input name="loyalty" type="number" min="0" max="100" value="${Number(v.loyalty)||0}"></label><label>Madeira<input name="wood" type="number" min="0" value="${Number(v.resources?.wood)||0}"></label><label>Argila<input name="clay" type="number" min="0" value="${Number(v.resources?.clay)||0}"></label><label>Ferro<input name="iron" type="number" min="0" value="${Number(v.resources?.iron)||0}"></label><button class="rt58-admin-btn" type="submit">Salvar aldeia</button></div></form></td></tr>`).join('')}</tbody></table></div></article></section>
 
-        <section class="rt58-admin-tab hidden" data-admin-panel="security">
-          <article class="rt58-admin-card" style="max-width:620px"><h2>Alterar senha administrativa</h2>
-            <p class="rt58-admin-muted">A conta administrativa é separada das contas dos jogadores. Alterar a senha encerra todas as sessões administrativas.</p>
-            <form id="rt58-admin-password">
-              <label>Nova senha<input type="password" name="password" minlength="12" required autocomplete="new-password"></label>
-              <label>Confirmar<input type="password" name="confirm" minlength="12" required autocomplete="new-password"></label>
-              <button class="rt58-admin-btn" type="submit">Alterar senha</button>
-            </form>
-          </article>
-        </section>
+        <section class="rt58-admin-tab hidden" data-admin-panel="events"><div class="rt58-admin-ops"><div><article class="rt58-admin-card"><h2>Eventos ativos/agendados</h2>${events.length?events.map(e=>`<div class="rt58-admin-row" style="justify-content:space-between;border-bottom:1px solid #302a1c;padding:7px 0"><span><b>${escapeHtml(e.name||'Evento')}</b><br><span class="rt58-admin-muted">${escapeHtml(e.status||'')} • ${new Date(e.starts_at).toLocaleString('pt-BR')} → ${new Date(e.ends_at).toLocaleString('pt-BR')}</span></span><span>${!['finished','cancelled'].includes(e.status)?`<button class="rt58-admin-btn" data-admin-event-action="finish:${e.id}:${e.world_id}">Encerrar</button> <button class="rt58-admin-btn danger" data-admin-event-action="cancel:${e.id}:${e.world_id}">Cancelar</button>`:''}</span></div>`).join(''):'<p class="rt58-admin-muted">Nenhum evento.</p>'}</article><article class="rt58-admin-card"><h2>Monstros mundiais</h2>${monsters.length?monsters.map(m=>`<div class="rt58-admin-row" style="justify-content:space-between;border-bottom:1px solid #302a1c;padding:7px 0"><span><b>${escapeHtml(m.name||'Monstro')}</b> • Nv.${Number(m.level)||1}<br><span class="rt58-admin-muted">HP ${Number(m.hp)||0}/${Number(m.max_hp)||0} • ${m.x}|${m.y} • ${escapeHtml(m.status||'')}</span></span><span><button class="rt58-admin-btn danger" data-admin-monster-status="${m.id}:defeated">Derrotar</button></span></div>`).join(''):'<p class="rt58-admin-muted">Nenhum monstro.</p>'}</article></div><aside><article class="rt58-admin-card"><h2>Iniciar evento</h2><form id="rt58-admin-event-form"><label>Mundo<select name="world_id">${worldOptions}</select></label><label>Template<select name="template_key">${templates.map(t=>`<option value="${escapeHtml(t.key)}">${escapeHtml(t.name)}</option>`).join('')}</select></label><label>Duração (h)<input name="duration_hours" type="number" min="1" value="48"></label><button class="rt58-admin-btn" type="submit" ${templates.length?'':'disabled'}>Iniciar evento</button></form></article><article class="rt58-admin-card"><h2>Spawnar monstro</h2><form id="rt58-admin-monster-form"><label>Mundo<select name="world_id">${worldOptions}</select></label><label>Nome<input name="name" value="Colosso da Fronteira"></label><div class="rt58-admin-row"><label>Nível<input name="level" type="number" min="1" value="10"></label><label>HP<input name="hp" type="number" min="1000" value="250000"></label></div><div class="rt58-admin-row"><label>X<input name="x" type="number" value="500"></label><label>Y<input name="y" type="number" value="500"></label></div><button class="rt58-admin-btn" type="submit">Criar monstro</button></form></article></aside></div></section>
+
+        <section class="rt58-admin-tab hidden" data-admin-panel="audit"><article class="rt58-admin-card"><h2>Auditoria administrativa</h2><div class="rt58-admin-scroll"><table class="rt58-admin-table"><thead><tr><th>Quando</th><th>Ação</th><th>Mundo</th><th>Alvo</th></tr></thead><tbody>${auditLog.map(x=>`<tr><td>${x.created_at?new Date(x.created_at).toLocaleString('pt-BR'):'—'}</td><td>${escapeHtml(x.action||'')}</td><td>${escapeHtml(x.world_id||'—')}</td><td>${escapeHtml(x.target_user_id||'—')}</td></tr>`).join('')}</tbody></table></div></article></section>
+
+        <section class="rt58-admin-tab hidden" data-admin-panel="security"><article class="rt58-admin-card" style="max-width:620px"><h2>Alterar senha administrativa</h2><p class="rt58-admin-muted">A alteração encerra as sessões administrativas.</p><form id="rt58-admin-password"><label>Nova senha<input type="password" name="password" minlength="12" required autocomplete="new-password"></label><label>Confirmar<input type="password" name="confirm" minlength="12" required autocomplete="new-password"></label><button class="rt58-admin-btn" type="submit">Alterar senha</button></form></article></section>
       </section>
     </main>`;
   }
@@ -6518,6 +6558,27 @@ function getMapVillageArt(village) {
   return `assets/v24/map/${faction}_s${stage}.webp`;
 }
 
+
+function updateMapInspectorFromCell(cell) {
+  const box=document.getElementById('rt58-map-inspector'); if(!box||!state||!cell)return;
+  const source=getActiveVillage();
+  if(cell.dataset.target){
+    const v=state.villages[cell.dataset.target]; if(!v)return;
+    const art=getMapVillageArt(v),kind=mapVillageFilterKey(v),kindLabel=kind==='own'?'Sua aldeia':kind==='tribe'?'Aliada':kind==='barbarian'?'Bárbara':'Inimiga';
+    const dist=Math.hypot(v.x-source.x,v.y-source.y).toFixed(2).replace('.',',');
+    box.innerHTML=`<div class="rt58-inspect-head"><img src="${art}" alt=""><div><h4>${escapeHtml(v.name)}</h4><p>${kindLabel} • ${escapeHtml(v.ownerName||'Sem dono')}<br>${v.x}|${v.y} • ${nfmt(v.points)} pts • distância ${dist}</p></div></div><div class="rt58-inspect-actions"><button class="btn" data-target="${v.id}">Abrir detalhes</button><button class="btn secondary" data-map-center="${v.x},${v.y}">Centralizar</button></div>`;
+    return;
+  }
+  if(cell.dataset.node){
+    const node=state.world.nodes.find(n=>n.id===cell.dataset.node); if(!node)return; const def=WORLD_NODE_TYPES[node.type];
+    const dist=Math.hypot(node.x-source.x,node.y-source.y).toFixed(2).replace('.',',');
+    box.innerHTML=`<div class="rt58-inspect-head"><img src="${getNodeArt(node.type)}" alt=""><div><h4>${def.icon} ${escapeHtml(def.name)}</h4><p>Nível ${node.level} • ${node.x}|${node.y}<br>${node.available?'Disponível':'Em recarga'} • distância ${dist}</p></div></div><div class="rt58-inspect-actions"><button class="btn" data-node="${node.id}">Interagir</button><button class="btn secondary" data-map-center="${node.x},${node.y}">Centralizar</button></div>`;
+    return;
+  }
+  const c=String(cell.dataset.mapCenter||'').split(',').map(Number),terrain=(cell.className.match(/terrain-([a-z_]+)/)||[])[1]||'grass';
+  box.innerHTML=`<div class="rt58-inspect-head"><div style="font-size:34px;text-align:center">${terrain==='forest'?'🌲':terrain==='hills'?'⛰️':terrain==='river'?'🌊':'🌿'}</div><div><h4>Terreno ${escapeHtml(terrain)}</h4><p>${c[0]}|${c[1]} • clique para centralizar<br>Use roda do mouse para zoom e arraste o mapa para navegar.</p></div></div>`;
+}
+
 function renderMap() {
   ensureWorldNodes(); const ui=ensureMapUi();
   state.ui.mapCellSize ||= 50; state.ui.mapCenter ||= {x:getActiveVillage().x,y:getActiveVillage().y};
@@ -6529,12 +6590,12 @@ function renderMap() {
       if(village){
         const filter=mapVillageFilterKey(village); if(!ui.mapFilters[filter]){cells.push(`<button class="map-cell terrain-${terrain} ${centered?'map-center-cell':''}" data-map-center="${x},${y}" title="${x}|${y}"></button>`);continue;}
         const cls=filter==='own'?'player':filter==='barbarian'?'barbarian':filter==='tribe'?'tribe':'enemy',size=village.points>=8000?'xl':village.points>=4000?'lg':village.points>=1500?'md':'sm',mark=ui.mapMarks[village.id]||'';
-        cells.push(`<button class="map-cell terrain-${terrain} village ${cls} ${centered?'map-center-cell':''} ${mark?`marked mark-${mark}`:''} ${village.id===getActiveVillage().id?'active':''}" data-target="${village.id}" title="${escapeHtml(village.name)} • ${escapeHtml(village.ownerName)} • ${nfmt(village.points)} pts • ${x}|${y}"><img class="map-village-icon ${size}" src="${getMapVillageArt(village)}" alt=""><span class="map-owner-flag"></span><span class="map-points">${nfmt(village.points)}</span><span class="map-coord">${x}|${y}</span></button>`); continue;
+        cells.push(`<button class="map-cell terrain-${terrain} village ${cls} ${centered?'map-center-cell':''} ${mark?`marked mark-${mark}`:''} ${village.id===getActiveVillage().id?'active':''}" data-map-kind="village" data-map-x="${x}" data-map-y="${y}" data-target="${village.id}" title="${escapeHtml(village.name)} • ${escapeHtml(village.ownerName)} • ${nfmt(village.points)} pts • ${x}|${y}"><img class="map-village-icon ${size}" src="${getMapVillageArt(village)}" alt=""><span class="map-owner-flag"></span><span class="map-points">${nfmt(village.points)}</span><span class="map-coord">${x}|${y}</span></button>`); continue;
       }
       if(node){
         if(!isNodeVisible(node,ui)){cells.push(`<button class="map-cell terrain-${terrain} ${centered?'map-center-cell':''}" data-map-center="${x},${y}" title="${x}|${y}"></button>`);continue;}
         const def=WORLD_NODE_TYPES[node.type],fav=ui.nodeFavorites.includes(node.id);
-        cells.push(`<button class="map-cell terrain-${terrain} node node-${node.type} ${centered?'map-center-cell':''} ${node.owner==='player'?'owned':node.owner?'claimed-ai':''} ${node.available?'':'cooldown'} ${fav?'favorited':''}" data-node="${node.id}" title="${escapeHtml(def.name)} • Nv.${node.level} • ${x}|${y}"><img class="map-node-art" src="${getNodeArt(node.type)}" alt=""><span class="map-node-level">${def.icon} ${node.level}</span><span class="map-coord">${x}|${y}</span></button>`); continue;
+        cells.push(`<button class="map-cell terrain-${terrain} node node-${node.type} ${centered?'map-center-cell':''} ${node.owner==='player'?'owned':node.owner?'claimed-ai':''} ${node.available?'':'cooldown'} ${fav?'favorited':''}" data-map-kind="node" data-map-x="${x}" data-map-y="${y}" data-node="${node.id}" title="${escapeHtml(def.name)} • Nv.${node.level} • ${x}|${y}"><img class="map-node-art" src="${getNodeArt(node.type)}" alt=""><span class="map-node-level">${def.icon} ${node.level}</span><span class="map-coord">${x}|${y}</span></button>`); continue;
       }
       cells.push(`<button class="map-cell terrain-${terrain} empty-tile ${centered?'map-center-cell':''}" data-map-center="${x},${y}" title="Terreno ${terrain} • ${x}|${y}"><span class="map-coord">${x}|${y}</span></button>`);
     }
@@ -6543,9 +6604,9 @@ function renderMap() {
   const miniDots=[...Object.values(state.villages).map(v=>{const left=clamp((v.x-minX)/span*100,0,100),top=clamp((v.y-minY)/span*100,0,100),cls=v.owner==='player'?'player':v.owner==='barbarian'?'barbarian':(state.player.tribe&&v.tribe===state.player.tribe?'tribe':'enemy');return `<i class="mini-dot ${cls}" style="left:${left}%;top:${top}%"></i>`;}),...state.world.nodes.filter(n=>isNodeVisible(n,ui)).map(n=>`<i class="mini-dot node-dot" style="left:${clamp((n.x-minX)/span*100,0,100)}%;top:${clamp((n.y-minY)/span*100,0,100)}%"></i>`)].join('');
   const filters=[['own','Minhas aldeias'],['tribe','Aliados'],['barbarian','Bárbaras'],['enemy','Inimigos'],['resources','Recursos'],['pve','Ruínas / PvE'],['strategic','Fortes / Torres'],['trade','Comércio'],['shrines','Santuários'],['controlled','Controlados'],['available','Disponíveis']];
   const plan=ui.attackPlan||[],controlled=countControlledNodes(),favNodes=(ui.nodeFavorites||[]).map(id=>state.world.nodes.find(n=>n.id===id)).filter(Boolean),worldActivity=(state.ai.activity||[]).slice(0,5),barbarians=nearestBarbarianVillages(6);
-  return `<div class="rt17-map-screen rt19-map-screen"><aside class="rt17-map-left rt17-panel"><h3>CAMADAS DO MAPA</h3><div class="rt19-map-presets"><button class="${ui.mapPreset==='all'?'on':''}" data-map-preset="all">Tudo</button><button class="${ui.mapPreset==='war'?'on':''}" data-map-preset="war">Guerra</button><button class="${ui.mapPreset==='economy'?'on':''}" data-map-preset="economy">Economia</button></div><div class="rt17-map-filter-list">${filters.map(([key,label])=>`<button class="${ui.mapFilters[key]?'on':''}" data-map-filter="${key}"><span>${ui.mapFilters[key]?'☑':'☐'}</span>${label}</button>`).join('')}</div><h3>NAVEGAÇÃO</h3><div class="rt17-map-navpad"><button data-map-pan="0,-3">▲</button><button data-map-pan="-3,0">◀</button><button data-map-home>⌂</button><button data-map-pan="3,0">▶</button><button data-map-pan="0,3">▼</button></div><form id="map-goto-form" class="rt17-map-goto"><input name="coords" placeholder="500|500"><button class="btn" type="submit">Ir</button></form><div class="rt17-map-zoom"><button class="btn" data-map-zoom="-6">−</button><b>${cellSize}px</b><button class="btn" data-map-zoom="6">+</button></div><h3>LEGENDA</h3><div class="rt17-map-legend"><span class="legend-own">■ Sua aldeia</span><span class="legend-tribe">■ Aliada</span><span class="legend-barb">■ Bárbara</span><span class="legend-enemy">■ Inimiga</span><span>🌲 Recurso</span><span>⚔ PvE</span></div></aside>
+  return `<div class="rt17-map-screen rt19-map-screen"><aside class="rt17-map-left rt17-panel"><h3>CAMADAS DO MAPA</h3><div class="rt19-map-presets"><button class="${ui.mapPreset==='all'?'on':''}" data-map-preset="all">Tudo</button><button class="${ui.mapPreset==='war'?'on':''}" data-map-preset="war">Guerra</button><button class="${ui.mapPreset==='economy'?'on':''}" data-map-preset="economy">Economia</button></div><div class="rt17-map-filter-list">${filters.map(([key,label])=>`<button class="${ui.mapFilters[key]?'on':''}" data-map-filter="${key}"><span>${ui.mapFilters[key]?'☑':'☐'}</span>${label}</button>`).join('')}</div><h3>NAVEGAÇÃO</h3><div class="rt17-map-navpad"><button data-map-pan="0,-3">▲</button><button data-map-pan="-3,0">◀</button><button data-map-home>⌂</button><button data-map-pan="3,0">▶</button><button data-map-pan="0,3">▼</button></div><form id="map-goto-form" class="rt17-map-goto"><input name="coords" placeholder="500|500"><button class="btn" type="submit">Ir</button></form><div class="rt17-map-zoom"><button class="btn" data-map-zoom="-6">−</button><b>${cellSize}px</b><button class="btn" data-map-zoom="6">+</button></div><h3>LEGENDA INTERATIVA</h3><div class="rt17-map-legend">${[['own','Sua aldeia','assets/v24/map/player_s2.webp'],['tribe','Aliada','assets/v24/map/tribe_s2.webp'],['barbarian','Bárbara','assets/v24/map/barbarian_s2.webp'],['enemy','Inimiga','assets/v24/map/enemy_s2.webp'],['resources','Recursos',getNodeArt('forest')],['pve','Ruínas / PvE',getNodeArt('ruins')],['strategic','Fortes / Torres',getNodeArt('fort')],['trade','Comércio',getNodeArt('merchant')],['shrines','Santuários',getNodeArt('shrine')]].map(([key,label,art])=>`<button class="rt58-legend-item ${ui.mapFilters[key]?'on':''}" data-map-filter="${key}" title="Mostrar/ocultar ${label}"><img src="${art}" alt=""><span>${label}</span><em>${ui.mapFilters[key]?'●':'○'}</em></button>`).join('')}</div></aside>
     <main class="rt17-map-center"><div class="rt17-map-title"><div><span>MAPA DO MUNDO</span><b>${continentOf(c.x,c.y)} • centro ${c.x}|${c.y}</b></div><div><span>Mapa <b>${state.world.radius*2+1}×${state.world.radius*2+1}</b></span><span>Aldeias <b>${Object.keys(state.villages).length}</b></span><span>Controlados <b>${controlled}</b></span></div></div><div class="map-wrap rt17-map-canvas"><div class="world-map pro-map rt19-world-map" style="--cell:${cellSize}px;--cols:${windowSize*2+1}">${cells.join('')}</div></div><div class="rt17-world-status"><div><b>🌐 Mundo vivo</b><small>${state.world.nodes.filter(n=>n.available).length} pontos disponíveis</small></div>${worldActivity.slice(0,3).map(a=>`<div><b>${a.icon} ${escapeHtml(a.text)}</b><small>${formatDuration(now()-a.at)} atrás</small></div>`).join('')}</div></main>
-    <aside class="rt17-map-right"><section class="rt17-panel"><h3>VISÃO DO MUNDO</h3><div class="minimap-world">${miniDots}<span class="mini-focus" style="left:${clamp((c.x-minX)/span*100,0,100)}%;top:${clamp((c.y-minY)/span*100,0,100)}%"></span></div><div class="rt17-map-meta"><span>Centro <b>${c.x}|${c.y}</b></span><span>Continente <b>${continentOf(c.x,c.y)}</b></span><span>Raio <b>${state.world.radius}</b></span></div></section><section class="rt17-panel rt23-barbarian-locator"><h3>LOCALIZADOR BÁRBARO <span>6 MAIS PRÓXIMAS</span></h3>${barbarians.map(({v,d},index)=>`<button class="rt19-nearby-village barbarian" data-target="${v.id}" title="Abrir ${escapeHtml(v.name)}"><strong>${index+1}</strong><img src="${getMapVillageArt(v)}" alt=""><span><b>${escapeHtml(v.name)}</b><small>${v.x}|${v.y} • ${nfmt(v.points)} pts</small></span><em>${d.toFixed(1).replace('.',',')}</em></button>`).join('')||'<div class="muted">Nenhuma aldeia bárbara encontrada.</div>'}</section><section class="rt17-panel"><h3>PLANEJADOR DE ATAQUE</h3>${plan.length?plan.slice(0,6).map(o=>{const t=state.villages[o.targetId];return `<div class="rt17-plan"><span><b>${o.type==='fake'?'🎭 Fake':'⚔ Ataque'}</b><small>${escapeHtml(t?.name||'Alvo')} ${t?`${t.x}|${t.y}`:''}</small></span><span><button data-plan-execute="${o.id}">Abrir</button><button data-plan-remove="${o.id}">×</button></span></div>`;}).join(''):'<div class="muted">Clique em uma aldeia e adicione ataque ou fake.</div>'}</section><section class="rt17-panel"><h3>FAVORITOS</h3>${favNodes.length?favNodes.slice(0,6).map(n=>`<div class="rt17-plan"><span><b>${WORLD_NODE_TYPES[n.type].icon} ${escapeHtml(WORLD_NODE_TYPES[n.type].name)}</b><small>${n.x}|${n.y}</small></span><button data-node-favorite="${n.id}">★</button></div>`).join(''):'<div class="muted">Nenhum ponto favoritado.</div>'}</section></aside></div>`;
+    <aside class="rt17-map-right"><section class="rt17-panel rt58-map-inspector" id="rt58-map-inspector"><h3>INSPEÇÃO</h3><p class="muted">Passe o mouse sobre uma aldeia, ponto especial ou terreno. Clique para abrir ações. Arraste o mapa para navegar.</p></section><section class="rt17-panel"><h3>VISÃO DO MUNDO</h3><div class="minimap-world" data-minimap-map>${miniDots}<span class="mini-focus" style="left:${clamp((c.x-minX)/span*100,0,100)}%;top:${clamp((c.y-minY)/span*100,0,100)}%"></span></div><div class="rt17-map-meta"><span>Centro <b>${c.x}|${c.y}</b></span><span>Continente <b>${continentOf(c.x,c.y)}</b></span><span>Raio <b>${state.world.radius}</b></span></div></section><section class="rt17-panel rt23-barbarian-locator"><h3>LOCALIZADOR BÁRBARO <span>6 MAIS PRÓXIMAS</span></h3>${barbarians.map(({v,d},index)=>`<button class="rt19-nearby-village barbarian" data-target="${v.id}" title="Abrir ${escapeHtml(v.name)}"><strong>${index+1}</strong><img src="${getMapVillageArt(v)}" alt=""><span><b>${escapeHtml(v.name)}</b><small>${v.x}|${v.y} • ${nfmt(v.points)} pts</small></span><em>${d.toFixed(1).replace('.',',')}</em></button>`).join('')||'<div class="muted">Nenhuma aldeia bárbara encontrada.</div>'}</section><section class="rt17-panel"><h3>PLANEJADOR DE ATAQUE</h3>${plan.length?plan.slice(0,6).map(o=>{const t=state.villages[o.targetId];return `<div class="rt17-plan"><span><b>${o.type==='fake'?'🎭 Fake':'⚔ Ataque'}</b><small>${escapeHtml(t?.name||'Alvo')} ${t?`${t.x}|${t.y}`:''}</small></span><span><button data-plan-execute="${o.id}">Abrir</button><button data-plan-remove="${o.id}">×</button></span></div>`;}).join(''):'<div class="muted">Clique em uma aldeia e adicione ataque ou fake.</div>'}</section><section class="rt17-panel"><h3>FAVORITOS</h3>${favNodes.length?favNodes.slice(0,6).map(n=>`<div class="rt17-plan"><span><b>${WORLD_NODE_TYPES[n.type].icon} ${escapeHtml(WORLD_NODE_TYPES[n.type].name)}</b><small>${n.x}|${n.y}</small></span><button data-node-favorite="${n.id}">★</button></div>`).join(''):'<div class="muted">Nenhum ponto favoritado.</div>'}</section></aside></div>`;
 }
 
   function openVillageModal(villageId) {
@@ -6859,6 +6920,7 @@ function renderMap() {
   }
 
   document.addEventListener('click', event => {
+    if(Date.now()<RT58_MAP_DRAGGED_UNTIL && event.target.closest?.('.rt17-map-canvas')){event.preventDefault();event.stopPropagation();return;}
     if (event.target.closest('[data-entry-online]')) return renderAuthScreen('Entre com sua conta ou crie uma nova conta.');
     if (event.target.closest('[data-play-offline]')) return playOfflineMode();
     if (event.target.closest('[data-cloud-continue]')) return continueCloudSession();
@@ -6882,6 +6944,8 @@ function renderMap() {
     if (recruitPlaceBtn) { state.ui.recruitPlace=recruitPlaceBtn.dataset.recruitPlace; currentView='recruit'; dirty=true; return renderAll(); }
     const mapPresetBtn = event.target.closest('[data-map-preset]');
     if (mapPresetBtn) return setMapPreset(mapPresetBtn.dataset.mapPreset);
+    const minimapBtn=event.target.closest('[data-minimap-map]');
+    if(minimapBtn){const r=minimapBtn.getBoundingClientRect(),px=clamp((event.clientX-r.left)/Math.max(1,r.width),0,1),py=clamp((event.clientY-r.top)/Math.max(1,r.height),0,1),min=500-state.world.radius,span=state.world.radius*2;return centerMapAt(Math.round(min+px*span),Math.round(min+py*span));}
     const mapCenterBtn = event.target.closest('[data-map-center]');
     if (mapCenterBtn) { const [x,y]=mapCenterBtn.dataset.mapCenter.split(',').map(Number); return centerMapAt(x,y); }
     if (event.target.closest('[data-hero-train]')) return trainHero();
@@ -7131,7 +7195,32 @@ function renderMap() {
   });
 
 
+
+  let RT58_MAP_DRAG=null,RT58_MAP_DRAGGED_UNTIL=0;
+  document.addEventListener('pointerover',event=>{if(!state||currentView!=='map')return;const cell=event.target.closest('.rt19-world-map .map-cell');if(cell)updateMapInspectorFromCell(cell);});
+  document.addEventListener('focusin',event=>{if(!state||currentView!=='map')return;const cell=event.target.closest?.('.rt19-world-map .map-cell');if(cell)updateMapInspectorFromCell(cell);});
+  document.addEventListener('pointerdown',event=>{if(!state||currentView!=='map'||event.button!==0)return;const canvas=event.target.closest('.rt17-map-canvas');if(!canvas)return;RT58_MAP_DRAG={canvas,x:event.clientX,y:event.clientY,cx:state.ui.mapCenter.x,cy:state.ui.mapCenter.y,moved:false};});
+  document.addEventListener('pointermove',event=>{if(!RT58_MAP_DRAG)return;const dx=event.clientX-RT58_MAP_DRAG.x,dy=event.clientY-RT58_MAP_DRAG.y;if(Math.hypot(dx,dy)>9){RT58_MAP_DRAG.moved=true;RT58_MAP_DRAG.canvas.classList.add('rt58-dragging');}});
+  document.addEventListener('pointerup',event=>{if(!RT58_MAP_DRAG)return;const d=RT58_MAP_DRAG;RT58_MAP_DRAG=null;d.canvas.classList.remove('rt58-dragging');if(!d.moved)return;const size=clamp(state.ui.mapCellSize||50,38,66),mx=Math.round((d.x-event.clientX)/size),my=Math.round((d.y-event.clientY)/size);RT58_MAP_DRAGGED_UNTIL=Date.now()+220;if(mx||my)centerMapAt(d.cx+mx,d.cy+my);});
+
+  document.addEventListener('wheel', event => {
+    if (!state || currentView !== 'map' || !event.target.closest('.rt17-map-canvas')) return;
+    if (Math.abs(event.deltaY) < 2) return;
+    event.preventDefault();
+    mapZoom(event.deltaY > 0 ? -6 : 6);
+  }, { passive:false });
+
+  document.addEventListener('keydown', event => { if(!state||currentView!=='map'||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return; const step=event.shiftKey?5:2; if(event.key==='ArrowUp'){event.preventDefault();mapPan(0,-step);} if(event.key==='ArrowDown'){event.preventDefault();mapPan(0,step);} if(event.key==='ArrowLeft'){event.preventDefault();mapPan(-step,0);} if(event.key==='ArrowRight'){event.preventDefault();mapPan(step,0);} });
+
+  window.addEventListener('beforeunload', () => saveState(true));
+
+
   document.addEventListener('click', async event => {
+
+    const ea=event.target.closest('[data-admin-event-action]');
+    if(ea){const [mode,event_id,world_id]=ea.dataset.adminEventAction.split(':');try{await adminRequest(mode==='finish'?'event_finish':'event_cancel',{event_id,world_id});await adminRefresh();}catch(e){alert(e.message||e)}return;}
+    const ms=event.target.closest('[data-admin-monster-status]');
+    if(ms){const [monster_id,status]=ms.dataset.adminMonsterStatus.split(':');try{await adminRequest('monster_patch',{monster_id,status,hp:status==='defeated'?0:undefined});await adminRefresh();}catch(e){alert(e.message||e)}return;}
     const tab=event.target.closest('[data-admin-tab]');
     if(tab){
       document.querySelectorAll('[data-admin-tab]').forEach(x=>x.classList.toggle('active',x===tab));
@@ -7150,6 +7239,22 @@ function renderMap() {
 
   document.addEventListener('submit', async event => {
     const form=event.target;
+
+    if(form.classList.contains('rt58-admin-world-form')){
+      event.preventDefault();const f=new FormData(form);try{await adminRequest('world_patch',{world_id:form.dataset.worldId,worldSpeed:Number(f.get('worldSpeed')),unitSpeed:Number(f.get('unitSpeed')),mapRadius:Number(f.get('mapRadius')),resourceMultiplier:Number(f.get('resourceMultiplier')),max_players:Number(f.get('max_players')),status:String(f.get('status')||'open')});await adminRefresh();}catch(e){alert(e.message||e)}return;
+    }
+    if(form.classList.contains('rt58-admin-player-form')){
+      event.preventDefault();const f=new FormData(form);try{await adminRequest('player_patch',{world_id:form.dataset.worldId,user_id:form.dataset.userId,points:Number(f.get('points')),crowns:Number(f.get('crowns')),academy_coins:Number(f.get('academy_coins'))});await adminRefresh();}catch(e){alert(e.message||e)}return;
+    }
+    if(form.classList.contains('rt58-admin-village-form')){
+      event.preventDefault();const f=new FormData(form);try{await adminRequest('village_patch',{village_id:form.dataset.villageId,loyalty:Number(f.get('loyalty')),resources:{wood:Number(f.get('wood')),clay:Number(f.get('clay')),iron:Number(f.get('iron'))}});await adminRefresh();}catch(e){alert(e.message||e)}return;
+    }
+    if(form.id==='rt58-admin-event-form'){
+      event.preventDefault();const f=new FormData(form);try{await adminRequest('event_start',{world_id:String(f.get('world_id')),template_key:String(f.get('template_key')),duration_hours:Number(f.get('duration_hours')||48)});await adminRefresh();}catch(e){alert(e.message||e)}return;
+    }
+    if(form.id==='rt58-admin-monster-form'){
+      event.preventDefault();const f=new FormData(form);try{await adminRequest('monster_spawn',{world_id:String(f.get('world_id')),name:String(f.get('name')||'Monstro Mundial'),level:Number(f.get('level')||1),hp:Number(f.get('hp')||250000),x:Number(f.get('x')||500),y:Number(f.get('y')||500)});await adminRefresh();}catch(e){alert(e.message||e)}return;
+    }
     if(form.id==='rt58-admin-create-world'){
       event.preventDefault();const f=new FormData(form);
       try{await adminRequest('world_create',{name:String(f.get('name')||'Novo Mundo'),speed:Number(f.get('speed')||8),mapRadius:Number(f.get('mapRadius')||35)});await adminRefresh();}catch(e){alert(e.message||e)}
@@ -7163,18 +7268,6 @@ function renderMap() {
     }
   });
 
-
-
-  document.addEventListener('wheel', event => {
-    if (!state || currentView !== 'map' || !event.target.closest('.rt17-map-canvas')) return;
-    if (Math.abs(event.deltaY) < 2) return;
-    event.preventDefault();
-    mapZoom(event.deltaY > 0 ? -6 : 6);
-  }, { passive:false });
-
-  document.addEventListener('keydown', event => { if(!state||currentView!=='map'||['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return; const step=event.shiftKey?5:2; if(event.key==='ArrowUp'){event.preventDefault();mapPan(0,-step);} if(event.key==='ArrowDown'){event.preventDefault();mapPan(0,step);} if(event.key==='ArrowLeft'){event.preventDefault();mapPan(-step,0);} if(event.key==='ArrowRight'){event.preventDefault();mapPan(step,0);} });
-
-  window.addEventListener('beforeunload', () => saveState(true));
 
   bootstrapOnline();
   setInterval(tick, 1000);

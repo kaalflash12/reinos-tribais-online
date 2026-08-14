@@ -1,0 +1,65 @@
+{
+  "build": "RT58 HOTFIX PROFISSIONAL MAPA + ADMIN + HITBOX",
+  "frontend": {
+    "html_identical": true,
+    "markers": {
+      "hotfix_css": "rt58-professional-interaction-hotfix",
+      "interactive_legend": "LEGENDA INTERATIVA",
+      "map_inspector": "rt58-map-inspector",
+      "drag_pan": "RT58_MAP_DRAG",
+      "clickable_minimap": "data-minimap-map",
+      "building_hitbox_polygon": "clip-path:polygon(14% 7%",
+      "admin_world_form": "rt58-admin-world-form",
+      "admin_player_form": "rt58-admin-player-form",
+      "admin_village_form": "rt58-admin-village-form",
+      "admin_event_form": "rt58-admin-event-form",
+      "admin_monster_form": "rt58-admin-monster-form"
+    },
+    "markers_pass": {
+      "hotfix_css": true,
+      "interactive_legend": true,
+      "map_inspector": true,
+      "drag_pan": true,
+      "clickable_minimap": true,
+      "building_hitbox_polygon": true,
+      "admin_world_form": true,
+      "admin_player_form": true,
+      "admin_village_form": true,
+      "admin_event_form": true,
+      "admin_monster_form": true
+    },
+    "javascript_syntax": "PASS"
+  },
+  "backend": {
+    "edge_function": "rt-admin-v58",
+    "version": 3,
+    "status": "ACTIVE",
+    "new_actions": [
+      "world_patch",
+      "village_patch"
+    ],
+    "dashboard_data": [
+      "worlds",
+      "players",
+      "villages",
+      "commands",
+      "tribes",
+      "offers",
+      "events",
+      "monsters",
+      "auditLog",
+      "worldStats"
+    ]
+  },
+  "fixes": [
+    "hitbox dos prédios cobre a própria arte em vez do chão deslocado",
+    "legenda do mapa usa artes reais e funciona como filtro clicável",
+    "hover/foco mostra inspeção contextual com distância, dono, pontos e ações",
+    "mapa pode ser arrastado para navegar",
+    "minimapa é clicável para reposicionar o centro",
+    "ícones de aldeias e pontos têm leitura maior e halo por facção",
+    "admin controla configurações de mundo, progresso do jogador e recursos/lealdade das aldeias",
+    "admin inicia/encerra/cancela eventos e cria/derrota monstros",
+    "dashboard admin recebe dados operacionais e auditoria real do Supabase"
+  ]
+}
