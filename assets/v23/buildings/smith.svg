@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 140" role="img">
+  <defs>
+    <linearGradient id="grass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#80934c"/><stop offset="1" stop-color="#445a32"/></linearGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#c6b896"/><stop offset="1" stop-color="#756b58"/></linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#aa7b45"/><stop offset="1" stop-color="#5d3b23"/></linearGradient>
+    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a94d31"/><stop offset="1" stop-color="#5e271f"/></linearGradient>
+    <linearGradient id="slate" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#697582"/><stop offset="1" stop-color="#303946"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f1d477"/><stop offset="1" stop-color="#a56b22"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="200%"><feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#10160d" flood-opacity=".58"/></filter>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <ellipse cx="80" cy="119" rx="62" ry="12" fill="#10160d" opacity=".32"/>
+  <path d="M80 45 151 83 80 124 9 84Z" fill="#6f8243" stroke="#26351f" stroke-width="2"/>
+  <path d="M80 50 143 84 80 118 17 84Z" fill="url(#grass)" opacity=".72"/>
+  <path d="M28 91c18-12 35-17 53-17 22 0 38 5 56 16" fill="none" stroke="#b89a61" stroke-width="5" opacity=".34"/>
+  <g filter="url(#shadow)">
+    <path d="M35 70 83.4 45 123 69 75.48 94Z" fill="#4b4541" stroke="#432a1f" stroke-width="2"/>
+    <path d="M40 72v32l40.480000000000004 13V94Z" fill="url(#stone)" stroke="#544a3b" stroke-width="1.5"/>
+    <path d="M75.48 94v32l38.12 -13V72Z" fill="#81745e" stroke="#514739" stroke-width="1.5"/>
+    <path d="M54.36 95v-20q8-7 16 0v24" fill="#4e3020" stroke="#c39758" stroke-width="1.6"/>
+    <path d="M94.84 57v-22h11v27" fill="#796a57" stroke="#3c342c" stroke-width="1.5"/><path d="M93.08000000000001 34h15" stroke="#352b23" stroke-width="3"/>
+  </g><rect x="44" y="78" width="25" height="25" fill="#291f1a" stroke="#8e6a3e" stroke-width="2"/><path d="M48 94q8-19 17 0" fill="#d45a2b"/><path d="M102 95h34l-6 7h-24Z" fill="#393d40" stroke="#16191a" stroke-width="2"/><path d="M114 85h10v10h-10Z" fill="#555b5d"/><path d="M73 109q9-17 18 0" fill="none" stroke="#9a7040" stroke-width="4"/></svg>

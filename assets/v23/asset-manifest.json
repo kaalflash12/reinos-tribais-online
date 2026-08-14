@@ -1,0 +1,49 @@
+{
+  "version": 23,
+  "generatedAt": "2026-08-09T09:54:56.498Z",
+  "buildings": [
+    "main",
+    "barracks",
+    "stable",
+    "garage",
+    "smith",
+    "academy",
+    "statue",
+    "rally",
+    "market",
+    "timber",
+    "clay",
+    "iron",
+    "farm",
+    "warehouse",
+    "wall",
+    "hide",
+    "first_church",
+    "church",
+    "watchtower"
+  ],
+  "villages": [
+    "village_player",
+    "village_tribe",
+    "village_enemy",
+    "village_barbarian"
+  ],
+  "nodes": [
+    "forest",
+    "quarry",
+    "iron_mine",
+    "farmstead",
+    "ruins",
+    "rare_ruins",
+    "monsters",
+    "bandit_camp",
+    "abandoned_tower",
+    "fort",
+    "caravan",
+    "merchant",
+    "trade_port",
+    "shrine",
+    "altar"
+  ],
+  "note": "Original project SVG assets generated for Reinos Tribais RT23."
+}

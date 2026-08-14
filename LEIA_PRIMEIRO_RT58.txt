@@ -1,0 +1,22 @@
+REINOS TRIBAIS RT58
+
+CORREÇÕES DESTA BUILD
+- Recrutamento em filas paralelas por edifício: Quartel, Estábulo, Oficina, Estátua e Academia não bloqueiam uns aos outros.
+- Cancelamento de Nobre devolve as moedas da Academia gastas; recursos continuam com reembolso de 90%.
+- Paladino limitado a um no reino inteiro, incluindo aldeias, filas e comandos em viagem.
+- Treino do Paladino agora é temporizado: XP só entra quando o treino termina.
+- Arqueiro a Cavalo continua causando ataque do tipo arqueiro, mas é reconhecido como montado para mobilidade.
+- Estado inicial e perfil Militar respeitam os requisitos do Ferreiro/Bárbaro.
+- Combate usa composição mista de infantaria/cavalaria/arqueiros; pontos da aldeia não geram defesa artificial.
+- Simulador usa a mesma lógica de defesa ponderada por composição.
+- Saques e remessas respeitam a capacidade do Armazém; Esconderijo protege recursos.
+- Mapa da aldeia voltou a ter terreno sem prédios pintados: cada um dos 19 edifícios usa sua própria arte L0-L4 e evolui individualmente.
+- Configurações de velocidade/pesquisa ficam bloqueadas no cliente quando o mundo online está ativo.
+- Multiplayer usa rt-multiplayer-v58 para combate: Milícia na defesa, espionagem real, ataque/saque, aríete, catapulta, Nobre, pesquisas, Paladino/equipamentos, bandeiras, fé e tecnologia militar da tribo.
+- Sincronização das aldeias online percorre todas as aldeias próprias com vínculo de nuvem, não apenas a primeira.
+
+OBSERVAÇÃO TÉCNICA
+A RT58 melhora a validação e o combate do servidor, mas o save geral e a sincronização de estado da aldeia continuam usando a infraestrutura compartilhada existente do projeto. Esta build não deve ser descrita como uma arquitetura anti-cheat totalmente autoritativa para todos os subsistemas.
+
+PUBLICAÇÃO
+Use somente INSTALAR_PUBLICAR_E_ABRIR_RT58.ps1 junto do ZIP. O script valida a build, publica o frontend e o handler do RT58 no GitHub Pages, espera a versão pública responder e só então abre o jogo online.
