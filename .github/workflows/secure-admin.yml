@@ -30,10 +30,15 @@ jobs:
               p=Path(name)
               if p.exists():
                   p.unlink()
-      - name: Assert public build contains no admin panel or personal admin address
+      - name: Assert player pages expose no admin entry
         shell: bash
         run: |
-          ! grep -R -n -E 'data-entry-admin|ADMIN_REINOS_TRIBAIS\.html|PAINEL_ADMIN_RT58|kaalflash@hotmail\.com' -- index.html JOGAR_REINOS_TRIBAIS.html . 2>/dev/null || exit 1
+          if grep -n -E 'data-entry-admin|ADMIN_REINOS_TRIBAIS\.html|kaalflash@hotmail\.com' index.html JOGAR_REINOS_TRIBAIS.html; then
+            exit 1
+          fi
+          test ! -e ADMIN_REINOS_TRIBAIS.html
+          test ! -e PAINEL_ADMIN_RT58.html
+          test ! -e ABRIR_ADMIN.cmd
       - name: Commit secured public build
         shell: bash
         run: |
