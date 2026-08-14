@@ -24,8 +24,7 @@ jobs:
             echo 'Admin login already integrated.'
           else
             sed -i '248i +' .github/rt58-integrated-admin.patch
-            git apply --check .github/rt58-integrated-admin.patch
-            git apply .github/rt58-integrated-admin.patch
+            patch --batch --forward -p1 -F 3 < .github/rt58-integrated-admin.patch
           fi
           cp index.html JOGAR_REINOS_TRIBAIS.html
       - name: Validate routing and security
