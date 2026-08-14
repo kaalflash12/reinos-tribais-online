@@ -1,0 +1,251 @@
+--- a/index.html
++++ b/index.html
+@@ -2565,6 +2565,21 @@
+ .game-shell .rt22-center .rt24-building:hover .rt24-hitbox{background:rgba(245,207,111,.05)!important;border-color:rgba(236,196,92,.42)!important}
+ </style>
+ 
++
++<style id="rt58-integrated-admin">
++.rt58-admin-shell{min-height:100vh;background:radial-gradient(circle at 50% 0,#2b2818 0,#11120e 55%,#090a08 100%);color:#eadfbd;font-family:system-ui,Segoe UI,sans-serif;padding:18px}
++.rt58-admin-top{max-width:1420px;margin:0 auto 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 15px;border:1px solid #715b31;border-radius:12px;background:#171711;box-shadow:0 10px 34px #0008}
++.rt58-admin-top h1{margin:0;color:#efc75f;font:800 20px Georgia,serif}.rt58-admin-top p{margin:0;color:#a99c7c}.rt58-admin-top .spacer{flex:1}
++.rt58-admin-btn{border:1px solid #8c6d35;background:linear-gradient(#5b421c,#30230f);color:#ffe9ae;border-radius:7px;padding:8px 11px;cursor:pointer;font-weight:700}.rt58-admin-btn.danger{border-color:#8e4035;background:#501f1a}.rt58-admin-btn.secondary{background:#24231b}
++.rt58-admin-wrap{max-width:1420px;margin:auto}.rt58-admin-tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}.rt58-admin-tabs button.active{background:#916c2b;color:white}
++.rt58-admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}.rt58-admin-card{background:linear-gradient(180deg,#1e1b13,#11100c);border:1px solid #5d4b2d;border-radius:11px;padding:13px;box-shadow:0 8px 28px #0006}.rt58-admin-card h2,.rt58-admin-card h3{color:#e9c060;margin:0 0 10px}
++.rt58-admin-table{width:100%;border-collapse:collapse}.rt58-admin-table th,.rt58-admin-table td{padding:8px;border-bottom:1px solid #352b1b;text-align:left;vertical-align:top}.rt58-admin-table th{color:#cbb171}
++.rt58-admin-muted{color:#9f947b}.rt58-admin-good{color:#82e096}.rt58-admin-bad{color:#ff8d80}.rt58-admin-row{display:flex;gap:7px;flex-wrap:wrap;align-items:end}.rt58-admin-row>*{min-width:120px}
++.rt58-admin-card input,.rt58-admin-card select{background:#0d0e0a;color:#eee;border:1px solid #5d4b2d;border-radius:6px;padding:8px}.rt58-admin-card label{display:grid;gap:4px;margin:7px 0;color:#b8aa88}
++.rt58-admin-status{margin:10px 0;padding:10px;border:1px solid #4f4329;border-radius:8px;background:#0d0e0a;white-space:pre-wrap}
++@media(max-width:700px){.rt58-admin-shell{padding:8px}.rt58-admin-table{font-size:12px}}
++</style>
++
+ </head>
+ <body>
+ <noscript>Este jogo precisa do JavaScript ativado no navegador.</noscript>
+@@ -3469,7 +3484,7 @@
+             <div class="rt18-auth-box">
+               <h2>Entrar</h2>
+               <form id="rt18-login-form">
+-                <label>E-mail<input type="email" name="email" autocomplete="email" required></label>
++                <label>E-mail ou usuário<input type="text" name="email" autocomplete="username" required></label>
+                 <label>Senha<input type="password" name="password" autocomplete="current-password" minlength="6" required></label>
+                 <button class="rt18-auth-btn" type="submit">Entrar no reino</button>
+               </form>
+@@ -3495,6 +3510,145 @@
+     el.textContent = message;
+   }
+ 
++
++  const RTADMIN = {
++    edgePath:'/functions/v1/rt-admin-v58',
++    username:'reinos_admin',
++    token:sessionStorage.getItem('rt58_admin_token')||'',
++    info:null,
++    data:null
++  };
++
++  async function adminRequest(action,payload={}) {
++    const headers={};
++    if(RTADMIN.token) headers['x-admin-token']=RTADMIN.token;
++    return cloudRequest(RTADMIN.edgePath,{method:'POST',auth:false,headers,timeoutMs:12000,body:{action,...payload}});
++  }
++
++  async function signInUnified(identifier,password) {
++    const id=String(identifier||'').trim();
++    if(id.toLowerCase()===RTADMIN.username) {
++      const result=await adminRequest('login',{username:RTADMIN.username,password});
++      RTADMIN.token=result?.token||'';
++      RTADMIN.info=result?.admin||{username:RTADMIN.username,role:'superadmin'};
++      if(!RTADMIN.token) throw new Error('O servidor não devolveu uma sessão administrativa.');
++      sessionStorage.setItem('rt58_admin_token',RTADMIN.token);
++      storeCloudSession(null);
++      state=null;
++      await renderIntegratedAdmin();
++      return {admin:true};
++    }
++    await signInCloud(id,password);
++    await chooseWorldAndEnter();
++    return {admin:false};
++  }
++
++  async function adminLogout() {
++    RTADMIN.token=''; RTADMIN.info=null; RTADMIN.data=null;
++    sessionStorage.removeItem('rt58_admin_token');
++    state=null; CLOUD.ready=false;
++    renderAuthScreen('Sessão administrativa encerrada.');
++  }
++
++  async function adminRefresh() {
++    RTADMIN.data=await adminRequest('dashboard');
++    renderIntegratedAdmin(RTADMIN.data);
++    return RTADMIN.data;
++  }
++
++  function adminWorldRows(worlds=[]) {
++    return worlds.map(w=>`<tr>
++      <td><b>${escapeHtml(w.name||'Mundo')}</b><br><span class="rt58-admin-muted">${escapeHtml(w.slug||'')}</span></td>
++      <td>${w.is_active?'<span class="rt58-admin-good">ATIVO</span>':'<span class="rt58-admin-bad">INATIVO</span>'}</td>
++      <td>${Number(w.settings?.worldSpeed)||8}×</td>
++      <td class="rt58-admin-row">
++        <button class="rt58-admin-btn" data-admin-world-toggle="${w.id}" data-active="${w.is_active?'1':'0'}">${w.is_active?'Desativar':'Ativar'}</button>
++        <button class="rt58-admin-btn danger" data-admin-world-reset="${w.id}" data-name="${escapeHtml(w.name||'Mundo')}">Resetar</button>
++      </td>
++    </tr>`).join('');
++  }
++
++  function adminPlayerRows(players=[]) {
++    return players.map(p=>`<tr>
++      <td><b>${escapeHtml(p.player_name||p.email||'Jogador')}</b><br><span class="rt58-admin-muted">${escapeHtml(p.email||p.user_id||'')}</span></td>
++      <td>${Number(p.points)||0}</td><td>${Number(p.crowns)||0}</td><td>${Number(p.academy_coins)||0}</td>
++      <td><button class="rt58-admin-btn ${p.is_suspended?'':'danger'}" data-admin-player="${p.world_id}:${p.user_id}:${p.is_suspended?'resume':'suspend'}">${p.is_suspended?'Reativar':'Suspender'}</button></td>
++    </tr>`).join('');
++  }
++
++  async function renderIntegratedAdmin(data=null) {
++    if(!RTADMIN.token) return renderAuthScreen('Sessão administrativa expirada. Entre novamente.','error');
++    if(!data) {
++      try { data=await adminRequest('dashboard'); RTADMIN.data=data; }
++      catch(e) { RTADMIN.token=''; sessionStorage.removeItem('rt58_admin_token'); return renderAuthScreen(`Admin: ${e.message||e}`,'error'); }
++    }
++    const worlds=data?.worlds||[],players=data?.players||[],events=data?.events||[],monsters=data?.monsters||[];
++    $('#app').innerHTML=`<main class="rt58-admin-shell">
++      <header class="rt58-admin-top">
++        <div><h1>REINOS TRIBAIS • ADMIN RT58</h1><p>Conta: ${escapeHtml(RTADMIN.info?.username||RTADMIN.username)} • painel substitui completamente o jogo para esta conta.</p></div>
++        <span class="spacer"></span>
++        <button class="rt58-admin-btn secondary" data-admin-refresh>Atualizar</button>
++        <button class="rt58-admin-btn" data-admin-logout>Sair</button>
++      </header>
++      <section class="rt58-admin-wrap">
++        <div class="rt58-admin-tabs">
++          <button class="rt58-admin-btn active" data-admin-tab="overview">Resumo</button>
++          <button class="rt58-admin-btn" data-admin-tab="worlds">Mundos</button>
++          <button class="rt58-admin-btn" data-admin-tab="players">Jogadores</button>
++          <button class="rt58-admin-btn" data-admin-tab="events">Eventos & Monstros</button>
++          <button class="rt58-admin-btn" data-admin-tab="security">Segurança</button>
++        </div>
++        <div id="rt58-admin-status" class="rt58-admin-status">Backend administrativo autenticado.</div>
++
++        <section class="rt58-admin-tab" data-admin-panel="overview">
++          <div class="rt58-admin-grid">
++            <article class="rt58-admin-card"><h3>${worlds.length}</h3><span>Mundos</span></article>
++            <article class="rt58-admin-card"><h3>${players.length}</h3><span>Jogadores</span></article>
++            <article class="rt58-admin-card"><h3>${events.length}</h3><span>Eventos</span></article>
++            <article class="rt58-admin-card"><h3>${monsters.length}</h3><span>Monstros</span></article>
++          </div>
++        </section>
++
++        <section class="rt58-admin-tab hidden" data-admin-panel="worlds">
++          <div class="rt58-admin-grid">
++            <article class="rt58-admin-card">
++              <h2>Criar mundo</h2>
++              <form id="rt58-admin-create-world">
++                <label>Nome<input name="name" value="Novo Mundo" required></label>
++                <div class="rt58-admin-row"><label>Velocidade<input name="speed" type="number" value="8" min="2" max="100"></label><label>Raio<input name="mapRadius" type="number" value="35" min="12" max="60"></label></div>
++                <button class="rt58-admin-btn" type="submit">Criar e abrir</button>
++              </form>
++            </article>
++            <article class="rt58-admin-card" style="grid-column:span 2"><h2>Mundos existentes</h2><div style="overflow:auto"><table class="rt58-admin-table"><tr><th>Mundo</th><th>Estado</th><th>Vel.</th><th>Ações</th></tr>${adminWorldRows(worlds)}</table></div></article>
++          </div>
++        </section>
++
++        <section class="rt58-admin-tab hidden" data-admin-panel="players">
++          <article class="rt58-admin-card"><h2>Jogadores</h2><div style="overflow:auto"><table class="rt58-admin-table"><tr><th>Jogador</th><th>Pontos</th><th>Coroas</th><th>Moedas</th><th>Controle</th></tr>${adminPlayerRows(players)}</table></div></article>
++        </section>
++
++        <section class="rt58-admin-tab hidden" data-admin-panel="events">
++          <div class="rt58-admin-grid">
++            <article class="rt58-admin-card"><h2>Eventos</h2>${events.length?events.map(e=>`<p><b>${escapeHtml(e.name||'Evento')}</b> • ${escapeHtml(e.status||'')}</p>`).join(''):'<p class="rt58-admin-muted">Nenhum evento.</p>'}</article>
++            <article class="rt58-admin-card"><h2>Monstros</h2>${monsters.length?monsters.map(m=>`<p><b>${escapeHtml(m.name||'Monstro')}</b> • Nv.${Number(m.level)||1} • HP ${Number(m.hp)||0}/${Number(m.max_hp)||0}</p>`).join(''):'<p class="rt58-admin-muted">Nenhum monstro.</p>'}</article>
++          </div>
++        </section>
++
++        <section class="rt58-admin-tab hidden" data-admin-panel="security">
++          <article class="rt58-admin-card" style="max-width:620px"><h2>Alterar senha administrativa</h2>
++            <p class="rt58-admin-muted">A conta administrativa é separada das contas dos jogadores. Alterar a senha encerra todas as sessões administrativas.</p>
++            <form id="rt58-admin-password">
++              <label>Nova senha<input type="password" name="password" minlength="12" required autocomplete="new-password"></label>
++              <label>Confirmar<input type="password" name="confirm" minlength="12" required autocomplete="new-password"></label>
++              <button class="rt58-admin-btn" type="submit">Alterar senha</button>
++            </form>
++          </article>
++        </section>
++      </section>
++    </main>`;
++  }
++
++
+   async function playOfflineMode() {
+     CLOUD.ready = false;
+     CLOUD.lastError = '';
+@@ -3728,8 +3882,11 @@
+   }
+ 
+   async function bootstrapOnline() {
+-    // RT58: mapa compatível preservando evolução individual dos 19 edifícios.
++    // RT58: uma única entrada. Jogador -> jogo; reinos_admin -> painel.
+     state = null;
++    if(RTADMIN.token){
++      try{await renderIntegratedAdmin();return;}catch(e){RTADMIN.token='';sessionStorage.removeItem('rt58_admin_token');}
++    }
+     renderLandingScreen();
+   }
+ 
+@@ -6864,13 +7021,13 @@
+     const form = event.target;
+     if (form.id === 'rt18-login-form') {
+       const data = new FormData(form);
+-      const email = String(data.get('email') || '').trim();
++      const identifier = String(data.get('email') || '').trim();
+       const password = String(data.get('password') || '');
+-      if (!email || password.length < 6) return setAuthMessage('Informe e-mail e senha com pelo menos 6 caracteres.', 'error');
++      if (!identifier || password.length < 6) return setAuthMessage('Informe e-mail/usuário e senha com pelo menos 6 caracteres.', 'error');
+       const button = form.querySelector('button[type="submit"]');
+       if (button) { button.disabled = true; button.textContent = 'Entrando...'; }
+-      setAuthMessage('Validando sua conta...');
+-      signInCloud(email, password).then(() => chooseWorldAndEnter()).catch(error => {
++      setAuthMessage(identifier.toLowerCase()===RTADMIN.username?'Validando conta administrativa...':'Validando sua conta...');
++      signInUnified(identifier, password).catch(error => {
+         setAuthMessage(`Não foi possível entrar: ${error.message || error}`, 'error');
+         if (button) { button.disabled = false; button.textContent = 'Entrar no reino'; }
+       });
+@@ -6985,6 +7142,40 @@
+ 
+   window.addEventListener('beforeunload', () => saveState(true));
+ 
++
++  document.addEventListener('click', async event => {
++    const tab=event.target.closest('[data-admin-tab]');
++    if(tab){
++      document.querySelectorAll('[data-admin-tab]').forEach(x=>x.classList.toggle('active',x===tab));
++      document.querySelectorAll('[data-admin-panel]').forEach(x=>x.classList.toggle('hidden',x.dataset.adminPanel!==tab.dataset.adminTab));
++      return;
++    }
++    if(event.target.closest('[data-admin-logout]')) return adminLogout();
++    if(event.target.closest('[data-admin-refresh]')) { try{await adminRefresh();}catch(e){alert(e.message||e)} return; }
++    const wt=event.target.closest('[data-admin-world-toggle]');
++    if(wt){try{await adminRequest('world_toggle',{world_id:wt.dataset.adminWorldToggle,is_active:wt.dataset.active!=='1'});await adminRefresh();}catch(e){alert(e.message||e)}return;}
++    const wr=event.target.closest('[data-admin-world-reset]');
++    if(wr){if(!confirm(`RESETAR ${wr.dataset.name}? Isso apaga o estado do mundo.`))return;try{await adminRequest('world_reset',{world_id:wr.dataset.adminWorldReset});await adminRefresh();}catch(e){alert(e.message||e)}return;}
++    const pc=event.target.closest('[data-admin-player]');
++    if(pc){const [world_id,user_id,mode]=pc.dataset.adminPlayer.split(':');try{await adminRequest('player_patch',{world_id,user_id,is_suspended:mode==='suspend',suspension_reason:mode==='suspend'?'Suspenso pelo painel administrativo RT58':''});await adminRefresh();}catch(e){alert(e.message||e)}return;}
++  });
++
++  document.addEventListener('submit', async event => {
++    const form=event.target;
++    if(form.id==='rt58-admin-create-world'){
++      event.preventDefault();const f=new FormData(form);
++      try{await adminRequest('world_create',{name:String(f.get('name')||'Novo Mundo'),speed:Number(f.get('speed')||8),mapRadius:Number(f.get('mapRadius')||35)});await adminRefresh();}catch(e){alert(e.message||e)}
++      return;
++    }
++    if(form.id==='rt58-admin-password'){
++      event.preventDefault();const f=new FormData(form),p=String(f.get('password')||''),c=String(f.get('confirm')||'');
++      if(p!==c)return alert('As senhas não coincidem.');
++      try{const r=await adminRequest('change_password',{password:p});alert('Senha alterada. Entre novamente.');await adminLogout();}catch(e){alert(e.message||e)}
++      return;
++    }
++  });
++
+ 
+   bootstrapOnline();
+   setInterval(tick, 1000);
+ })();
