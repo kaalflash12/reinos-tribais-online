@@ -1,0 +1,411 @@
+{
+  "version": "RT72",
+  "build": "72.0",
+  "checks": {
+    "html_identical": true,
+    "version_72": true,
+    "consolidated_marker": true,
+    "village_bbox_renderer": true,
+    "no_fullscreen_building_rule": true,
+    "building_quicknav": true,
+    "admin_guided": true,
+    "raw_json_hidden_first": true,
+    "modal_escape": true,
+    "responsive_css": true,
+    "runtime_asset_guard": true,
+    "19_action_configs": true,
+    "19_bbox_configs": true,
+    "95_building_assets": true,
+    "4_village_maps": true,
+    "no_stale_visible_versions": true
+  },
+  "assets": {
+    "building_files": 95,
+    "expected": 95,
+    "missing": [],
+    "dimensions": {
+      "main_l0": [
+        480,
+        400
+      ],
+      "main_l1": [
+        480,
+        400
+      ],
+      "main_l2": [
+        480,
+        400
+      ],
+      "main_l3": [
+        480,
+        400
+      ],
+      "main_l4": [
+        480,
+        400
+      ],
+      "timber_l0": [
+        480,
+        400
+      ],
+      "timber_l1": [
+        480,
+        400
+      ],
+      "timber_l2": [
+        480,
+        400
+      ],
+      "timber_l3": [
+        480,
+        400
+      ],
+      "timber_l4": [
+        480,
+        400
+      ],
+      "clay_l0": [
+        480,
+        400
+      ],
+      "clay_l1": [
+        480,
+        400
+      ],
+      "clay_l2": [
+        480,
+        400
+      ],
+      "clay_l3": [
+        480,
+        400
+      ],
+      "clay_l4": [
+        480,
+        400
+      ],
+      "iron_l0": [
+        480,
+        400
+      ],
+      "iron_l1": [
+        480,
+        400
+      ],
+      "iron_l2": [
+        480,
+        400
+      ],
+      "iron_l3": [
+        480,
+        400
+      ],
+      "iron_l4": [
+        480,
+        400
+      ],
+      "farm_l0": [
+        480,
+        400
+      ],
+      "farm_l1": [
+        480,
+        400
+      ],
+      "farm_l2": [
+        480,
+        400
+      ],
+      "farm_l3": [
+        480,
+        400
+      ],
+      "farm_l4": [
+        480,
+        400
+      ],
+      "warehouse_l0": [
+        480,
+        400
+      ],
+      "warehouse_l1": [
+        480,
+        400
+      ],
+      "warehouse_l2": [
+        480,
+        400
+      ],
+      "warehouse_l3": [
+        480,
+        400
+      ],
+      "warehouse_l4": [
+        480,
+        400
+      ],
+      "market_l0": [
+        480,
+        400
+      ],
+      "market_l1": [
+        480,
+        400
+      ],
+      "market_l2": [
+        480,
+        400
+      ],
+      "market_l3": [
+        480,
+        400
+      ],
+      "market_l4": [
+        480,
+        400
+      ],
+      "hide_l0": [
+        480,
+        400
+      ],
+      "hide_l1": [
+        480,
+        400
+      ],
+      "hide_l2": [
+        480,
+        400
+      ],
+      "hide_l3": [
+        480,
+        400
+      ],
+      "hide_l4": [
+        480,
+        400
+      ],
+      "barracks_l0": [
+        480,
+        400
+      ],
+      "barracks_l1": [
+        480,
+        400
+      ],
+      "barracks_l2": [
+        480,
+        400
+      ],
+      "barracks_l3": [
+        480,
+        400
+      ],
+      "barracks_l4": [
+        480,
+        400
+      ],
+      "stable_l0": [
+        480,
+        400
+      ],
+      "stable_l1": [
+        480,
+        400
+      ],
+      "stable_l2": [
+        480,
+        400
+      ],
+      "stable_l3": [
+        480,
+        400
+      ],
+      "stable_l4": [
+        480,
+        400
+      ],
+      "garage_l0": [
+        480,
+        400
+      ],
+      "garage_l1": [
+        480,
+        400
+      ],
+      "garage_l2": [
+        480,
+        400
+      ],
+      "garage_l3": [
+        480,
+        400
+      ],
+      "garage_l4": [
+        480,
+        400
+      ],
+      "smith_l0": [
+        480,
+        400
+      ],
+      "smith_l1": [
+        480,
+        400
+      ],
+      "smith_l2": [
+        480,
+        400
+      ],
+      "smith_l3": [
+        480,
+        400
+      ],
+      "smith_l4": [
+        480,
+        400
+      ],
+      "academy_l0": [
+        480,
+        400
+      ],
+      "academy_l1": [
+        480,
+        400
+      ],
+      "academy_l2": [
+        480,
+        400
+      ],
+      "academy_l3": [
+        480,
+        400
+      ],
+      "academy_l4": [
+        480,
+        400
+      ],
+      "statue_l0": [
+        480,
+        400
+      ],
+      "statue_l1": [
+        480,
+        400
+      ],
+      "statue_l2": [
+        480,
+        400
+      ],
+      "statue_l3": [
+        480,
+        400
+      ],
+      "statue_l4": [
+        480,
+        400
+      ],
+      "rally_l0": [
+        480,
+        400
+      ],
+      "rally_l1": [
+        480,
+        400
+      ],
+      "rally_l2": [
+        480,
+        400
+      ],
+      "rally_l3": [
+        480,
+        400
+      ],
+      "rally_l4": [
+        480,
+        400
+      ],
+      "wall_l0": [
+        480,
+        400
+      ],
+      "wall_l1": [
+        480,
+        400
+      ],
+      "wall_l2": [
+        480,
+        400
+      ],
+      "wall_l3": [
+        480,
+        400
+      ],
+      "wall_l4": [
+        480,
+        400
+      ],
+      "watchtower_l0": [
+        480,
+        400
+      ],
+      "watchtower_l1": [
+        480,
+        400
+      ],
+      "watchtower_l2": [
+        480,
+        400
+      ],
+      "watchtower_l3": [
+        480,
+        400
+      ],
+      "watchtower_l4": [
+        480,
+        400
+      ],
+      "first_church_l0": [
+        480,
+        400
+      ],
+      "first_church_l1": [
+        480,
+        400
+      ],
+      "first_church_l2": [
+        480,
+        400
+      ],
+      "first_church_l3": [
+        480,
+        400
+      ],
+      "first_church_l4": [
+        480,
+        400
+      ],
+      "church_l0": [
+        480,
+        400
+      ],
+      "church_l1": [
+        480,
+        400
+      ],
+      "church_l2": [
+        480,
+        400
+      ],
+      "church_l3": [
+        480,
+        400
+      ],
+      "church_l4": [
+        480,
+        400
+      ]
+    }
+  },
+  "visible_version_leftovers": [],
+  "sha256": "e6b04bfc8a3b1d1a2df7b4945fbfc00760fb99e4fe65461d4a22c91dff3588e2"
+}
