@@ -1,0 +1,43 @@
+name: RT69 Full Fix Apply
+
+on:
+  push:
+    paths:
+      - 'rt69-fullfix.patch.gz.b64'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Decode and apply RT69 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d rt69-fullfix.patch.gz.b64 | gzip -d > /tmp/rt69.patch
+          git apply --check /tmp/rt69.patch
+          git apply /tmp/rt69.patch
+          python - <<'PY'
+          from pathlib import Path
+          a=Path('index.html').read_text(encoding='utf-8')
+          b=Path('JOGAR_REINOS_TRIBAIS.html').read_text(encoding='utf-8')
+          assert a==b, 'HTMLs divergentes'
+          required=['RT69_FULLFIX','const VERSION = 69','const RT_BUILD = "69.0"','assets/v54/buildings','assets/v54/map/village_stage']
+          for x in required: assert x in a, f'marcador ausente: {x}'
+          for bad in ['assets/rt60/','assets/rt61/']: assert bad not in a, f'referencia quebrada ainda presente: {bad}'
+          print('RT69 static validation PASS')
+          PY
+      - name: Commit RT69
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Reinos Tribais RT69'
+          git config user.email 'rt69@reinos-tribais.local'
+          git add index.html JOGAR_REINOS_TRIBAIS.html
+          git commit -m 'RT69 correção integral de aldeia e runtime'
+          git push origin HEAD:main
