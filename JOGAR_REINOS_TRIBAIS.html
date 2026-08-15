@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#5d3a1a">
 <meta name="description" content="Jogo de estratégia medieval independente em português, com conta e save online via Supabase.">
-<title>Reinos Tribais — RT67 Administração Guiada</title>
+<title>Reinos Tribais — RT69 Completo</title>
 <style>
 :root {
   --ink: #2a1a0f;
@@ -2658,7 +2658,7 @@ body { background:#0e0d0a url('assets/ui/bg-tile.jpg') repeat; color:#2a1a0d; }
 </style>
 
 <meta name="rt58-session-security" content="sessionStorage-only-no-persistent-token">
-<meta name="rt62-audit" content="RT62-total-acceptance-functions-buttons-assets-database-content">
+<meta name="rt62-audit" content="RT69-full-acceptance-functions-buttons-assets-database-content">
 
 <style id="rt59-professional-rebuild">
 :root{--rt59-bg:#080b08;--rt59-bg2:#10150f;--rt59-panel:#151a13;--rt59-panel2:#1b2118;--rt59-line:#4f4327;--rt59-line2:#735c2b;--rt59-gold:#e2bd62;--rt59-gold2:#ad7e2d;--rt59-text:#eadfbd;--rt59-muted:#aaa080;--rt59-green:#72c987;--rt59-red:#d76b5f;--rt59-blue:#6eacd3}
@@ -3017,7 +3017,7 @@ body.rt67-cosmetic-crimson .game-shell{--rt67-player-accent:#a34236}body.rt67-co
 
 
 <style id="rt68-game-navigation-rebuild">
-/* RT68 — navegação do JOGO reconstruída. O admin continua com sua navegação própria. */
+/* RT69 — navegação unificada preservada; aldeia e ativos corrigidos. */
 .game-shell .rt68-game-body{max-width:1720px;margin:0 auto;display:grid;grid-template-columns:220px minmax(0,1fr);align-items:start;min-height:calc(100vh - 92px)}
 .game-shell .rt68-game-nav{position:sticky;top:92px;height:calc(100vh - 92px);overflow:hidden;border-right:1px solid #493c22;background:linear-gradient(180deg,#0c120d,#090d09 72%,#080b08);z-index:50}
 .game-shell .rt68-game-nav-scroll{height:100%;overflow:auto;padding:12px 10px 28px;scrollbar-width:thin}
@@ -3150,8 +3150,9 @@ window.GAME_DATA = (() => {
   const D = window.GAME_DATA;
   let SAVE_KEY = 'reinos_tribais_ptbr_save_v60_local';
   const LEGACY_SAVE_KEYS = ['reinos_tribais_ptbr_save_v59_local','reinos_tribais_ptbr_save_v58_local','reinos_tribais_ptbr_save_v57_local','reinos_tribais_ptbr_save_v56_local','reinos_tribais_ptbr_save_v55_local','reinos_tribais_ptbr_save_v40','reinos_tribais_ptbr_save_v38','reinos_tribais_ptbr_save_v37','reinos_tribais_ptbr_save_v36','reinos_tribais_ptbr_save_v35','reinos_tribais_ptbr_save_v34','reinos_tribais_ptbr_save_v33','reinos_tribais_ptbr_save_v32','reinos_tribais_ptbr_save_v31','reinos_tribais_ptbr_save_v30','reinos_tribais_ptbr_save_v29','reinos_tribais_ptbr_save_v28','reinos_tribais_ptbr_save_v27','reinos_tribais_ptbr_save_v26','reinos_tribais_ptbr_save_v25','reinos_tribais_ptbr_save_v24','reinos_tribais_ptbr_save_v23','reinos_tribais_ptbr_save_v22','reinos_tribais_ptbr_save_v21','reinos_tribais_ptbr_save_v20','reinos_tribais_ptbr_save_v19','reinos_tribais_ptbr_save_v18','reinos_tribais_ptbr_save_v17'];
-  const VERSION = 62;
-  const RT_BUILD = "60.1";
+  const VERSION = 69;
+  const RT_BUILD = "69.0";
+  const RT69_FULLFIX = true;
   const RT60_VILLAGE_LAYER_VERSION = "RT61_AUDITED_FIXED_LAYERS_EMPTY_L0_WORLD_BOSSES";
   const RESOURCE_KEYS = ['wood', 'clay', 'iron'];
   const RESOURCE_NAMES = { wood: 'Madeira', clay: 'Argila', iron: 'Ferro' };
@@ -3160,7 +3161,7 @@ window.GAME_DATA = (() => {
   const VILLAGE_NAMES = ['Vale do Carvalho', 'Pedra Alta', 'Campo Dourado', 'Rio Cinzento', 'Muralha do Norte', 'Vila do Corvo', 'Bosque Antigo', 'Ferro Velho', 'Porto Seco', 'Lança Partida', 'Colina Vermelha', 'Lago Sereno', 'Fortim do Lobo', 'Prado Longo', 'Cascalho Negro', 'Fonte Clara', 'Limoeiro Alto', 'Passagem Real', 'Costa Pálida', 'Cruz do Sul'];
   const TRIBE_NAMES = ['Lobos do Norte', 'Ordem do Carvalho', 'Corvos de Ferro', 'Guardiões do Vale', 'Martelos do Sol', 'Sentinelas da Tempestade'];
 
-  const BUILDING_ART = Object.fromEntries(Object.keys(D.buildings).map(key => [key, `assets/v49/buildings/${key}_l1.webp`]));
+  const BUILDING_ART = Object.fromEntries(Object.keys(D.buildings).map(key => [key, `assets/v54/buildings/${key}_l1.png`]));
   const UNIT_ART = {
     spear: 'assets/units/spear_new.png', sword: 'assets/units/sword_new.png', axe: 'assets/units/axe_new.png', archer: 'assets/units/archer_new.png', spy: 'assets/units/spy_new.png',
     light: 'assets/units/light_new.png', marcher: 'assets/units/marcher_new.png', heavy: 'assets/units/heavy_new.png', ram: 'assets/units/ram_new.png',
@@ -3174,7 +3175,7 @@ window.GAME_DATA = (() => {
     stormreins:'assets/v28/hero/items/stormreins.png', scout_lantern:'assets/v28/hero/items/scout_lantern.png', relic_hammer:'assets/v28/hero/items/relic_hammer.png', rune_talisman:'assets/v28/hero/items/rune_talisman.png',
     warhorse_armor:'assets/v28/hero/items/warhorse_armor.png', king_banner:'assets/v28/hero/items/king_banner.png', moonpiercer:'assets/v28/hero/items/moonpiercer.png', moon_charm:'assets/v28/hero/items/moon_charm.png'
   };
-  const START_ART = 'assets/v24/village_scene.png';
+  const START_ART = 'assets/v54/map/village_stage1.png';
   const MAP_PANEL_ART = 'assets/v23/world_terrain.png';
   const HERO_STORY_ART = 'assets/custom/paladin_story_mode.png';
   const REPORT_ART = {
@@ -3338,7 +3339,7 @@ const HERO_SET_BONUSES = {
   const WORLD_NODE_ITEM_POOL = ['resource_chest', 'construction_scroll', 'recruitment_scroll', 'production_banner', 'war_banner', 'spyglass', 'loyalty_seal', 'scouting_pack', 'market_boost', 'gathering_charm'];
   const RT60_VILLAGE_SCENE_SIZE = { width:1671, height:941 };
   const RT60_VILLAGE_BBOX = {"church":{"0":[717,75,867,198],"1":[734,78,850,194],"2":[722,55,862,194],"3":[712,25,873,194],"4":[698,7,885,194]},"academy":{"0":[994,84,1150,213],"1":[1025,91,1120,208],"2":[1015,63,1128,208],"3":[1006,35,1139,208],"4":[998,14,1146,208]},"timber":{"0":[405,138,541,250],"1":[400,145,544,246],"2":[387,122,559,246],"3":[404,117,539,248],"4":[388,88,558,248]},"stable":{"0":[1241,134,1386,253],"1":[1256,141,1372,249],"2":[1244,118,1382,249],"3":[1231,84,1395,249],"4":[1220,68,1405,249]},"rally":{"0":[685,180,830,299],"1":[687,186,827,294],"2":[676,161,838,294],"3":[660,130,854,294],"4":[649,115,866,294]},"farm":{"0":[1417,237,1572,364],"1":[1414,247,1576,359],"2":[1394,219,1596,359],"3":[1391,182,1598,360],"4":[1376,169,1614,359]},"main":{"0":[890,226,1054,360],"1":[916,230,1026,356],"2":[908,202,1034,355],"3":[896,182,1047,356],"4":[890,151,1054,356]},"barracks":{"0":[1151,262,1301,385],"1":[1168,268,1285,381],"2":[1154,242,1296,381],"3":[1142,212,1311,381],"4":[1130,194,1322,381]},"first_church":{"0":[311,296,429,393],"1":[326,299,414,391],"2":[316,281,425,391],"3":[306,255,433,391],"4":[296,240,443,391]},"market":{"0":[526,279,671,398],"1":[536,285,660,393],"2":[526,260,670,393],"3":[512,236,685,393],"4":[500,214,696,393]},"clay":{"0":[221,413,357,525],"1":[215,420,363,521],"2":[200,397,379,521],"3":[218,390,362,523],"4":[203,363,376,523]},"iron":{"0":[1050,430,1191,546],"1":[1051,442,1189,542],"2":[1036,421,1205,542],"3":[1021,382,1221,542],"4":[1006,368,1236,542]},"warehouse":{"0":[482,450,627,569],"1":[503,456,606,565],"2":[493,431,615,565],"3":[482,400,626,565],"4":[472,384,636,565]},"smith":{"0":[691,528,819,633],"1":[711,532,798,630],"2":[702,510,809,630],"3":[692,483,816,630],"4":[681,469,829,630]},"garage":{"0":[1304,542,1440,654],"1":[1322,546,1422,651],"2":[1315,530,1429,650],"3":[1304,496,1439,651],"4":[1296,481,1448,651]},"hide":{"0":[404,638,530,741],"1":[400,645,535,737],"2":[380,625,554,737],"3":[385,621,549,739],"4":[372,595,562,739]},"wall":{"0":[238,671,366,777],"1":[244,674,362,773],"2":[233,652,371,773],"3":[220,626,384,773],"4":[218,613,387,773]},"statue":{"0":[769,377,863,454],"1":[788,378,845,453],"2":[788,361,845,453],"3":[786,341,846,453],"4":[785,332,847,453]},"watchtower":{"0":[1474,76,1558,145],"1":[1501,75,1536,141],"2":[1500,62,1539,141],"3":[1500,45,1542,141],"4":[1488,36,1545,141]}};
-  const RT60_VILLAGE_LAYER_ROOT = 'assets/rt60/village_layers';
+  const RT60_VILLAGE_LAYER_ROOT = 'assets/v54/buildings';
 
 
 
@@ -3990,7 +3991,7 @@ const HERO_SET_BONUSES = {
       <main class="rt55-entry">
         <section class="rt55-entry-copy">
           <div class="rt55-logo-line"><img src="assets/icons/reinos_tribais_icon.png" alt=""><b>REINOS TRIBAIS</b></div>
-          <span class="rt55-kicker">RT64 • ONLINE • ADMIN COMPLETO + RECOVERY OTP + 19 MENUS</span>
+          <span class="rt55-kicker">RT69 • ONLINE • ADMIN COMPLETO + RECOVERY + 19 MENUS</span>
           <h1>Erga sua aldeia.<br><em>Domine o mundo.</em></h1>
           <p>Construa, pesquise, recrute, negocie e dispute mundos compartilhados. Contas, aldeias, ataques, mercado, tribos, eventos, ranking e estado do mundo são sincronizados pelo Supabase Realtime.</p>
           <div class="rt55-entry-features">
@@ -4029,7 +4030,7 @@ const HERO_SET_BONUSES = {
             <span class="rt18-online-badge">☁ Mundos compartilhados • Supabase Realtime</span>
             <h1>Reinos Tribais</h1>
             <p>A tela abre primeiro e a internet só conecta quando você entra. Depois do login, escolha um mundo aberto; aldeias, ataques, mercado, eventos e ranking são compartilhados entre todos nele.</p>
-            <p class="small">Backend: São Paulo • Realtime + combate RT62 + sincronização</p><p class="small"><b>Segurança:</b> tokens online não são persistidos no PC. Fechou o navegador, precisa autenticar novamente.</p>
+            <p class="small">Backend: São Paulo • Realtime + combate RT69 + sincronização</p><p class="small"><b>Segurança:</b> tokens online não são persistidos no PC. Fechou o navegador, precisa autenticar novamente.</p>
             <button class="rt18-auth-btn secondary" type="button" data-play-offline>Jogar agora em modo local</button>
             ${continueButton}
           </div>
@@ -4484,7 +4485,7 @@ const RT67_OBSERVER=new MutationObserver(()=>queueMicrotask(rt67EnhanceAdminChro
     const dbCards=Object.entries(dbCounts).map(([k,v])=>`<article><b>${nfmt(v)}</b><span>${escapeHtml(k)}</span></article>`).join('');
     const adminAccountRows=adminAccounts.map(a=>`<tr><td><b>${escapeHtml(a.username)}</b><small>${escapeHtml(a.display_name||'')}</small></td><td><select data-rt64-admin-role="${a.id}">${['superadmin','admin','moderator'].map(r=>`<option ${a.role===r?'selected':''}>${r}</option>`).join('')}</select></td><td>${a.active?'<span class="rt64-badge good">ativo</span>':'<span class="rt64-badge bad">inativo</span>'}</td><td>${rt64FmtDate(a.last_login_at)}</td><td><button data-rt64-admin-active="${a.id}:${a.active?'0':'1'}">${a.active?'Desativar':'Ativar'}</button></td></tr>`).join('');
     const adminSessionRows=adminSessions.map(s=>`<tr><td class="rt64-mono">${escapeHtml(s.id)}</td><td>${escapeHtml(adminAccounts.find(a=>a.id===s.admin_id)?.username||s.admin_id)}</td><td>${rt64FmtDate(s.created_at)}</td><td>${rt64FmtDate(s.last_seen_at)}</td><td>${rt64FmtDate(s.expires_at)}</td><td><button class="danger" data-rt64-revoke-admin-session="${s.id}">Revogar</button></td></tr>`).join('');
-    $('#app').innerHTML=`<main class="rt60-admin-shell"><header class="rt60-admin-top"><div><h1>REINOS TRIBAIS • CENTRAL OPERACIONAL RT67 GUIADA</h1><p>${escapeHtml(RTADMIN.info?.username||RTADMIN.username)} • backend v${data.version||64} • interface guiada RT67 • ${rt64FmtDate(data.generated_at)}</p></div><span></span><label>Mundo <select data-admin-map-world>${worldOptions}</select></label><button data-admin-refresh>↻ Atualizar</button><button data-admin-logout class="rt67-admin-logout">Sair do admin</button></header><div class="rt60-admin-layout"><nav class="rt60-admin-nav">${nav.map(([id,ico,label])=>`<button class="${current===id?'active':''}" data-admin-tab="${id}"><b>${ico}</b>${label}</button>`).join('')}</nav><section class="rt60-admin-main">
+    $('#app').innerHTML=`<main class="rt60-admin-shell"><header class="rt60-admin-top"><div><h1>REINOS TRIBAIS • CENTRAL OPERACIONAL RT69 GUIADA</h1><p>${escapeHtml(RTADMIN.info?.username||RTADMIN.username)} • backend v${data.version||64} • interface guiada RT69 • ${rt64FmtDate(data.generated_at)}</p></div><span></span><label>Mundo <select data-admin-map-world>${worldOptions}</select></label><button data-admin-refresh>↻ Atualizar</button><button data-admin-logout class="rt67-admin-logout">Sair do admin</button></header><div class="rt60-admin-layout"><nav class="rt60-admin-nav">${nav.map(([id,ico,label])=>`<button class="${current===id?'active':''}" data-admin-tab="${id}"><b>${ico}</b>${label}</button>`).join('')}</nav><section class="rt60-admin-main">
       <div class="rt64-kpis"><article><b>${worlds.length}</b><span>Mundos</span></article><article><b>${players.length}</b><span>Jogadores</span></article><article><b>${online}</b><span>Online 15m</span></article><article><b>${villages.length}</b><span>Aldeias</span></article><article><b>${activeCommands.length}</b><span>Comandos</span></article><article><b>${activeMonsters.length}</b><span>Bosses</span></article><article><b>${activeEvents.length}</b><span>Eventos</span></article><article><b>${openOffers.length}</b><span>Ofertas</span></article></div>
       <section data-admin-panel="overview" class="${current==='overview'?'':'hidden'}"><div class="rt64-grid2"><article class="rt64-panel"><h2>Saúde operacional</h2><div class="rt64-health">${stats.map(s=>`<article><b>${escapeHtml(rt64WorldLabel(s.world_id))}</b><small>${s.players} jogadores • ${s.online} online • ${s.villages} aldeias</small><small>${s.nodes} pontos • ${s.monsters} bosses • ${s.events} eventos</small><small>${s.commands} comandos • ${s.tribes} tribos • ${s.offers||0} ofertas</small></article>`).join('')}</div></article><article class="rt64-panel"><h2>Comunicado rápido</h2><form id="rt64-message-quick-form"><div class="rt64-form-grid"><label>Mundo<select name="world_id">${worldOptions}</select></label><label>Destino<select name="user_id"><option value="">Todos no mundo</option>${pWorld.map(p=>`<option value="${p.user_id}">${escapeHtml(p.player_name)} • ${escapeHtml(p.email||'')}</option>`).join('')}</select></label><label>Assunto<input name="subject" value="Comunicado do servidor"></label></div><label>Mensagem<textarea name="body" rows="5"></textarea></label><button>Enviar</button></form></article></div><article class="rt64-panel"><h2>Cobertura do painel</h2><div class="rt64-health">${[['Mundos','criar/editar/ativar/resetar'],['Contas','Auth, save, recursos, premium, herói, pesquisa'],['Aldeias','19 prédios, tropas, filas, apoios, coleta'],['Mapa','pontos, aldeias, bosses'],['Eventos','templates, edição, progresso, recompensas'],['Ranked','temporadas, ratings, partidas'],['Combate','comandos + apoios online + ataques'],['Mercado','ofertas + cancelamento com devolução'],['Tribos','dados + membros + cargos'],['Comunicação','mensagens + relatórios'],['Recompensas','entitlements + progresso'],['Segurança','admins + sessões + senhas'],['Banco','contagem de domínios'],['Auditoria','ações administrativas']].map(x=>`<article><b>✓ ${x[0]}</b><small>${x[1]}</small></article>`).join('')}</div></article></section>
       <section data-admin-panel="worlds" class="${current==='worlds'?'':'hidden'}"><div class="rt64-split"><article class="rt64-panel"><h2>Mundos existentes</h2>${worlds.map(w=>`<form class="rt64-world-form" data-world-id="${w.id}"><div class="rt64-form-grid"><label>Nome<input value="${escapeHtml(w.name)}" disabled></label><label>Velocidade mundo<input name="worldSpeed" type="number" value="${Number(w.settings?.worldSpeed)||8}"></label><label>Velocidade unidades<input name="unitSpeed" type="number" value="${Number(w.settings?.unitSpeed)||3}"></label><label>Raio mapa<input name="mapRadius" type="number" value="${Number(w.settings?.mapRadius)||35}"></label><label>Multip. recursos<input name="resourceMultiplier" type="number" step=".1" value="${Number(w.settings?.resourceMultiplier)||1}"></label><label>Multip. mercado<input name="marketMultiplier" type="number" step=".1" value="${Number(w.settings?.marketMultiplier)||1}"></label><label>Máx jogadores<input name="max_players" type="number" value="${Number(w.max_players)||50}"></label><label>Temporada<input name="season_number" type="number" value="${Number(w.season_number)||1}"></label><label>Status<select name="status">${['open','closed','maintenance'].map(s=>`<option ${w.status===s?'selected':''}>${s}</option>`).join('')}</select></label>${['archers','militia','church','watchtower','flags','scavenging','eventSystem','monstersEnabled'].map(k=>`<label>${k}<select name="${k}"><option value="1" ${w.settings?.[k]!==false?'selected':''}>ON</option><option value="0" ${w.settings?.[k]===false?'selected':''}>OFF</option></select></label>`).join('')}</div><div class="rt64-actions"><button>Salvar configurações</button><button type="button" data-admin-world-toggle="${w.id}" data-active="${w.is_active?'1':'0'}">${w.is_active?'Desativar':'Ativar'}</button><button type="button" class="danger" data-admin-world-reset="${w.id}" data-name="${escapeHtml(w.name)}">Resetar mundo</button></div></form>`).join('<hr>')}</article><aside class="rt64-panel"><h2>Criar mundo</h2><form id="rt64-create-world"><label>Nome<input name="name" value="Novo Mundo"></label><label>Velocidade<input name="speed" type="number" value="8"></label><label>Raio mapa<input name="mapRadius" type="number" value="35"></label><button>Criar mundo</button></form></aside></div></section>
@@ -6857,7 +6858,7 @@ function tick() {
         <div class="rt23-start-shade"></div>
         <section class="rt23-start-copy" aria-label="Apresentação do jogo">
           <div class="rt23-start-brand"><img src="assets/icons/reinos_tribais_icon.png" alt="Brasão de Reinos Tribais"><span>REINOS<br>TRIBAIS</span></div>
-          <p class="rt23-eyebrow">RT62 • ALDEIA POR CAMADAS FIXAS • ONLINE</p>
+          <p class="rt23-eyebrow">RT69 • ALDEIA INTEGRADA • ONLINE</p>
           <h1>Erga sua aldeia.<br><span>Domine o mundo.</span></h1>
           <p class="rt23-start-lead">Cada edifício fica ancorado no lote correto, abre sua função própria e evolui em patamares de nível. Construção, pesquisa, tropas, comércio, comandos, relatórios, Paladino e sistemas do reino ficam acessíveis sem funções escondidas.</p>
           <div class="rt23-feature-grid">
@@ -6912,7 +6913,7 @@ function tick() {
             </div>
           </section>
         </div>
-        <div class="footer-note">Reinos Tribais — RT68 • navegação do jogo reconstruída • aldeia por camadas • mapa vivo • multiplayer</div>
+        <div class="footer-note">Reinos Tribais — RT69 • aldeia corrigida • sistemas auditados • mapa vivo • multiplayer</div>
       </div>
       ${modalHtml}
       <div class="toast-stack" id="toast-stack"></div>`;
@@ -7211,7 +7212,7 @@ function renderView() {
         <div class="rt22-village-head"><b>🛡 ${escapeHtml(v.name.toUpperCase())} (${v.x}|${v.y}) • ${continentOf(v.x,v.y)}</b><span>${nfmt(v.points)} pontos • Lealdade ${v.loyalty}%</span></div>
         <div class="rt24-village-hud"><span>EVOLUÇÃO DA ALDEIA</span><strong>${villageVisual.name} • Estágio ${villageVisual.stage}/4</strong><div><i style="width:${villageVisual.progress}%"></i></div><small>${builtCount}/19 edifícios • ${villageVisual.globalResearch} pesquisas • ${nfmt(villageVisual.levels)} níveis</small></div>
         <div class="village-scene rt17-village-scene rt24-village-stage-${villageVisual.stage}">
-          <img class="rt54-map-layer" src="${(v.buildings.wall||0)>0?'assets/rt61/map/village_walled.png':'assets/rt61/map/village_empty.png'}" alt="Terreno da aldeia ${((v.buildings.wall||0)>0?'com muralha':'sem muralha')}, estágio ${villageVisual.stage}" aria-hidden="true">
+          <img class="rt54-map-layer" src="assets/v54/map/village_stage${villageVisual.stage}.png" alt="Terreno da aldeia, estágio ${villageVisual.stage}" aria-hidden="true">
           <img class="rt53-map-layer rt54-interaction-layer" src="assets/v54/map/interaction_overlay.png" alt="" aria-hidden="true">
           <div class="rt24-scene-atmosphere" aria-hidden="true"></div>${villageLayers}${hotspotMarkup}</div>
         <div class="rt25-building-index" aria-label="Índice dos 19 edifícios">${buildingIndex}</div>
@@ -7264,7 +7265,7 @@ function renderView() {
       ['missions','⭐','Missões e conquistas','Objetivos persistentes, progresso e recompensas de recursos.',`${state.player.claimedQuests.length}/${D.quests.length} recebidas`],
       ['hero','⚜️','Paladino e História','Experiência, talentos, aventuras, armas, relíquias e Arsenal.',`Nível ${hero.level} • capítulo ${ensureHeroStoryState(hero).chapter}`]
     ];
-    return `<h1 class="panel-title">Central de Sistemas RT62</h1><div class="notice info"><b>Nada fica escondido na aldeia.</b> Esta central reúne as mecânicas próprias inspiradas nos fluxos clássicos de Tribal Wars e Travian, sem copiar artes oficiais.</div><div class="rt25-system-grid">${systems.map(([view,icon,name,desc,status])=>`<button class="rt25-system-card" data-view="${view}"><span>${icon}</span><div><h3>${name}</h3><p>${desc}</p><small>${escapeHtml(String(status))} • Abrir →</small></div></button>`).join('')}</div>`;
+    return `<h1 class="panel-title">Central de Sistemas RT69</h1><div class="notice info"><b>Nada fica escondido na aldeia.</b> Esta central reúne as mecânicas próprias inspiradas nos fluxos clássicos de Tribal Wars e Travian, sem copiar artes oficiais.</div><div class="rt25-system-grid">${systems.map(([view,icon,name,desc,status])=>`<button class="rt25-system-card" data-view="${view}"><span>${icon}</span><div><h3>${name}</h3><p>${desc}</p><small>${escapeHtml(String(status))} • Abrir →</small></div></button>`).join('')}</div>`;
   }
 
 
@@ -8483,7 +8484,7 @@ function renderMap() {
     const wr=event.target.closest('[data-admin-world-reset]');
     if(wr){if(!confirm(`RESETAR ${wr.dataset.name}? Isso apaga o estado do mundo.`))return;try{await adminRequest('world_reset',{world_id:wr.dataset.adminWorldReset});await adminRefresh();}catch(e){alert(e.message||e)}return;}
     const pc=event.target.closest('[data-admin-player]');
-    if(pc){const [world_id,user_id,mode]=pc.dataset.adminPlayer.split(':');try{await adminRequest('player_patch',{world_id,user_id,is_suspended:mode==='suspend',suspension_reason:mode==='suspend'?'Suspenso pelo painel administrativo RT62':''});await adminRefresh();}catch(e){alert(e.message||e)}return;}
+    if(pc){const [world_id,user_id,mode]=pc.dataset.adminPlayer.split(':');try{await adminRequest('player_patch',{world_id,user_id,is_suspended:mode==='suspend',suspension_reason:mode==='suspend'?'Suspenso pelo painel administrativo RT69':''});await adminRefresh();}catch(e){alert(e.message||e)}return;}
   });
 
   document.addEventListener('submit', async event => {
