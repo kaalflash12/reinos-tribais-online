@@ -39,11 +39,26 @@ jobs:
         run: |
           python -m http.server 8765 --bind 127.0.0.1 >/tmp/rt76-http.log 2>&1 &
           sleep 2
-      - name: Regressão integral desktop e mobile
+      - name: Ajustar auditoria para a regra visual real RT76
         shell: bash
         run: |
-          sed -i "s/'RT75' in base\['title'\]/'RT76' in base['title']/" tools/rt76_full_regression_current.py
-          python tools/rt76_full_regression_current.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/rt76_full_regression_current.py')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("check(f'{prefix}.title_rt75','RT75' in base['title'],base['title'])","check(f'{prefix}.title_rt76','RT76' in base['title'],base['title'])")
+          old="""    page.wait_for_timeout(180)\n    d=diag(page)"""
+          new="""    page.wait_for_timeout(180)\n    try:\n        page.wait_for_function(\"\"\"() => [...document.images].filter(i=>{const r=i.getBoundingClientRect(),s=getComputedStyle(i);return s.display!=='none'&&s.visibility!=='hidden'&&r.width>1&&r.height>1}).every(i=>i.complete&&i.naturalWidth>0)\"\"\",timeout=5000)\n    except Exception:\n        pass\n    d=diag(page)"""
+          if old not in s: raise SystemExit('capture_view anchor not found')
+          s=s.replace(old,new,1)
+          a=s.index('def set_all_buildings_for_tier(page,tier):')
+          b=s.index('\ndef audit_village(page,prefix):',a)
+          func='''def set_all_buildings_for_tier(page,tier):\n    return page.evaluate(\'\'\'(payload)=>{\n      const v=getActiveVillage(), keys=payload.keys, tier=payload.tier, chosen={};\n      state.player.research.completed=[]; state.player.research.queue=[];\n      v.unitResearch={}; v.unitResearchQueue=[]; v.buildQueue=[]; v.points=0;\n      for(const k of keys) v.buildings[k]=1;\n      for(const k of keys){\n        const max=D.buildings[k].max||30; let found=0;\n        if(max<=3){ found=Math.min(max,tier); v.buildings[k]=found; chosen[k]=found; continue; }\n        for(let lvl=1;lvl<=max;lvl++){\n          v.buildings[k]=lvl;\n          if(getBuildingVisual(v,k).tier===tier){found=lvl;break;}\n        }\n        if(!found) found=max;\n        v.buildings[k]=found; chosen[k]=found;\n      }\n      const levelScore=Object.values(v.buildings).reduce((a,b)=>a+(Number(b)||0),0)*42;\n      const target=[0,2600,8500,18500][tier-1];\n      v.points=Math.max(0,target-levelScore);\n      currentView='overview'; renderAll();\n      return {levels:chosen,points:v.points,levelScore,stage:getVillageVisualStage(v).stage};\n    }\'\'\',{'keys':BUILDINGS,'tier':tier})\n'''
+          s=s[:a]+func+s[b:]
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Regressão integral desktop e mobile
+        run: python tools/rt76_full_regression_current.py
       - name: Publicar somente após PASS
         shell: bash
         run: |
