@@ -3,6 +3,7 @@ import re, json, hashlib
 
 HTMLS=[Path('JOGAR_REINOS_TRIBAIS.html'),Path('index.html')]
 bridge=Path('tools/rt76_bridge_inside.js').read_text(encoding='utf-8').strip()
+bridge=bridge.replace("const rt76ProcessScheduled=(ts=now())=>{const r=rt76Ensure();let changed=false;","const rt76ProcessScheduled=(ts=now())=>{const r=rt76Ensure();if(!r)return false;let changed=false;")
 bridge += "\n  Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,hasHeroItem});"
 
 def patch(text):
@@ -38,7 +39,7 @@ report={
   'phase0_regression_gate':True,'central_war_scheduled_arrival':True,'smart_farm_target_memory':True,
   'incoming_intel_panel':True,'market2_real_trade_equalization':True,'manager2_research_scavenge_log':True,
   'empire_multi_village_view':True,'legacy_rt73_runtime_removed':True,'manager_resource_teleport_removed':True,
-  'rt76_test_bridge':True
+  'rt76_test_bridge':True,'scheduler_null_guard':True
  },
  'not_claimed_complete':['full Supabase transactional P0','entire admin redesign','all 15 master-plan phases','all historical requirements']
 }
