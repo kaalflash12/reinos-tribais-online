@@ -1,0 +1,127 @@
+name: RT76 Current Windows Delivery
+
+on:
+  push:
+    paths:
+      - 'rt76-current-windows-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-current:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar instalador pinado na build atual
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $commit = (git rev-parse HEAD).Trim()
+          $html = Join-Path $env:GITHUB_WORKSPACE 'JOGAR_REINOS_TRIBAIS.html'
+          $sha = (Get-FileHash $html -Algorithm SHA256).Hash.ToLowerInvariant()
+          $src = Join-Path $env:GITHUB_WORKSPACE 'tools\RT76_INSTALADOR_FINAL_WINDOWS.ps1'
+          $dst = Join-Path $env:RUNNER_TEMP 'RT76_INSTALAR_ATUAL_TESTADO.ps1'
+          $text = [IO.File]::ReadAllText($src,[Text.Encoding]::UTF8)
+          $text = [regex]::Replace($text,"\$Commit = '[0-9a-f]{40}'",("`$Commit = '"+$commit+"'"),1)
+          $text = [regex]::Replace($text,"\$ExpectedHtmlSha = '[0-9a-f]{64}'",("`$ExpectedHtmlSha = '"+$sha+"'"),1)
+          [IO.File]::WriteAllText($dst,$text,(New-Object Text.UTF8Encoding($false)))
+          "COMMIT=$commit" | Set-Content "$env:RUNNER_TEMP\pin.txt"
+          "HTML_SHA=$sha" | Add-Content "$env:RUNNER_TEMP\pin.txt"
+          Write-Host "Pinned commit $commit"
+          Write-Host "Pinned HTML $sha"
+
+      - name: Parser Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $script = Join-Path $env:RUNNER_TEMP 'RT76_INSTALAR_ATUAL_TESTADO.ps1'
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($script,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|%{Write-Host $_.Message -ForegroundColor Red};throw "Parser: $($errors.Count) erro(s)"}
+          Write-Host 'PASS parser PowerShell 5.1'
+
+      - name: Instalacao limpa real
+        shell: powershell
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'RT76_CURRENT_INSTALL'
+          Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $root|Out-Null
+          Set-Content (Join-Path $root 'rt73-village-runtime.js') 'legacy'
+          $ps51="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+          $script=Join-Path $env:RUNNER_TEMP 'RT76_INSTALAR_ATUAL_TESTADO.ps1'
+          & $ps51 -NoProfile -ExecutionPolicy Bypass -File $script -RootOverride $root -NoOpen -NoShortcut -NoPrompt
+          if($LASTEXITCODE -ne 0){throw "Installer exit $LASTEXITCODE"}
+          $pin=@{};Get-Content "$env:RUNNER_TEMP\pin.txt"|%{$k,$v=$_ -split '=',2;$pin[$k]=$v}
+          $got=(Get-FileHash (Join-Path $root 'JOGAR_REINOS_TRIBAIS.html') -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($got -ne $pin.HTML_SHA){throw "HTML SHA $got != $($pin.HTML_SHA)"}
+          if(Test-Path (Join-Path $root 'rt73-village-runtime.js')){throw 'Legacy rt73 runtime survived'}
+          foreach($f in @('index.html','JOGAR_REINOS_TRIBAIS.html','rt76-runtime.js','rt76-map-ai.js','JOGAR_RT76.cmd','AUDITORIA_RT76_FINAL\INSTALACAO_RT76_FINAL.json')){if(-not(Test-Path(Join-Path $root $f))){throw "Missing $f"}}
+          $pngs=Get-ChildItem (Join-Path $root 'assets\v54\buildings') -Filter '*.png' -File
+          if($pngs.Count -ne 95){throw "PNG count $($pngs.Count)"}
+          Write-Host 'PASS clean install + exact SHA + 95 assets + legacy removed'
+
+      - name: Corromper L0 e provar reparo
+        shell: powershell
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'RT76_CURRENT_INSTALL'
+          $l0=Join-Path $root 'assets\v54\buildings\academy_l0.png'
+          [IO.File]::WriteAllBytes($l0,[byte[]](1,2,3,4,5,6,7,8))
+          $ps51="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+          $script=Join-Path $env:RUNNER_TEMP 'RT76_INSTALAR_ATUAL_TESTADO.ps1'
+          & $ps51 -NoProfile -ExecutionPolicy Bypass -File $script -RootOverride $root -NoOpen -NoShortcut -NoPrompt
+          if($LASTEXITCODE -ne 0){throw "Repair exit $LASTEXITCODE"}
+          $b=[IO.File]::ReadAllBytes($l0)
+          if($b.Length -lt 24 -or $b[0]-ne137 -or $b[1]-ne80 -or $b[2]-ne78 -or $b[3]-ne71){throw 'L0 not repaired to PNG'}
+          $w=[Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($b,16));$h=[Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($b,20))
+          if($w-ne480 -or $h-ne400){throw "L0 ${w}x${h}"}
+          Write-Host "PASS repair L0 ${w}x${h} $($b.Length) bytes"
+
+      - name: Terceira execucao idempotente
+        shell: powershell
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'RT76_CURRENT_INSTALL'
+          $before=(Get-FileHash (Join-Path $root 'JOGAR_REINOS_TRIBAIS.html') -Algorithm SHA256).Hash.ToLowerInvariant()
+          $ps51="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+          $script=Join-Path $env:RUNNER_TEMP 'RT76_INSTALAR_ATUAL_TESTADO.ps1'
+          & $ps51 -NoProfile -ExecutionPolicy Bypass -File $script -RootOverride $root -NoOpen -NoShortcut -NoPrompt
+          if($LASTEXITCODE -ne 0){throw "Third run exit $LASTEXITCODE"}
+          $after=(Get-FileHash (Join-Path $root 'JOGAR_REINOS_TRIBAIS.html') -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($before-ne$after){throw 'HTML changed on idempotent run'}
+          Write-Host 'PASS idempotent reinstall'
+
+      - name: Abrir build instalada no navegador Windows
+        shell: powershell
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'RT76_CURRENT_INSTALL'
+          $server=Start-Process python -ArgumentList @('-m','http.server','8767','--bind','127.0.0.1','--directory',$root) -PassThru -WindowStyle Hidden
+          Start-Sleep 2
+          try{
+            $browser=@("$env:ProgramFiles(x86)\Microsoft\Edge\Application\msedge.exe","$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe","$env:ProgramFiles\Google\Chrome\Application\chrome.exe")|?{$_ -and(Test-Path $_)}|select -First 1
+            if(-not$browser){throw 'No Edge/Chrome'}
+            $shot=Join-Path $env:RUNNER_TEMP 'RT76_CURRENT_WINDOWS.png'
+            $p=Start-Process $browser -ArgumentList @('--headless','--disable-gpu','--hide-scrollbars','--window-size=1600,1000',"--screenshot=$shot",'http://127.0.0.1:8767/index.html?current-windows=1') -Wait -PassThru
+            if($p.ExitCode-ne0 -or -not(Test-Path $shot) -or (Get-Item $shot).Length-lt10000){throw 'Browser open/screenshot failed'}
+            Write-Host "PASS Windows browser screenshot $((Get-Item $shot).Length) bytes"
+          }finally{Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue}
+
+      - name: Gerar prova
+        shell: powershell
+        run: |
+          $pin=@{};Get-Content "$env:RUNNER_TEMP\pin.txt"|%{$k,$v=$_ -split '=',2;$pin[$k]=$v}
+          $root=Join-Path $env:RUNNER_TEMP 'RT76_CURRENT_INSTALL'
+          $proof=[ordered]@{ok=$true;os=(Get-CimInstance Win32_OperatingSystem).Caption;powershell=$PSVersionTable.PSVersion.ToString();commit=$pin.COMMIT;html_sha256=$pin.HTML_SHA;parser='PASS';clean_install='PASS';corrupted_l0_repair='PASS';idempotent_reinstall='PASS';windows_browser_open='PASS';building_png='95/95';cloudflare='NOT_USED';docker='NOT_REQUIRED';git_for_installer='NOT_REQUIRED'}
+          $proof|ConvertTo-Json -Depth 6|Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\PROVA_RT76_CURRENT_WINDOWS.json"
+          Get-Content "$env:RUNNER_TEMP\PROVA_RT76_CURRENT_WINDOWS.json"
+
+      - name: Upload entrega Windows atual
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT76_CURRENT_WINDOWS_DELIVERY
+          path: |
+            ${{ runner.temp }}\RT76_INSTALAR_ATUAL_TESTADO.ps1
+            ${{ runner.temp }}\PROVA_RT76_CURRENT_WINDOWS.json
+            ${{ runner.temp }}\RT76_CURRENT_WINDOWS.png
+            ${{ runner.temp }}\RT76_CURRENT_INSTALL\AUDITORIA_RT76_FINAL\INSTALACAO_RT76_FINAL.json
+          if-no-files-found: error
