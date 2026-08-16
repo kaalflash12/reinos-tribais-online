@@ -3,6 +3,7 @@ import re, json, hashlib
 
 HTMLS=[Path('JOGAR_REINOS_TRIBAIS.html'),Path('index.html')]
 bridge=Path('tools/rt76_bridge_inside.js').read_text(encoding='utf-8').strip()
+bridge += "\n  Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,hasHeroItem});"
 
 def patch(text):
     text=re.sub(r'/\* RT76_BRIDGE_START \*/.*?/\* RT76_BRIDGE_END \*/\s*','',text,flags=re.S)
