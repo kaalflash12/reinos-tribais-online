@@ -50,11 +50,11 @@ jobs:
           cat > /tmp/rt75-e2e.py <<'PY'
           from playwright.sync_api import sync_playwright
           from pathlib import Path
-          import json,math
+          import json
           OUT=Path('RT75_EVIDENCIAS');OUT.mkdir(exist_ok=True)
           R={'desktop':{},'mobile':{},'errors':[]}
           def start_local(page):
-              page.goto('http://127.0.0.1:8765/index.html?rt75e2e=1',wait_until='domcontentloaded',timeout=30000)
+              page.goto('http://127.0.0.1:8765/index.html?rt75e2e=2',wait_until='domcontentloaded',timeout=30000)
               page.wait_for_timeout(1000)
               off=page.locator('[data-play-offline]').first
               if off.count():off.click()
@@ -71,6 +71,7 @@ jobs:
                 const sr=scene?.getBoundingClientRect();
                 const arts=Array.from(document.querySelectorAll('.rt75-building-art'));
                 const hits=Array.from(document.querySelectorAll('.village-scene .rt60-village-hitbox'));
+                const badge=scene?.querySelector('.rt75-scene-build');
                 const rows=arts.map(el=>{
                   const r=el.getBoundingClientRect(),cs=getComputedStyle(el);
                   const a=(el.dataset.alphaBbox||'').split(',').map(Number),t=(el.dataset.targetBbox||'').split(',').map(Number);
@@ -82,7 +83,7 @@ jobs:
                   }
                   return {key:el.dataset.villageBuilding,tier:el.dataset.villageTier,display:cs.display,visibility:cs.visibility,opacity:cs.opacity,rect:[r.x,r.y,r.width,r.height],natural:[el.naturalWidth,el.naturalHeight],complete:el.complete,alphaRect,targetRect,diff};
                 });
-                return {scene:sr?[sr.x,sr.y,sr.width,sr.height]:null,arts:rows,hits:hits.length,localKeys:Object.keys(localStorage).filter(k=>k.includes('reinos_tribais')),title:document.title};
+                return {scene:sr?[sr.x,sr.y,sr.width,sr.height]:null,arts:rows,hits:hits.length,badge:badge?.textContent?.trim()||'',localKeys:Object.keys(localStorage).filter(k=>k.includes('reinos_tribais')),title:document.title,bodyScrollWidth:document.documentElement.scrollWidth,viewportWidth:innerWidth};
               }''')
           def run_case(pw,name,viewport):
               browser=pw.chromium.launch(headless=True)
@@ -94,13 +95,11 @@ jobs:
               m=village_metrics(page);R[name]=m
               page.screenshot(path=str(OUT/f'{name}-overview.png'),full_page=True)
               if page.locator('.village-scene').count():page.locator('.village-scene').first.screenshot(path=str(OUT/f'{name}-village.png'))
-              # Rotas de conteúdo solicitadas: não podem quebrar no modo local.
               for view in ['events','ranked']:
                   btn=page.locator(f'[data-view="{view}"]').first
                   if btn.count():
                       btn.click();page.wait_for_timeout(450)
                       page.screenshot(path=str(OUT/f'{name}-{view}.png'),full_page=True)
-              # Save local deve sobreviver a reload.
               page.reload(wait_until='domcontentloaded');page.wait_for_timeout(650)
               off=page.locator('[data-play-offline]').first
               if off.count():off.click();page.wait_for_timeout(750)
@@ -115,8 +114,9 @@ jobs:
           if R['errors']:raise SystemExit('Erros do navegador: '+json.dumps(R['errors'],ensure_ascii=False))
           for name in ['desktop','mobile']:
               x=R[name];arts=x['arts']
-              if len(arts)!=11:raise SystemExit(f'{name}: esperado 11 prédios construídos visíveis, DOM={len(arts)}')
+              if len(arts)!=11:raise SystemExit(f'{name}: esperado 11 prédios construídos, DOM={len(arts)}')
               if x['hits']!=19:raise SystemExit(f'{name}: hitboxes {x["hits"]}/19')
+              if x['badge']!='RT75 • aldeia ativa':raise SystemExit(f'{name}: selo incorreto {x["badge"]!r}')
               for a in arts:
                   if a['display']=='none' or a['visibility']=='hidden' or float(a['opacity'] or 0)<=0:raise SystemExit(f'{name}: prédio oculto {a}')
                   if a['rect'][2]<=2 or a['rect'][3]<=2:raise SystemExit(f'{name}: prédio sem tamanho {a}')
@@ -125,9 +125,10 @@ jobs:
                   if a['rect'][2]>x['scene'][2]*.35 or a['rect'][3]>x['scene'][3]*.55:raise SystemExit(f'{name}: prédio gigante {a}')
               if not x['localKeys']:raise SystemExit(f'{name}: save local não criado')
               if not x['afterReload']['hasGame'] or x['afterReload']['startForm']:raise SystemExit(f'{name}: save local não restaurou')
+          if R['mobile']['scene'][2] > R['mobile']['viewportWidth']+1:raise SystemExit(f'mobile: aldeia maior que viewport {R["mobile"]["scene"][2]} > {R["mobile"]["viewportWidth"]}')
           PY
           python /tmp/rt75-e2e.py
-      - name: Auditoria backend estática de requisitos RT74 preservados
+      - name: Auditoria de conteúdo preservado
         run: |
           grep -q 'rt74RankedPrizePanel' index.html
           grep -q 'rt74EventsExecutionPanel' index.html
@@ -135,6 +136,7 @@ jobs:
           grep -q 'RT74_LOCAL_AUTOSAVE' index.html
           grep -q 'RT75_STABLE' index.html
           grep -q 'rt75-building-art' index.html
+          grep -q 'RT75 • aldeia ativa' index.html
           ! grep -q 'Reinos Tribais — RT73 • aldeia ativa' index.html
       - uses: actions/upload-artifact@v4
         with:
@@ -150,5 +152,5 @@ jobs:
           git config user.name 'Reinos Tribais RT75'
           git config user.email 'rt75@reinos-tribais.local'
           git add index.html JOGAR_REINOS_TRIBAIS.html AUDITORIA_RT75.json
-          git commit -m 'RT75 estabiliza aldeia, save local e conteúdo operacional'
+          git commit -m 'RT75 finaliza aldeia responsiva e versão estável'
           git push origin HEAD:main
