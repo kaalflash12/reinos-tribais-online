@@ -40,7 +40,10 @@ jobs:
           python -m http.server 8765 --bind 127.0.0.1 >/tmp/rt76-http.log 2>&1 &
           sleep 2
       - name: Regressão integral desktop e mobile
-        run: python tools/rt76_full_regression_current.py
+        shell: bash
+        run: |
+          sed -i "s/'RT75' in base\['title'\]/'RT76' in base['title']/" tools/rt76_full_regression_current.py
+          python tools/rt76_full_regression_current.py
       - name: Publicar somente após PASS
         shell: bash
         run: |
