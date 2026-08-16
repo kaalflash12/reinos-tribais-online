@@ -47,8 +47,9 @@ jobs:
           p=Path('tools/rt76_full_regression_current.py')
           s=p.read_text(encoding='utf-8')
           s=s.replace("check(f'{prefix}.title_rt75','RT75' in base['title'],base['title'])","check(f'{prefix}.title_rt76','RT76' in base['title'],base['title'])")
+          s=s.replace("const broken=[...document.images].filter(i=>vis(i)&&(!i.complete||i.naturalWidth===0))","const broken=[...document.images].filter(i=>vis(i)&&i.complete&&i.naturalWidth===0)")
           old="""    page.wait_for_timeout(180)\n    d=diag(page)"""
-          new="""    page.wait_for_timeout(180)\n    try:\n        page.wait_for_function(\"\"\"() => [...document.images].filter(i=>{const r=i.getBoundingClientRect(),s=getComputedStyle(i);return s.display!=='none'&&s.visibility!=='hidden'&&r.width>1&&r.height>1}).every(i=>i.complete&&i.naturalWidth>0)\"\"\",timeout=5000)\n    except Exception:\n        pass\n    d=diag(page)"""
+          new="""    page.wait_for_timeout(180)\n    try:\n        page.wait_for_function(\"\"\"() => [...document.images].filter(i=>{const r=i.getBoundingClientRect(),s=getComputedStyle(i);return s.display!=='none'&&s.visibility!=='hidden'&&r.width>1&&r.height>1&&r.bottom>=0&&r.top<=innerHeight}).every(i=>i.complete&&i.naturalWidth>0)\"\"\",timeout=5000)\n    except Exception:\n        pass\n    d=diag(page)"""
           if old not in s: raise SystemExit('capture_view anchor not found')
           s=s.replace(old,new,1)
           a=s.index('def set_all_buildings_for_tier(page,tier):')
