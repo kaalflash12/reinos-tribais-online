@@ -1,1 +1,1 @@
-2026-08-16T18:59:30Z RT76.1 aplicar plano mestre fase 0 + P1
+2026-08-16T19:22:00Z RT76.1 segunda regressão após corrigir bridge
