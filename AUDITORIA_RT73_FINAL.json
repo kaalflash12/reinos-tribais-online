@@ -1,0 +1,18 @@
+{
+  "version": "RT73",
+  "checks": {
+    "html_identical": true,
+    "title_rt73": true,
+    "version_73": true,
+    "build_73": true,
+    "rt73_marker": true,
+    "runtime_loaded": true,
+    "runtime_file": true,
+    "19_buildings": true,
+    "95_assets": true,
+    "v54_direct": true
+  },
+  "missing_assets": [],
+  "html_sha256": "584ff58350df3be7dca42d6cb809dffbf500e5e0e4dce4d85083027f72395c11",
+  "runtime_sha256": "799a7a516c7a4078c47833025479984a4011a36384dffd068e7c12dab509bd04"
+}
