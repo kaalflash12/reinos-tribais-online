@@ -21,6 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check rt76-runtime.js
+          node --check rt76-map-ai.js
           python - <<'PY'
           from pathlib import Path
           import re
@@ -60,7 +61,7 @@ jobs:
           PY
       - name: Regressão integral desktop e mobile
         run: python tools/rt76_full_regression_current.py
-      - name: Testar especificamente Central de Guerra Smart Farm Mercado e Gerente
+      - name: Testar especificamente Guerra Farm Mercado Gerente Mapa IA e API
         run: python tools/rt76_feature_e2e.py
       - name: Publicar somente após TODOS os PASS
         shell: bash
@@ -68,9 +69,9 @@ jobs:
           set -euo pipefail
           git config user.name "kaalflash12"
           git config user.email "mestrederpg35@gmail.com"
-          git add JOGAR_REINOS_TRIBAIS.html index.html rt76-runtime.js AUDITORIA_RT76_PLANO_APLICADO.json
+          git add JOGAR_REINOS_TRIBAIS.html index.html rt76-runtime.js rt76-map-ai.js AUDITORIA_RT76_PLANO_APLICADO.json
           if git diff --cached --quiet; then echo "Sem alterações"; exit 0; fi
-          git commit -m "RT76.1 integrar plano mestre e validar funções novas"
+          git commit -m "RT76.1 integrar plano mestre guerra mercado mapa IA e API"
           git push origin main
       - name: Evidências mesmo se falhar
         if: always()
