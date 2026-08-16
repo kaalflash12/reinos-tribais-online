@@ -1,1 +1,1 @@
-2026-08-16T20:02:00Z RT76.1 nona regressao + tela inicial RT76 + cleanup bridge
+2026-08-16T20:05:00Z RT76.1 decima regressao completa + entry RT76 + cleanup seguro
