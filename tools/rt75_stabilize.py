@@ -22,35 +22,43 @@ for k in KEYS:
         if not box: raise SystemExit(f'arte construída transparente: {p}')
         alpha[k][str(lvl)]=list(box)
 
-# Versão única visível.
+# Versão única visível e idempotente.
 h=re.sub(r'<title>Reinos Tribais — RT\d+[^<]*</title>','<title>Reinos Tribais — RT75 Estável</title>',h,count=1)
 h=re.sub(r'const VERSION = \d+;','const VERSION = 75;',h,count=1)
 h=re.sub(r'const RT_BUILD = "[^"]+";','const RT_BUILD = "75.0";',h,count=1)
-h=re.sub(r'\n\s*const RT74_EXECUTION_COMPLETE = true;','',h,count=1)
-h=re.sub(r'\n\s*const RT73_FINAL = true;','',h,count=1)
-h=re.sub(r'\n\s*const RT72_CONSOLIDATED = true;','',h,count=1)
-h=re.sub(r'\n\s*const RT69_FULLFIX = true;','',h,count=1)
+for name in ['RT75_STABLE','RT74_EXECUTION_COMPLETE','RT73_FINAL','RT72_CONSOLIDATED','RT69_FULLFIX']:
+    h=re.sub(r'\n\s*const '+re.escape(name)+r' = true;','',h,count=1)
 anchor='const RT_BUILD = "75.0";'
 if anchor not in h: raise SystemExit('RT_BUILD não encontrado')
 h=h.replace(anchor,anchor+'\n  const RT75_STABLE = true;',1)
-h=h.replace('Reinos Tribais — RT73 • aldeia ativa • sistemas consolidados • mapa vivo • multiplayer','Reinos Tribais — RT75 • aldeia ativa • sistemas consolidados • mapa vivo • multiplayer')
-h=h.replace('RT70 GUIADA','RT75 GUIADA').replace('RT70 • interface direta','RT75 • interface consolidada')
+# Remove rótulos visíveis de builds antigas sem renomear identificadores históricos internos.
+replacements={
+ 'Reinos Tribais — RT73 • aldeia ativa • sistemas consolidados • mapa vivo • multiplayer':'Reinos Tribais — RT75 • aldeia ativa • sistemas consolidados • mapa vivo • multiplayer',
+ 'RT73 • ALDEIA INTEGRADA • ONLINE':'RT75 • ALDEIA INTEGRADA • ONLINE',
+ 'RT73 GUIADA':'RT75 GUIADA',
+ 'RT73 • versão final':'RT75 • versão estável',
+ 'CENTRAL OPERACIONAL RT73':'CENTRAL OPERACIONAL RT75',
+ 'interface guiada RT73':'interface guiada RT75',
+ 'RT70 GUIADA':'RT75 GUIADA',
+ 'RT70 • interface direta':'RT75 • interface consolidada'
+}
+for old,new in replacements.items(): h=h.replace(old,new)
 
 # Tabela alfa calculada das artes reais.
 alpha_js=json.dumps(alpha,separators=(',',':'),ensure_ascii=False)
 root_marker="  const RT60_VILLAGE_LAYER_ROOT = 'assets/v54/buildings';"
 if root_marker not in h: raise SystemExit('root marker da aldeia ausente')
-# Remove execução anterior se reprocessar.
 h=re.sub(r'\n\s*const RT75_SPRITE_ALPHA_BBOX = \{.*?\};\n\s*const RT75_VILLAGE_RENDERER = true;','',h,count=1,flags=re.S)
 h=h.replace(root_marker,root_marker+f"\n  const RT75_SPRITE_ALPHA_BBOX = {alpha_js};\n  const RT75_VILLAGE_RENDERER = true;",1)
 h=h.replace('  const RT71_VILLAGE_SLOT_RENDERER = true;\n','',1)
 
+# Renderer RT75: a área alfa real de cada PNG é alinhada ao BBOX real do lote.
 start="    const villageLayers=layerEntries.filter(x=>x.visual.tier>0).map(({k,visual})=>{"
 pos=h.find(start)
-if pos<0: raise SystemExit('renderer antigo villageLayers não encontrado')
+if pos<0: raise SystemExit('renderer villageLayers não encontrado')
 end_marker="    }).join('');"
 end=h.find(end_marker,pos)
-if end<0: raise SystemExit('fim do renderer antigo não encontrado')
+if end<0: raise SystemExit('fim do renderer não encontrado')
 end+=len(end_marker)
 new_renderer=r'''    const villageLayers=layerEntries.filter(x=>x.visual.tier>0).map(({k,visual})=>{
       const tier=String(visual.tier||1);
@@ -67,7 +75,14 @@ new_renderer=r'''    const villageLayers=layerEntries.filter(x=>x.visual.tier>0)
     }).join('');'''
 h=h[:pos]+new_renderer+h[end:]
 
-# CSS autoritativo só para a nova classe; CSS antigo não alcança o renderer RT75.
+# Selo dentro da cena: cobre qualquer rótulo antigo já incorporado ao mapa e deixa a versão inequívoca.
+scene_tail='${villageLayers}${hotspotMarkup}</div>'
+scene_tail_new='${villageLayers}${hotspotMarkup}<span class="rt75-scene-build" aria-hidden="true">RT75 • aldeia ativa</span></div>'
+h=h.replace('${villageLayers}${hotspotMarkup}<span class="rt75-scene-build" aria-hidden="true">RT75 • aldeia ativa</span></div>',scene_tail,1)
+if scene_tail not in h: raise SystemExit('fechamento da cena não encontrado')
+h=h.replace(scene_tail,scene_tail_new,1)
+
+# CSS autoritativo somente para a nova classe. No mobile a aldeia inteira cabe na tela.
 style=r'''
 <style id="rt75-stable-village-css">
 .game-shell .village-scene>.rt75-building-art{
@@ -83,27 +98,33 @@ style=r'''
 .game-shell .village-scene>.rt54-map-layer{z-index:1!important}
 .game-shell .village-scene>.rt54-interaction-layer,.game-shell .village-scene>.rt24-scene-atmosphere{pointer-events:none!important}
 .game-shell .village-scene>.rt60-village-hitbox{z-index:700!important}
+.game-shell .village-scene>.rt75-scene-build{position:absolute!important;left:7px!important;bottom:6px!important;z-index:850!important;display:block!important;padding:3px 7px!important;border:1px solid #96752f!important;border-radius:3px!important;background:#11160ff2!important;color:#efd174!important;font:800 10px/1.2 Arial,sans-serif!important;letter-spacing:.02em!important;box-shadow:0 2px 5px #0008!important;pointer-events:none!important}
+@media(max-width:760px){
+  .game-shell .rt22-center{overflow-x:hidden!important;max-width:100%!important}
+  .game-shell .rt22-center .village-scene,.game-shell .rt22-center .rt17-village-scene{width:100%!important;max-width:100%!important;height:auto!important;min-height:0!important;aspect-ratio:1671/941!important;overflow:hidden!important}
+  .game-shell .village-scene>.rt75-scene-build{left:4px!important;bottom:4px!important;font-size:7px!important;padding:2px 4px!important}
+}
 </style>
 '''
-# Idempotência.
 h=re.sub(r'\n?<style id="rt75-stable-village-css">.*?</style>\n?','\n',h,count=1,flags=re.S)
 h=h.replace('</head>',style+'</head>',1)
 
-# Auditoria estática da build.
 checks={
- 'version': 'const VERSION = 75;' in h and 'const RT_BUILD = "75.0";' in h and 'RT75_STABLE' in h,
+ 'version': 'const VERSION = 75;' in h and 'const RT_BUILD = "75.0";' in h and h.count('const RT75_STABLE = true;')==1,
  'legacy_runtime_flags_removed': all(x not in h for x in ['const RT73_FINAL = true;','const RT72_CONSOLIDATED = true;','const RT69_FULLFIX = true;']),
  'new_renderer': 'class="rt75-building-art rt75-building-${k}"' in h,
  'inline_visible': 'display:block!important;visibility:visible!important;opacity:1!important' in h,
  'alpha_table_19': len(alpha)==19 and all(len(v)==4 for v in alpha.values()),
  'old_renderer_class_not_emitted': 'return `<img class="rt60-building-layer rt60-layer-${k}"' not in h,
+ 'mobile_fit': '@media(max-width:760px)' in style and 'width:100%!important;max-width:100%!important' in style,
+ 'scene_version_badge': 'class="rt75-scene-build"' in h and 'RT75 • aldeia ativa' in h,
+ 'visible_rt73_labels_removed': all(x not in h for x in ['RT73 • ALDEIA INTEGRADA • ONLINE','RT73 GUIADA','RT73 • versão final','CENTRAL OPERACIONAL RT73','interface guiada RT73','Reinos Tribais — RT73 • aldeia ativa']),
  'local_save_fix_preserved': 'RT74_LOCAL_AUTOSAVE' in h and 'CLOUD.worldId=null' in h,
  'ranked_rewards_preserved': 'rt74RankedPrizePanel' in h,
  'events_preserved': 'rt74EventsExecutionPanel' in h,
  'monster_exclusive_preserved': 'Monstros e drops exclusivos' in h,
 }
-if not all(checks.values()):
-    raise SystemExit('CHECK FAIL '+json.dumps(checks,ensure_ascii=False))
+if not all(checks.values()): raise SystemExit('CHECK FAIL '+json.dumps(checks,ensure_ascii=False))
 
 for p in FILES:p.write_text(h,encoding='utf-8')
 report={'build':'RT75','checks':checks,'alpha_bbox':alpha,'sha256':hashlib.sha256(h.encode()).hexdigest()}
