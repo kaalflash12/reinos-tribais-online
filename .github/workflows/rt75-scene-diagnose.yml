@@ -18,10 +18,11 @@ jobs:
         run: |
           cat >/tmp/diag.py <<'PY'
           from playwright.sync_api import sync_playwright
+          from pathlib import Path
           import json
           with sync_playwright() as pw:
             b=pw.chromium.launch(headless=True);p=b.new_page(viewport={'width':390,'height':844})
-            p.goto('http://127.0.0.1:8765/index.html?diag=1',wait_until='domcontentloaded');p.wait_for_timeout(900)
+            p.goto('http://127.0.0.1:8765/index.html?diag=2',wait_until='domcontentloaded');p.wait_for_timeout(900)
             x=p.locator('[data-play-offline]').first
             if x.count():x.click();p.wait_for_timeout(600)
             f=p.locator('#start-form')
@@ -37,11 +38,20 @@ jobs:
                 const direct=[...el.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).filter(Boolean).join(' ');
                 const txt=(el.textContent||'').trim();
                 if(/RT7[0-9]/i.test(direct)||/RT7[0-9]/i.test(before)||/RT7[0-9]/i.test(after)||(/RT7[0-9]/i.test(txt)&&el.children.length===0)){
-                  rows.push({tag:el.tagName,id:el.id,cls:el.className,direct,txt:txt.slice(0,160),before,after});
+                  const r=el.getBoundingClientRect();
+                  rows.push({tag:el.tagName,id:el.id,cls:el.className,direct,txt:txt.slice(0,200),before,after,rect:[r.x,r.y,r.width,r.height]});
                 }
               }
-              return {rows,html:scene.outerHTML.slice(0,5000)};
+              return {rows,html:scene.outerHTML};
             }''')
-            print(json.dumps(data,indent=2,ensure_ascii=False));b.close()
+            Path('scene-diagnose.json').write_text(json.dumps(data,indent=2,ensure_ascii=False),encoding='utf-8')
+            p.locator('.village-scene').first.screenshot(path='scene-diagnose.png')
+            print(json.dumps(data['rows'],indent=2,ensure_ascii=False));b.close()
           PY
           python /tmp/diag.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rt75-scene-diagnose
+          path: |
+            scene-diagnose.json
+            scene-diagnose.png
