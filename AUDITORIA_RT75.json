@@ -7,6 +7,9 @@
     "inline_visible": true,
     "alpha_table_19": true,
     "old_renderer_class_not_emitted": true,
+    "mobile_fit": true,
+    "scene_version_badge": true,
+    "visible_rt73_labels_removed": true,
     "local_save_fix_preserved": true,
     "ranked_rewards_preserved": true,
     "events_preserved": true,
@@ -508,5 +511,5 @@
       ]
     }
   },
-  "sha256": "5f6b58895205097d2d581907b42191d4e6b91481b0035832d48bd8844550d730"
+  "sha256": "0b342f9aae636efd5b0824fb722087ddc8e6c501c8467ba10c724420b40cb872"
 }
