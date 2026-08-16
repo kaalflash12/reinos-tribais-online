@@ -4,7 +4,7 @@ import re, json, hashlib
 HTMLS=[Path('JOGAR_REINOS_TRIBAIS.html'),Path('index.html')]
 bridge=Path('tools/rt76_bridge_inside.js').read_text(encoding='utf-8').strip()
 bridge=bridge.replace("const rt76ProcessScheduled=(ts=now())=>{const r=rt76Ensure();let changed=false;","const rt76ProcessScheduled=(ts=now())=>{const r=rt76Ensure();if(!r)return false;let changed=false;")
-bridge += "\n  Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,hasHeroItem});"
+bridge += "\n  Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,hasHeroItem,getVillageVisualStage});"
 
 def patch(text):
     text=re.sub(r'/\* RT76_BRIDGE_START \*/.*?/\* RT76_BRIDGE_END \*/\s*','',text,flags=re.S)
