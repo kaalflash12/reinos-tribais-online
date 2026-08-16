@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#5d3a1a">
 <meta name="description" content="Jogo de estratégia medieval independente em português, com conta e save online via Supabase.">
-<title>Reinos Tribais — RT74 Eventos & Ranked</title>
+<title>Reinos Tribais — RT75 Estável</title>
 <style>
 :root {
   --ink: #2a1a0f;
@@ -3096,6 +3096,22 @@ body.rt67-cosmetic-crimson .game-shell .rt68-nav-group button.active{background:
 .game-shell .rt74-prize-grid,.game-shell .rt74-calendar-grid,.game-shell .rt74-monster-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}.game-shell .rt74-prize,.game-shell .rt74-event-card,.game-shell .rt74-monster-card{border:1px solid #4e4329;background:#10140f;padding:11px;min-width:0}.game-shell .rt74-prize strong,.game-shell .rt74-event-card strong,.game-shell .rt74-monster-card strong{display:block;color:#ead080;margin-bottom:5px}.game-shell .rt74-prize small,.game-shell .rt74-event-card small,.game-shell .rt74-monster-card small{display:block;color:#91886f;line-height:1.45}.game-shell .rt74-tag{display:inline-flex;align-items:center;padding:3px 7px;margin:0 4px 5px 0;border:1px solid #68552b;border-radius:999px;background:#1b1b12;color:#d9bd72;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em}.game-shell .rt74-tag.seasonal{border-color:#806528;color:#f0ce6d}.game-shell .rt74-tag.boss{border-color:#7d3d32;color:#ef9c8d}.game-shell .rt74-reward-line{margin-top:7px;color:#d8c69d;font-size:12px;line-height:1.45}.game-shell .rt74-ability{display:inline-block;margin:2px;padding:3px 6px;border:1px solid #3d4b32;background:#111912;color:#9fcb8f;font-size:10px}.game-shell .rt74-empty{padding:14px;border:1px dashed #4b432e;color:#8f876f}.game-shell #rt74-local-save-status{position:fixed;right:12px;bottom:12px;z-index:9999;padding:7px 10px;border:1px solid #657041;background:#10170fee;color:#b8dc8f;font:700 11px system-ui;box-shadow:0 4px 14px #0008;pointer-events:none}
 @media(max-width:760px){.game-shell .rt74-prize-grid,.game-shell .rt74-calendar-grid,.game-shell .rt74-monster-grid{grid-template-columns:1fr}.game-shell .rt74-extra-panel{padding:10px}.game-shell #rt74-local-save-status{right:6px;bottom:6px}}
 </style>
+
+<style id="rt75-stable-village-css">
+.game-shell .village-scene>.rt75-building-art{
+  display:block!important;visibility:visible!important;opacity:1!important;position:absolute!important;
+  max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;
+  object-position:0 0!important;transform:none!important;clip-path:none!important;
+  filter:drop-shadow(0 4px 4px rgba(5,7,4,.38))!important;
+  image-rendering:auto!important;pointer-events:none!important;
+}
+.game-shell .village-scene>.rt75-building-wall{filter:drop-shadow(0 3px 3px rgba(5,7,4,.30))!important}
+.game-shell .village-scene>.rt75-building-main{filter:drop-shadow(0 5px 5px rgba(5,7,4,.42))!important}
+.game-shell .village-scene>.rt60-building-layer{display:none!important}
+.game-shell .village-scene>.rt54-map-layer{z-index:1!important}
+.game-shell .village-scene>.rt54-interaction-layer,.game-shell .village-scene>.rt24-scene-atmosphere{pointer-events:none!important}
+.game-shell .village-scene>.rt60-village-hitbox{z-index:700!important}
+</style>
 </head>
 <body>
 <noscript>Este jogo precisa do JavaScript ativado no navegador.</noscript>
@@ -3181,12 +3197,9 @@ window.GAME_DATA = (() => {
   const D = window.GAME_DATA;
   let SAVE_KEY = 'reinos_tribais_ptbr_save_v60_local';
   const LEGACY_SAVE_KEYS = ['reinos_tribais_ptbr_save_v59_local','reinos_tribais_ptbr_save_v58_local','reinos_tribais_ptbr_save_v57_local','reinos_tribais_ptbr_save_v56_local','reinos_tribais_ptbr_save_v55_local','reinos_tribais_ptbr_save_v40','reinos_tribais_ptbr_save_v38','reinos_tribais_ptbr_save_v37','reinos_tribais_ptbr_save_v36','reinos_tribais_ptbr_save_v35','reinos_tribais_ptbr_save_v34','reinos_tribais_ptbr_save_v33','reinos_tribais_ptbr_save_v32','reinos_tribais_ptbr_save_v31','reinos_tribais_ptbr_save_v30','reinos_tribais_ptbr_save_v29','reinos_tribais_ptbr_save_v28','reinos_tribais_ptbr_save_v27','reinos_tribais_ptbr_save_v26','reinos_tribais_ptbr_save_v25','reinos_tribais_ptbr_save_v24','reinos_tribais_ptbr_save_v23','reinos_tribais_ptbr_save_v22','reinos_tribais_ptbr_save_v21','reinos_tribais_ptbr_save_v20','reinos_tribais_ptbr_save_v19','reinos_tribais_ptbr_save_v18','reinos_tribais_ptbr_save_v17'];
-  const VERSION = 74;
-  const RT_BUILD = "74.0";
-  const RT74_EXECUTION_COMPLETE = true;
-  const RT73_FINAL = true;
-  const RT72_CONSOLIDATED = true;
-  const RT69_FULLFIX = true;
+  const VERSION = 75;
+  const RT_BUILD = "75.0";
+  const RT75_STABLE = true;
   const RT60_VILLAGE_LAYER_VERSION = "RT61_AUDITED_FIXED_LAYERS_EMPTY_L0_WORLD_BOSSES";
   const RESOURCE_KEYS = ['wood', 'clay', 'iron'];
   const RESOURCE_NAMES = { wood: 'Madeira', clay: 'Argila', iron: 'Ferro' };
@@ -3374,7 +3387,8 @@ const HERO_SET_BONUSES = {
   const RT60_VILLAGE_SCENE_SIZE = { width:1671, height:941 };
   const RT60_VILLAGE_BBOX = {"church":{"0":[717,75,867,198],"1":[734,78,850,194],"2":[722,55,862,194],"3":[712,25,873,194],"4":[698,7,885,194]},"academy":{"0":[994,84,1150,213],"1":[1025,91,1120,208],"2":[1015,63,1128,208],"3":[1006,35,1139,208],"4":[998,14,1146,208]},"timber":{"0":[405,138,541,250],"1":[400,145,544,246],"2":[387,122,559,246],"3":[404,117,539,248],"4":[388,88,558,248]},"stable":{"0":[1241,134,1386,253],"1":[1256,141,1372,249],"2":[1244,118,1382,249],"3":[1231,84,1395,249],"4":[1220,68,1405,249]},"rally":{"0":[685,180,830,299],"1":[687,186,827,294],"2":[676,161,838,294],"3":[660,130,854,294],"4":[649,115,866,294]},"farm":{"0":[1417,237,1572,364],"1":[1414,247,1576,359],"2":[1394,219,1596,359],"3":[1391,182,1598,360],"4":[1376,169,1614,359]},"main":{"0":[890,226,1054,360],"1":[916,230,1026,356],"2":[908,202,1034,355],"3":[896,182,1047,356],"4":[890,151,1054,356]},"barracks":{"0":[1151,262,1301,385],"1":[1168,268,1285,381],"2":[1154,242,1296,381],"3":[1142,212,1311,381],"4":[1130,194,1322,381]},"first_church":{"0":[311,296,429,393],"1":[326,299,414,391],"2":[316,281,425,391],"3":[306,255,433,391],"4":[296,240,443,391]},"market":{"0":[526,279,671,398],"1":[536,285,660,393],"2":[526,260,670,393],"3":[512,236,685,393],"4":[500,214,696,393]},"clay":{"0":[221,413,357,525],"1":[215,420,363,521],"2":[200,397,379,521],"3":[218,390,362,523],"4":[203,363,376,523]},"iron":{"0":[1050,430,1191,546],"1":[1051,442,1189,542],"2":[1036,421,1205,542],"3":[1021,382,1221,542],"4":[1006,368,1236,542]},"warehouse":{"0":[482,450,627,569],"1":[503,456,606,565],"2":[493,431,615,565],"3":[482,400,626,565],"4":[472,384,636,565]},"smith":{"0":[691,528,819,633],"1":[711,532,798,630],"2":[702,510,809,630],"3":[692,483,816,630],"4":[681,469,829,630]},"garage":{"0":[1304,542,1440,654],"1":[1322,546,1422,651],"2":[1315,530,1429,650],"3":[1304,496,1439,651],"4":[1296,481,1448,651]},"hide":{"0":[404,638,530,741],"1":[400,645,535,737],"2":[380,625,554,737],"3":[385,621,549,739],"4":[372,595,562,739]},"wall":{"0":[238,671,366,777],"1":[244,674,362,773],"2":[233,652,371,773],"3":[220,626,384,773],"4":[218,613,387,773]},"statue":{"0":[769,377,863,454],"1":[788,378,845,453],"2":[788,361,845,453],"3":[786,341,846,453],"4":[785,332,847,453]},"watchtower":{"0":[1474,76,1558,145],"1":[1501,75,1536,141],"2":[1500,62,1539,141],"3":[1500,45,1542,141],"4":[1488,36,1545,141]}};
   const RT60_VILLAGE_LAYER_ROOT = 'assets/v54/buildings';
-  const RT71_VILLAGE_SLOT_RENDERER = true;
+  const RT75_SPRITE_ALPHA_BBOX = {"main":{"1":[155,171,324,363],"2":[143,126,336,363],"3":[124,95,356,363],"4":[113,45,366,363]},"timber":{"1":[109,180,370,359],"2":[82,137,398,359],"3":[113,128,367,365],"4":[78,73,401,365]},"clay":{"1":[105,178,375,359],"2":[76,137,404,359],"3":[104,124,375,365],"4":[79,73,401,365]},"iron":{"1":[117,187,362,362],"2":[88,149,392,362],"3":[60,77,420,362],"4":[33,50,447,362]},"farm":{"1":[109,184,371,359],"2":[78,136,402,359],"3":[72,75,407,365],"4":[46,53,433,365]},"warehouse":{"1":[152,175,328,363],"2":[134,131,345,363],"3":[114,76,365,363],"4":[97,47,382,363]},"market":{"1":[132,174,347,363],"2":[113,131,366,363],"3":[89,86,391,363],"4":[67,47,413,363]},"hide":{"1":[107,183,373,359],"2":[68,144,412,359],"3":[76,134,404,365],"4":[50,82,430,365]},"barracks":{"1":[143,174,337,363],"2":[120,130,359,363],"3":[97,77,383,363],"4":[77,47,402,363]},"stable":{"1":[140,178,340,363],"2":[120,135,359,363],"3":[97,76,382,363],"4":[78,47,401,363]},"garage":{"1":[147,171,332,363],"2":[134,142,345,363],"3":[116,77,364,363],"4":[98,48,381,363]},"smith":{"1":[155,174,324,363],"2":[136,130,343,363],"3":[119,76,361,363],"4":[93,47,387,363]},"academy":{"1":[165,171,315,363],"2":[150,126,329,363],"3":[133,81,346,363],"4":[121,47,359,363]},"statue":{"1":[167,171,313,363],"2":[167,126,313,363],"3":[164,72,316,363],"4":[161,45,318,363]},"rally":{"1":[118,175,361,362],"2":[98,131,382,362],"3":[71,75,409,362],"4":[50,48,429,362]},"wall":{"1":[126,173,354,362],"2":[106,128,372,362],"3":[80,75,400,361],"4":[74,48,405,361]},"watchtower":{"1":[205,163,299,350],"2":[205,122,307,350],"3":[201,74,317,350],"4":[158,46,323,350]},"first_church":{"1":[147,173,332,363],"2":[126,135,354,363],"3":[108,79,372,363],"4":[84,47,395,363]},"church":{"1":[143,170,336,363],"2":[121,130,359,363],"3":[103,77,376,363],"4":[81,47,398,363]}};
+  const RT75_VILLAGE_RENDERER = true;
 
 
 
@@ -6969,7 +6983,7 @@ function tick() {
             </div>
           </section>
         </div>
-        <div class="footer-note">Reinos Tribais — RT73 • aldeia ativa • sistemas consolidados • mapa vivo • multiplayer</div>
+        <div class="footer-note">Reinos Tribais — RT75 • aldeia ativa • sistemas consolidados • mapa vivo • multiplayer</div>
       </div>
       ${modalHtml}
       <div class="toast-stack" id="toast-stack"></div>`;
@@ -7246,12 +7260,17 @@ function renderView() {
     const villageVisual=getVillageVisualStage(v), builtCount=Object.values(v.buildings).filter(level=>level>0).length;
     const layerEntries=hotspots.map(([k,,y])=>{const visual=getBuildingVisual(v,k);return {k,y,visual};}).sort((a,b)=>a.y-b.y);
     const villageLayers=layerEntries.filter(x=>x.visual.tier>0).map(({k,visual})=>{
-      const tier=String(visual.tier||1),box=RT60_VILLAGE_BBOX[k]?.[tier]||RT60_VILLAGE_BBOX[k]?.['1']||RT60_VILLAGE_BBOX[k]?.['0'];
-      const [x1,y1,x2,y2]=box;
-      const left=x1/RT60_VILLAGE_SCENE_SIZE.width*100, top=y1/RT60_VILLAGE_SCENE_SIZE.height*100;
-      const width=(x2-x1)/RT60_VILLAGE_SCENE_SIZE.width*100, height=(y2-y1)/RT60_VILLAGE_SCENE_SIZE.height*100;
+      const tier=String(visual.tier||1);
+      const target=RT60_VILLAGE_BBOX[k]?.[tier]||RT60_VILLAGE_BBOX[k]?.['1'];
+      const alpha=RT75_SPRITE_ALPHA_BBOX[k]?.[tier];
+      if(!target||!alpha)return '';
+      const [x1,y1,x2,y2]=target,[ax1,ay1,ax2,ay2]=alpha;
+      const scaleX=(x2-x1)/Math.max(1,ax2-ax1),scaleY=(y2-y1)/Math.max(1,ay2-ay1);
+      const fullLeft=x1-ax1*scaleX,fullTop=y1-ay1*scaleY,fullWidth=480*scaleX,fullHeight=400*scaleY;
+      const left=fullLeft/RT60_VILLAGE_SCENE_SIZE.width*100,top=fullTop/RT60_VILLAGE_SCENE_SIZE.height*100;
+      const width=fullWidth/RT60_VILLAGE_SCENE_SIZE.width*100,height=fullHeight/RT60_VILLAGE_SCENE_SIZE.height*100;
       const depth=20+Math.round(y2/RT60_VILLAGE_SCENE_SIZE.height*300);
-      return `<img class="rt60-building-layer rt60-layer-${k}" data-village-building="${k}" data-village-tier="${tier}" src="${RT60_VILLAGE_LAYER_ROOT}/${k}_l${visual.tier}.png" alt="${escapeHtml(D.buildings[k]?.name||k)}" style="left:${left}%;top:${top}%;width:${width}%;height:${height}%;z-index:${depth}!important" draggable="false">`;
+      return `<img class="rt75-building-art rt75-building-${k}" data-village-building="${k}" data-village-tier="${tier}" data-alpha-bbox="${alpha.join(',')}" data-target-bbox="${target.join(',')}" src="${RT60_VILLAGE_LAYER_ROOT}/${k}_l${visual.tier}.png" alt="${escapeHtml(D.buildings[k]?.name||k)}" style="display:block!important;visibility:visible!important;opacity:1!important;position:absolute!important;left:${left}%;top:${top}%;width:${width}%;height:${height}%;object-fit:fill!important;z-index:${depth}!important;pointer-events:none!important" draggable="false">`;
     }).join('');
     const hotspotMarkup=layerEntries.map(({k,visual})=>{
       const def=D.buildings[k],tier=String(visual.tier||0),box=RT60_VILLAGE_BBOX[k]?.[tier]||RT60_VILLAGE_BBOX[k]?.['0'];
