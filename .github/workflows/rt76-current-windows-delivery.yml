@@ -20,8 +20,10 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $commit = (git rev-parse HEAD).Trim()
-          $html = Join-Path $env:GITHUB_WORKSPACE 'JOGAR_REINOS_TRIBAIS.html'
-          $sha = (Get-FileHash $html -Algorithm SHA256).Hash.ToLowerInvariant()
+          $auditPath = Join-Path $env:GITHUB_WORKSPACE 'AUDITORIA_RT76_PLANO_APLICADO.json'
+          $audit = Get-Content -LiteralPath $auditPath -Raw | ConvertFrom-Json
+          $sha = [string]$audit.patched_html_sha256
+          if($sha -notmatch '^[0-9a-f]{64}$') { throw "Canonical HTML SHA invalid: $sha" }
           $src = Join-Path $env:GITHUB_WORKSPACE 'tools\RT76_INSTALADOR_FINAL_WINDOWS.ps1'
           $dst = Join-Path $env:RUNNER_TEMP 'RT76_INSTALAR_ATUAL_TESTADO.ps1'
           $lines = [IO.File]::ReadAllLines($src,[Text.Encoding]::UTF8)
@@ -36,7 +38,7 @@ jobs:
           "COMMIT=$commit" | Set-Content "$env:RUNNER_TEMP\pin.txt"
           "HTML_SHA=$sha" | Add-Content "$env:RUNNER_TEMP\pin.txt"
           Write-Host "Pinned commit $commit"
-          Write-Host "Pinned HTML $sha"
+          Write-Host "Canonical archive HTML $sha"
 
       - name: Parser Windows PowerShell 5.1
         shell: powershell
