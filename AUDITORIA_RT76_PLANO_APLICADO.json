@@ -1,0 +1,24 @@
+{
+  "build": "RT76.1",
+  "source_html_sha256": "3a1942edee3ddde4d22d1d4b4c187fb18a0c393020c263cc55e7690018a9a6da",
+  "patched_html_sha256": "9c9a34f0b1feae29d421475f43f98ed235abe94d72c37c87f97917b002f707e8",
+  "implemented": {
+    "phase0_regression_gate": true,
+    "central_war_scheduled_arrival": true,
+    "smart_farm_target_memory": true,
+    "incoming_intel_panel": true,
+    "market2_real_trade_equalization": true,
+    "manager2_research_scavenge_log": true,
+    "empire_multi_village_view": true,
+    "legacy_rt73_runtime_removed": true,
+    "manager_resource_teleport_removed": true,
+    "rt76_test_bridge": true,
+    "scheduler_null_guard": true
+  },
+  "not_claimed_complete": [
+    "full Supabase transactional P0",
+    "entire admin redesign",
+    "all 15 master-plan phases",
+    "all historical requirements"
+  ]
+}
