@@ -21,6 +21,7 @@ VISIBLE_VERSION_REPLACEMENTS={
 }
 
 EXPOSE_LINE='Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,hasHeroItem,getVillageVisualStage});'
+ANCHOR_LINE="window.addEventListener('beforeunload', () => saveState(true));"
 
 def patch(text):
     text=re.sub(r'/\* RT76_BRIDGE_START \*/.*?/\* RT76_BRIDGE_END \*/\s*','',text,flags=re.S)
@@ -35,9 +36,9 @@ def patch(text):
         text=text.replace(old,new)
     text=re.sub(r'\s*<script src="rt73-village-runtime\.js\?v=73"></script>','',text)
     text=re.sub(r"\s*if\(managedVillages\.length>1\)\{ RESOURCE_KEYS\.forEach\(resource=>\{.*?\}\); \}\s*",'\n    /* RT76: recursos entre aldeias usam remessas reais do Mercado 2.0; sem teletransporte. */\n',text,flags=re.S)
-    anchor="  window.addEventListener('beforeunload', () => saveState(true));"
-    if anchor not in text: raise RuntimeError('ancora beforeunload nao encontrada')
-    text=text.replace(anchor,bridge+'\n\n'+anchor,1)
+    anchor_re=r'^[ \t]*'+re.escape(ANCHOR_LINE)+r'[ \t]*$'
+    if not re.search(anchor_re,text,flags=re.M): raise RuntimeError('ancora beforeunload nao encontrada')
+    text=re.sub(anchor_re,bridge+'\n\n  '+ANCHOR_LINE,text,count=1,flags=re.M)
     runtime='\n<script src="rt76-runtime.js?v=76.1"></script>\n<script src="rt76-map-ai.js?v=76.1"></script>\n'
     text=re.sub(r'\s*<script src="rt76-runtime\.js\?v=76\.1"></script>\s*<script src="rt76-map-ai\.js\?v=76\.1"></script>\s*','\n',text)
     text=re.sub(r'\s*<script src="rt76-runtime\.js\?v=76\.1"></script>\s*','\n',text)
@@ -54,6 +55,7 @@ assert a==b
 required=['Reinos Tribais — RT76 Integrado','RT76 • ONLINE • ADMIN DIRETO + RECOVERY + 19 MENUS','const VERSION = 76;','const RT_BUILD = "76.1";','const RT76_PLAN = true;','RT76_BRIDGE_START','window.__RT76_PLAN_APPLIED__=true','RT76_WAVE2_START','window.__RT76_WAVE2_APPLIED__=true','rt76-runtime.js?v=76.1','rt76-map-ai.js?v=76.1','sem teletransporte','Central de Sistemas RT76','RT76 • aldeia ativa']
 for x in required: assert x in a,x
 assert a.count(EXPOSE_LINE)==1, a.count(EXPOSE_LINE)
+assert a.count(ANCHOR_LINE)==1, a.count(ANCHOR_LINE)
 assert 'rt73-village-runtime.js?v=73' not in a
 for forbidden in ['RT70 • ONLINE • ADMIN DIRETO + RECOVERY + 19 MENUS','Central de Sistemas RT69','CENTRAL OPERACIONAL RT75','interface guiada RT75','RT75 GUIADA','RT75 • ALDEIA INTEGRADA • ONLINE','Reinos Tribais — RT75 • aldeia ativa']:
     assert forbidden not in a,forbidden
