@@ -1,7 +1,7 @@
 {
   "build": "RT76.1",
-  "source_html_sha256": "9c9a34f0b1feae29d421475f43f98ed235abe94d72c37c87f97917b002f707e8",
-  "patched_html_sha256": "4ab4dec7bfd7fcc4681946b0bbf574867c6648274a35120191d17e0eefb26a51",
+  "source_html_sha256": "4ab4dec7bfd7fcc4681946b0bbf574867c6648274a35120191d17e0eefb26a51",
+  "patched_html_sha256": "07f50f39569fdf2b68f384cf10799c8638e9725ccc09c01920b4a3d151d697a4",
   "implemented": {
     "phase0_regression_gate": true,
     "central_war_scheduled_arrival": true,
@@ -14,7 +14,11 @@
     "manager_resource_teleport_removed": true,
     "rt76_test_bridge": true,
     "scheduler_null_guard": true,
-    "visible_old_version_labels_removed": true
+    "visible_old_version_labels_removed": true,
+    "unified_action_api": true,
+    "map_intelligence_scan_selection": true,
+    "ai_activity_observer": true,
+    "map_ai_ui": true
   },
   "not_claimed_complete": [
     "full Supabase transactional P0",
