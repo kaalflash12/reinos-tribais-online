@@ -80,7 +80,7 @@ try{
   if($SG -ne $ExpectedHtmlSha -or $SI -ne $ExpectedHtmlSha){ throw "SHA HTML incorreto: jogo=$SG index=$SI" }
   $H=[IO.File]::ReadAllText($TG)
   @(
-    '<title>Reinos Tribais — RT75 Estável</title>',
+    '<title>Reinos Tribais',
     'const VERSION = 75;',
     'const RT_BUILD = "75.0";',
     'const RT75_STABLE = true;',
@@ -100,19 +100,19 @@ try{
   if((Get-FileHash $Index -Algorithm SHA256).Hash.ToLowerInvariant() -ne $ExpectedHtmlSha){ throw 'index local divergiu.' }
   Pass 'HTMLs instalados byte-a-byte.'
 
-  Info '4/7 Validando/reparando 95 PNGs dos prédios...'
+  Info '4/7 Validando/reparando 95 PNGs dos predios...'
   $n=0
   foreach($b in $Buildings){
     foreach($lvl in 0..4){
       $rel="assets/v54/buildings/${b}_l${lvl}.png"
       $local=Join-Path $Root ($rel -replace '/','\')
       if(-not (TestPng $local 480 400)){ Download "$Raw/$rel" $local }
-      if(-not (TestPng $local 480 400)){ throw "PNG inválido: $rel" }
+      if(-not (TestPng $local 480 400)){ throw "PNG invalido: $rel" }
       $n++
     }
   }
   if($n -ne 95){ throw "Contagem PNG: $n/95" }
-  Pass '95/95 PNGs válidos em 480x400; L0 de 824 bytes é aceito.'
+  Pass '95/95 PNGs validos em 480x400; L0 de 824 bytes e aceito.'
 
   Info '5/7 Validando/reparando mapas...'
   foreach($rel in @(
@@ -122,11 +122,11 @@ try{
   )){
     $local=Join-Path $Root ($rel -replace '/','\')
     if(-not (TestPng $local)){ Download "$Raw/$rel" $local }
-    if(-not (TestPng $local)){ throw "Mapa PNG inválido: $rel" }
+    if(-not (TestPng $local)){ throw "Mapa PNG invalido: $rel" }
   }
-  Pass '4 mapas + overlay válidos.'
+  Pass '4 mapas + overlay validos.'
 
-  Info '6/7 Gravando relatório local...'
+  Info '6/7 Gravando relatorio local...'
   $report=[ordered]@{
     build='RT75'; installer='V3_WINDOWS'; commit=$Commit; html_sha256=$ExpectedHtmlSha
     html_ok=$true; building_png='95/95'; maps='4/4 + overlay'
@@ -134,9 +134,9 @@ try{
     installed_at=(Get-Date).ToString('s'); root=$Root
   }
   $report | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $Audit 'EXECUCAO_RT75_V3.json') -Encoding UTF8
-  Pass 'Relatório gravado.'
+  Pass 'Relatorio gravado.'
 
-  Info '7/7 Finalização...'
+  Info '7/7 Finalizacao...'
   if(-not $NoShortcut){
     try{
       $desktop=[Environment]::GetFolderPath('Desktop')
@@ -146,7 +146,7 @@ try{
         $lnk.TargetPath=$Game; $lnk.WorkingDirectory=$Root; $lnk.Description='Reinos Tribais RT75'
         $lnk.Save()
       }
-    } catch { Warn "Atalho não criado: $($_.Exception.Message)" }
+    } catch { Warn "Atalho nao criado: $($_.Exception.Message)" }
   }
 
   Remove-Item $Tmp -Recurse -Force -ErrorAction SilentlyContinue
@@ -159,7 +159,7 @@ try{
         $uri=(New-Object System.Uri($Game)).AbsoluteUri+'?rt75v3='+[DateTime]::UtcNow.Ticks
         Start-Process $chrome -ArgumentList @('--new-window','--disable-application-cache',$uri)
       } else { Start-Process $Game }
-    } catch { Warn "Jogo instalado, mas não consegui abrir automaticamente: $($_.Exception.Message)" }
+    } catch { Warn "Jogo instalado, mas nao consegui abrir automaticamente: $($_.Exception.Message)" }
   }
 
   Write-Host ''
@@ -169,7 +169,7 @@ try{
 catch{
   Write-Host ''
   Write-Host "[ERRO] $($_.Exception.Message)" -ForegroundColor Red
-  Write-Host 'A instalação não foi marcada como concluída.' -ForegroundColor Yellow
+  Write-Host 'A instalacao nao foi marcada como concluida.' -ForegroundColor Yellow
   if(-not $NoPrompt){ Read-Host 'Pressione ENTER para fechar' | Out-Null }
   exit 1
 }
