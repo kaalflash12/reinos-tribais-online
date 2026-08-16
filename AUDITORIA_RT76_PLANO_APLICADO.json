@@ -1,7 +1,7 @@
 {
   "build": "RT76.1",
-  "source_html_sha256": "4ab4dec7bfd7fcc4681946b0bbf574867c6648274a35120191d17e0eefb26a51",
-  "patched_html_sha256": "07f50f39569fdf2b68f384cf10799c8638e9725ccc09c01920b4a3d151d697a4",
+  "source_html_sha256": "07f50f39569fdf2b68f384cf10799c8638e9725ccc09c01920b4a3d151d697a4",
+  "patched_html_sha256": "f522cf13f16ee9da6b7be0c259e758a729b8a93295d5b49d432d424fee785405",
   "implemented": {
     "phase0_regression_gate": true,
     "central_war_scheduled_arrival": true,
@@ -15,6 +15,8 @@
     "rt76_test_bridge": true,
     "scheduler_null_guard": true,
     "visible_old_version_labels_removed": true,
+    "entry_rt76_label": true,
+    "bridge_duplicate_cleanup": true,
     "unified_action_api": true,
     "map_intelligence_scan_selection": true,
     "ai_activity_observer": true,
