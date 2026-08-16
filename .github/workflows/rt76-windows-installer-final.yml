@@ -1,0 +1,142 @@
+name: RT76 Windows Installer Final
+
+on:
+  push:
+    paths:
+      - 'rt76-windows-test-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parser Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $script = Join-Path $env:GITHUB_WORKSPACE 'tools\RT76_INSTALADOR_FINAL_WINDOWS.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($script,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host $_.Message -ForegroundColor Red }
+            throw "PowerShell parser found $($errors.Count) error(s)."
+          }
+          Write-Host "PASS: Windows PowerShell parser"
+          $PSVersionTable.PSVersion.ToString() | Set-Content "$env:RUNNER_TEMP\PS_VERSION.txt"
+
+      - name: Instalacao limpa com o PS1 real
+        shell: powershell
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'RT76_INSTALL_TEST'
+          Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          Set-Content -LiteralPath (Join-Path $root 'rt73-village-runtime.js') -Value 'legacy should be removed'
+          $ps51 = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+          $script = Join-Path $env:GITHUB_WORKSPACE 'tools\RT76_INSTALADOR_FINAL_WINDOWS.ps1'
+          & $ps51 -NoProfile -ExecutionPolicy Bypass -File $script -RootOverride $root -NoOpen -NoShortcut -NoPrompt
+          if($LASTEXITCODE -ne 0) { throw "Installer clean run failed: $LASTEXITCODE" }
+          $sha = (Get-FileHash (Join-Path $root 'JOGAR_REINOS_TRIBAIS.html') -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($sha -ne '07f50f39569fdf2b68f384cf10799c8638e9725ccc09c01920b4a3d151d697a4') { throw "HTML SHA mismatch: $sha" }
+          if(Test-Path (Join-Path $root 'rt73-village-runtime.js')) { throw 'Legacy runtime was not removed.' }
+          foreach($f in @('index.html','rt76-runtime.js','rt76-map-ai.js','JOGAR_RT76.cmd','AUDITORIA_RT76_FINAL\INSTALACAO_RT76_FINAL.json')) {
+            if(-not (Test-Path (Join-Path $root $f))) { throw "Missing installed file: $f" }
+          }
+          $pngs = Get-ChildItem (Join-Path $root 'assets\v54\buildings') -Filter '*.png' -File
+          if($pngs.Count -ne 95) { throw "Building PNG count: $($pngs.Count)" }
+          Write-Host 'PASS: clean installation, pinned SHA, 95 building PNGs, legacy runtime removed'
+
+      - name: Corromper L0 e provar reparo
+        shell: powershell
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'RT76_INSTALL_TEST'
+          $l0 = Join-Path $root 'assets\v54\buildings\academy_l0.png'
+          [IO.File]::WriteAllBytes($l0,[byte[]](1,2,3,4,5,6,7,8))
+          if((Get-Item $l0).Length -ne 8) { throw 'Could not corrupt test PNG.' }
+          $ps51 = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+          $script = Join-Path $env:GITHUB_WORKSPACE 'tools\RT76_INSTALADOR_FINAL_WINDOWS.ps1'
+          & $ps51 -NoProfile -ExecutionPolicy Bypass -File $script -RootOverride $root -NoOpen -NoShortcut -NoPrompt
+          if($LASTEXITCODE -ne 0) { throw "Repair run failed: $LASTEXITCODE" }
+          $b = [IO.File]::ReadAllBytes($l0)
+          if($b.Length -lt 24 -or $b[0] -ne 137 -or $b[1] -ne 80 -or $b[2] -ne 78 -or $b[3] -ne 71) { throw 'academy_l0.png was not repaired to PNG.' }
+          $w = [System.Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($b,16))
+          $h = [System.Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($b,20))
+          if($w -ne 480 -or $h -ne 400) { throw "Repaired L0 dimensions: ${w}x${h}" }
+          Write-Host "PASS: corrupted academy_l0 repaired, ${w}x${h}, $($b.Length) bytes"
+
+      - name: Terceira execucao idempotente
+        shell: powershell
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'RT76_INSTALL_TEST'
+          $before = (Get-FileHash (Join-Path $root 'JOGAR_REINOS_TRIBAIS.html') -Algorithm SHA256).Hash.ToLowerInvariant()
+          $ps51 = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+          $script = Join-Path $env:GITHUB_WORKSPACE 'tools\RT76_INSTALADOR_FINAL_WINDOWS.ps1'
+          & $ps51 -NoProfile -ExecutionPolicy Bypass -File $script -RootOverride $root -NoOpen -NoShortcut -NoPrompt
+          if($LASTEXITCODE -ne 0) { throw "Idempotent run failed: $LASTEXITCODE" }
+          $after = (Get-FileHash (Join-Path $root 'JOGAR_REINOS_TRIBAIS.html') -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($before -ne $after) { throw "HTML changed on third run: $before -> $after" }
+          Write-Host 'PASS: third run idempotent'
+
+      - name: Abrir copia instalada no Edge do Windows
+        shell: powershell
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'RT76_INSTALL_TEST'
+          $server = Start-Process -FilePath python -ArgumentList @('-m','http.server','8766','--bind','127.0.0.1','--directory',$root) -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 2
+          try {
+            $edge = @(
+              "$env:ProgramFiles(x86)\Microsoft\Edge\Application\msedge.exe",
+              "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+              "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+              "$env:ProgramFiles(x86)\Google\Chrome\Application\chrome.exe"
+            ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+            if(-not $edge) { throw 'Edge/Chrome not found on windows-latest.' }
+            $shot = Join-Path $env:RUNNER_TEMP 'RT76_WINDOWS_OPEN.png'
+            $url = 'http://127.0.0.1:8766/index.html?windows-installer-test=1'
+            $args = @('--headless','--disable-gpu','--hide-scrollbars','--window-size=1600,1000',"--screenshot=$shot",$url)
+            $p = Start-Process -FilePath $edge -ArgumentList $args -Wait -PassThru
+            if($p.ExitCode -ne 0) { throw "Browser exit code $($p.ExitCode)" }
+            if(-not (Test-Path $shot) -or (Get-Item $shot).Length -lt 10000) { throw 'Windows browser screenshot was not created.' }
+            Write-Host "PASS: installed build opened in Windows browser; screenshot $((Get-Item $shot).Length) bytes"
+          } finally {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Gerar prova Windows
+        shell: powershell
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'RT76_INSTALL_TEST'
+          $l0 = Join-Path $root 'assets\v54\buildings\academy_l0.png'
+          $proof = [ordered]@{
+            ok = $true
+            os = (Get-CimInstance Win32_OperatingSystem).Caption
+            powershell = (& "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')
+            commit = '09ed62b71d1ecfaba363bb033e1043c9038187ae'
+            html_sha256 = (Get-FileHash (Join-Path $root 'JOGAR_REINOS_TRIBAIS.html') -Algorithm SHA256).Hash.ToLowerInvariant()
+            parser = 'PASS'
+            clean_install = 'PASS'
+            corrupted_l0_repair = 'PASS'
+            idempotent_reinstall = 'PASS'
+            windows_browser_open = 'PASS'
+            academy_l0_bytes = (Get-Item $l0).Length
+            building_png = '95/95'
+            cloudflare = 'NOT_USED'
+            docker = 'NOT_REQUIRED'
+            git_for_installer = 'NOT_REQUIRED'
+          }
+          $proof | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\PROVA_WINDOWS_RT76_FINAL.json"
+          Get-Content "$env:RUNNER_TEMP\PROVA_WINDOWS_RT76_FINAL.json"
+
+      - name: Upload prova Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT76_WINDOWS_FINAL_PROOF
+          path: |
+            ${{ runner.temp }}\PROVA_WINDOWS_RT76_FINAL.json
+            ${{ runner.temp }}\RT76_WINDOWS_OPEN.png
+            ${{ runner.temp }}\RT76_INSTALL_TEST\AUDITORIA_RT76_FINAL\INSTALACAO_RT76_FINAL.json
+          if-no-files-found: error
