@@ -112,7 +112,7 @@ function Prune-DevFiles([string]$Root) {
     if (Test-Path -LiteralPath $devDir) { Remove-Item -LiteralPath $devDir -Recurse -Force }
 
     Get-ChildItem -LiteralPath $Root -File -ErrorAction SilentlyContinue | Where-Object {
-        $_.Name -match '^rt(58|59|6[0-9]|7[0-2]).*trigger\.txt$' -or
+        $_.Name -match '^rt[0-9]+[a-z]?-.*trigger\.txt$' -or
         $_.Name -match '^AUDITORIA_(HOTFIX_)?RT(58|59|6[0-9]|7[0-2]).*\.(json|txt)$' -or
         $_.Name -match '^LEIA_PRIMEIRO_RT(58|59|6[0-9]|7[0-2]).*\.txt$' -or
         $_.Name -match '^rt(69|70|71|72)-.*\.(patch|b64|txt)$'
