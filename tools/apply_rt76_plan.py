@@ -34,9 +34,11 @@ def patch(text):
     anchor="  window.addEventListener('beforeunload', () => saveState(true));"
     if anchor not in text: raise RuntimeError('âncora beforeunload não encontrada')
     text=text.replace(anchor,bridge+'\n\n'+anchor,1)
-    runtime='\n<script src="rt76-runtime.js?v=76.1"></script>\n'
-    if 'rt76-runtime.js?v=76.1' not in text:
-        text=text.replace('</body>',runtime+'</body>',1)
+    runtime='\n<script src="rt76-runtime.js?v=76.1"></script>\n<script src="rt76-map-ai.js?v=76.1"></script>\n'
+    text=re.sub(r'\s*<script src="rt76-runtime\.js\?v=76\.1"></script>\s*<script src="rt76-map-ai\.js\?v=76\.1"></script>\s*','\n',text)
+    text=re.sub(r'\s*<script src="rt76-runtime\.js\?v=76\.1"></script>\s*','\n',text)
+    text=re.sub(r'\s*<script src="rt76-map-ai\.js\?v=76\.1"></script>\s*','\n',text)
+    text=text.replace('</body>',runtime+'</body>',1)
     return text
 
 original=HTMLS[0].read_text(encoding='utf-8')
@@ -45,7 +47,7 @@ for p in HTMLS:
 
 a=HTMLS[0].read_text(encoding='utf-8'); b=HTMLS[1].read_text(encoding='utf-8')
 assert a==b
-required=['Reinos Tribais — RT76 Integrado','const VERSION = 76;','const RT_BUILD = "76.1";','const RT76_PLAN = true;','RT76_BRIDGE_START','window.__RT76_PLAN_APPLIED__=true','RT76_WAVE2_START','window.__RT76_WAVE2_APPLIED__=true','rt76-runtime.js?v=76.1','sem teletransporte','Central de Sistemas RT76','RT76 • aldeia ativa']
+required=['Reinos Tribais — RT76 Integrado','const VERSION = 76;','const RT_BUILD = "76.1";','const RT76_PLAN = true;','RT76_BRIDGE_START','window.__RT76_PLAN_APPLIED__=true','RT76_WAVE2_START','window.__RT76_WAVE2_APPLIED__=true','rt76-runtime.js?v=76.1','rt76-map-ai.js?v=76.1','sem teletransporte','Central de Sistemas RT76','RT76 • aldeia ativa']
 for x in required: assert x in a,x
 assert 'rt73-village-runtime.js?v=73' not in a
 for forbidden in ['Central de Sistemas RT69','CENTRAL OPERACIONAL RT75','interface guiada RT75','RT75 GUIADA','RT75 • ALDEIA INTEGRADA • ONLINE','Reinos Tribais — RT75 • aldeia ativa']:
@@ -58,7 +60,7 @@ report={
   'incoming_intel_panel':True,'market2_real_trade_equalization':True,'manager2_research_scavenge_log':True,
   'empire_multi_village_view':True,'legacy_rt73_runtime_removed':True,'manager_resource_teleport_removed':True,
   'rt76_test_bridge':True,'scheduler_null_guard':True,'visible_old_version_labels_removed':True,
-  'unified_action_api':True,'map_intelligence_scan_selection':True,'ai_activity_observer':True
+  'unified_action_api':True,'map_intelligence_scan_selection':True,'ai_activity_observer':True,'map_ai_ui':True
  },
  'not_claimed_complete':['full Supabase transactional P0','entire admin redesign','all 15 master-plan phases','all historical requirements']
 }
