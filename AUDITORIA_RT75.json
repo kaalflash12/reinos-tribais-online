@@ -4,9 +4,8 @@
     "version": true,
     "legacy_runtime_flags_removed": true,
     "new_renderer": true,
-    "inline_visible": true,
     "alpha_table_19": true,
-    "old_renderer_class_not_emitted": true,
+    "legacy_rt73_overlay_disabled": true,
     "mobile_fit": true,
     "scene_version_badge": true,
     "visible_rt73_labels_removed": true,
@@ -511,5 +510,5 @@
       ]
     }
   },
-  "sha256": "0b342f9aae636efd5b0824fb722087ddc8e6c501c8467ba10c724420b40cb872"
+  "sha256": "3a1942edee3ddde4d22d1d4b4c187fb18a0c393020c263cc55e7690018a9a6da"
 }
