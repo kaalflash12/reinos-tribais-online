@@ -24,10 +24,15 @@ jobs:
           $sha = (Get-FileHash $html -Algorithm SHA256).Hash.ToLowerInvariant()
           $src = Join-Path $env:GITHUB_WORKSPACE 'tools\RT76_INSTALADOR_FINAL_WINDOWS.ps1'
           $dst = Join-Path $env:RUNNER_TEMP 'RT76_INSTALAR_ATUAL_TESTADO.ps1'
-          $text = [IO.File]::ReadAllText($src,[Text.Encoding]::UTF8)
-          $text = [regex]::Replace($text,"\$Commit = '[0-9a-f]{40}'",("`$Commit = '"+$commit+"'"),1)
-          $text = [regex]::Replace($text,"\$ExpectedHtmlSha = '[0-9a-f]{64}'",("`$ExpectedHtmlSha = '"+$sha+"'"),1)
-          [IO.File]::WriteAllText($dst,$text,(New-Object Text.UTF8Encoding($false)))
+          $lines = [IO.File]::ReadAllLines($src,[Text.Encoding]::UTF8)
+          for($i=0; $i -lt $lines.Length; $i++) {
+            if($lines[$i] -match '^\$Commit\s*=') {
+              $lines[$i] = '$Commit = ''' + $commit + ''''
+            } elseif($lines[$i] -match '^\$ExpectedHtmlSha\s*=') {
+              $lines[$i] = '$ExpectedHtmlSha = ''' + $sha + ''''
+            }
+          }
+          [IO.File]::WriteAllLines($dst,$lines,(New-Object Text.UTF8Encoding($false)))
           "COMMIT=$commit" | Set-Content "$env:RUNNER_TEMP\pin.txt"
           "HTML_SHA=$sha" | Add-Content "$env:RUNNER_TEMP\pin.txt"
           Write-Host "Pinned commit $commit"
