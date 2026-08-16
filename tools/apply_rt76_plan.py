@@ -25,7 +25,7 @@ EXPOSE_LINE='Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,ha
 def patch(text):
     text=re.sub(r'/\* RT76_BRIDGE_START \*/.*?/\* RT76_BRIDGE_END \*/\s*','',text,flags=re.S)
     text=re.sub(r'/\* RT76_WAVE2_START \*/.*?/\* RT76_WAVE2_END \*/\s*','',text,flags=re.S)
-    text=re.sub(r'^\s*'+re.escape(EXPOSE_LINE)+r'\s*$', '', text, flags=re.M)
+    text=re.sub(r'^[ \t]*'+re.escape(EXPOSE_LINE)+r'[ \t]*$', '', text, flags=re.M)
     text=text.replace('<title>Reinos Tribais — RT75 Estável</title>','<title>Reinos Tribais — RT76 Integrado</title>')
     text=text.replace('const VERSION = 75;','const VERSION = 76;')
     text=text.replace('const RT_BUILD = "75.0";','const RT_BUILD = "76.1";')
@@ -36,7 +36,7 @@ def patch(text):
     text=re.sub(r'\s*<script src="rt73-village-runtime\.js\?v=73"></script>','',text)
     text=re.sub(r"\s*if\(managedVillages\.length>1\)\{ RESOURCE_KEYS\.forEach\(resource=>\{.*?\}\); \}\s*",'\n    /* RT76: recursos entre aldeias usam remessas reais do Mercado 2.0; sem teletransporte. */\n',text,flags=re.S)
     anchor="  window.addEventListener('beforeunload', () => saveState(true));"
-    if anchor not in text: raise RuntimeError('ânncora beforeunload não encontrada')
+    if anchor not in text: raise RuntimeError('ancora beforeunload nao encontrada')
     text=text.replace(anchor,bridge+'\n\n'+anchor,1)
     runtime='\n<script src="rt76-runtime.js?v=76.1"></script>\n<script src="rt76-map-ai.js?v=76.1"></script>\n'
     text=re.sub(r'\s*<script src="rt76-runtime\.js\?v=76\.1"></script>\s*<script src="rt76-map-ai\.js\?v=76\.1"></script>\s*','\n',text)
