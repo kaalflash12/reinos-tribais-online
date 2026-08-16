@@ -3,8 +3,9 @@ import re, json, hashlib
 
 HTMLS=[Path('JOGAR_REINOS_TRIBAIS.html'),Path('index.html')]
 bridge=Path('tools/rt76_bridge_inside.js').read_text(encoding='utf-8').strip()
+wave2=Path('tools/rt76_wave2_inside.js').read_text(encoding='utf-8').strip()
 bridge=bridge.replace("const rt76ProcessScheduled=(ts=now())=>{const r=rt76Ensure();let changed=false;","const rt76ProcessScheduled=(ts=now())=>{const r=rt76Ensure();if(!r)return false;let changed=false;")
-bridge += "\n  Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,hasHeroItem,getVillageVisualStage});"
+bridge += "\n  Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,hasHeroItem,getVillageVisualStage});\n" + wave2
 
 VISIBLE_VERSION_REPLACEMENTS={
     'Central de Sistemas RT69':'Central de Sistemas RT76',
@@ -20,6 +21,7 @@ VISIBLE_VERSION_REPLACEMENTS={
 
 def patch(text):
     text=re.sub(r'/\* RT76_BRIDGE_START \*/.*?/\* RT76_BRIDGE_END \*/\s*','',text,flags=re.S)
+    text=re.sub(r'/\* RT76_WAVE2_START \*/.*?/\* RT76_WAVE2_END \*/\s*','',text,flags=re.S)
     text=text.replace('<title>Reinos Tribais — RT75 Estável</title>','<title>Reinos Tribais — RT76 Integrado</title>')
     text=text.replace('const VERSION = 75;','const VERSION = 76;')
     text=text.replace('const RT_BUILD = "75.0";','const RT_BUILD = "76.1";')
@@ -43,7 +45,7 @@ for p in HTMLS:
 
 a=HTMLS[0].read_text(encoding='utf-8'); b=HTMLS[1].read_text(encoding='utf-8')
 assert a==b
-required=['Reinos Tribais — RT76 Integrado','const VERSION = 76;','const RT_BUILD = "76.1";','const RT76_PLAN = true;','RT76_BRIDGE_START','window.__RT76_PLAN_APPLIED__=true','rt76-runtime.js?v=76.1','sem teletransporte','Central de Sistemas RT76','RT76 • aldeia ativa']
+required=['Reinos Tribais — RT76 Integrado','const VERSION = 76;','const RT_BUILD = "76.1";','const RT76_PLAN = true;','RT76_BRIDGE_START','window.__RT76_PLAN_APPLIED__=true','RT76_WAVE2_START','window.__RT76_WAVE2_APPLIED__=true','rt76-runtime.js?v=76.1','sem teletransporte','Central de Sistemas RT76','RT76 • aldeia ativa']
 for x in required: assert x in a,x
 assert 'rt73-village-runtime.js?v=73' not in a
 for forbidden in ['Central de Sistemas RT69','CENTRAL OPERACIONAL RT75','interface guiada RT75','RT75 GUIADA','RT75 • ALDEIA INTEGRADA • ONLINE','Reinos Tribais — RT75 • aldeia ativa']:
@@ -55,7 +57,8 @@ report={
   'phase0_regression_gate':True,'central_war_scheduled_arrival':True,'smart_farm_target_memory':True,
   'incoming_intel_panel':True,'market2_real_trade_equalization':True,'manager2_research_scavenge_log':True,
   'empire_multi_village_view':True,'legacy_rt73_runtime_removed':True,'manager_resource_teleport_removed':True,
-  'rt76_test_bridge':True,'scheduler_null_guard':True,'visible_old_version_labels_removed':True
+  'rt76_test_bridge':True,'scheduler_null_guard':True,'visible_old_version_labels_removed':True,
+  'unified_action_api':True,'map_intelligence_scan_selection':True,'ai_activity_observer':True
  },
  'not_claimed_complete':['full Supabase transactional P0','entire admin redesign','all 15 master-plan phases','all historical requirements']
 }
