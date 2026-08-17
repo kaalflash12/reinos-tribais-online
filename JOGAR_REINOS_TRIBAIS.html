@@ -6261,7 +6261,7 @@ function loadState() {
     }
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || ![17,18,19,20,21,22,23,24,25,49,50,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77].includes(Number(parsed.version)) || !parsed.villages) return null;
+    if (!parsed || ![17,18,19,20,21,22,23,24,25,49,50,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78].includes(Number(parsed.version)) || !parsed.villages) return null;
     migrateState(parsed);
     return parsed;
   } catch (error) {
@@ -8139,7 +8139,7 @@ function renderMap() {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      if (!parsed || ![17,18,19,20,21,22,23,24,25,49,50,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77].includes(Number(parsed.version)) || !parsed.villages || !parsed.player) throw new Error('Arquivo incompatível');
+      if (!parsed || ![17,18,19,20,21,22,23,24,25,49,50,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78].includes(Number(parsed.version)) || !parsed.villages || !parsed.player) throw new Error('Arquivo incompatível');
       migrateState(parsed);
       state = parsed;
       dirty = true;
