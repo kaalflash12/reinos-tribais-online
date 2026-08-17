@@ -1,0 +1,77 @@
+name: RT78 Windows Visual Gate
+on:
+  push:
+    paths:
+      - 'rt78-windows-gate-trigger.txt'
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JavaScript and RT78 markers
+        shell: pwsh
+        run: |
+          node --check .\rt76-master-plan.js
+          $html = Get-Content .\index.html -Raw
+          if($html -notmatch 'const VERSION = 78;'){ throw 'VERSION 78 ausente' }
+          if($html -notmatch 'const RT_BUILD = "78.0";'){ throw 'RT_BUILD 78.0 ausente' }
+          if($html -notmatch 'RT78_STRATEGY_ENGINE'){ throw 'RT78_STRATEGY_ENGINE ausente' }
+          if($html -notmatch 'rt76-master-plan.js\?v=78.0'){ throw 'loader RT78 ausente' }
+      - name: Install Selenium
+        run: python -m pip install selenium
+      - name: Open public RT78 and capture village plus strategy center
+        shell: pwsh
+        run: |
+          @'
+          import json,time,os
+          from pathlib import Path
+          from selenium import webdriver
+          from selenium.webdriver.edge.options import Options
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          URL='https://kaalflash12.github.io/reinos-tribais-online/'
+          out=Path('rt78-proof');out.mkdir(exist_ok=True)
+          o=Options();o.add_argument('--headless');o.add_argument('--disable-gpu');o.add_argument('--window-size=1700,1100');o.add_argument('--no-sandbox')
+          d=webdriver.Edge(options=o)
+          proof={'build':'RT78.0','public_url':URL,'checks':{}}
+          try:
+              for i in range(18):
+                  d.get(URL+'?rt78gate='+str(int(time.time())))
+                  WebDriverWait(d,20).until(lambda x:x.execute_script('return document.readyState')=='complete')
+                  if 'RT78' in d.title: break
+                  time.sleep(5)
+              proof['checks']['public_title_rt78']='RT78' in d.title
+              d.save_screenshot(str(out/'01_public_rt78.png'))
+              play=d.find_elements(By.CSS_SELECTOR,'[data-play-offline]')
+              if not play: raise RuntimeError('Botão offline não encontrado')
+              d.execute_script('arguments[0].click()',play[0]);time.sleep(1)
+              form=d.find_elements(By.CSS_SELECTOR,'#start-form')
+              if form:
+                  d.execute_script("""const f=document.querySelector('#start-form'); if(f){if(f.elements.playerName)f.elements.playerName.value='Auditoria RT78';if(f.elements.villageName)f.elements.villageName.value='Aldeia RT78';if(f.elements.difficulty)f.elements.difficulty.value='normal';if(f.elements.mapRadius)f.elements.mapRadius.value='16';if(f.elements.startProfile)f.elements.startProfile.value='military';f.requestSubmit();}""")
+              time.sleep(3)
+              proof['checks']['game_shell']=bool(d.find_elements(By.CSS_SELECTOR,'.game-shell'))
+              proof['checks']['rt78_launch']=bool(d.find_elements(By.CSS_SELECTOR,'[data-rt78-open]'))
+              d.save_screenshot(str(out/'02_village_rt78.png'))
+              b=d.find_elements(By.CSS_SELECTOR,'[data-rt78-open]')
+              if not b: raise RuntimeError('Central Estratégica RT78 não apareceu')
+              d.execute_script('arguments[0].click()',b[0]);time.sleep(1)
+              proof['checks']['strategy_overlay_open']=d.execute_script("return !!document.querySelector('#rt78-overlay.open')")
+              proof['checks']['secondary_panels_collapsed']=d.execute_script("const x=document.querySelector('.rt22-bottom'); return !x || getComputedStyle(x).display==='none'")
+              d.save_screenshot(str(out/'03_central_estrategica_rt78.png'))
+              proof['ok']=all(proof['checks'].values())
+          finally:
+              d.quit()
+          (out/'PROVA_RT78_WINDOWS.json').write_text(json.dumps(proof,ensure_ascii=False,indent=2),encoding='utf-8')
+          if not proof.get('ok'): raise SystemExit(json.dumps(proof,ensure_ascii=False))
+          '@ | Set-Content .\rt78_gate.py -Encoding UTF8
+          python .\rt78_gate.py
+      - name: Package proof
+        shell: pwsh
+        run: Compress-Archive -Path .\rt78-proof\* -DestinationPath .\RT78_WINDOWS_PROOF.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RT78_WINDOWS_PROOF
+          path: RT78_WINDOWS_PROOF.zip
+          retention-days: 30
