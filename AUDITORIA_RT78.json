@@ -7,10 +7,15 @@
     "abas Visao Geral, Guerra, Farm, Mercado 2.0, Imperio, Inteligencia e Historico",
     "painel secundario da aldeia recolhido por padrao",
     "mapa limitado ao viewport para evitar pagina vertical gigante",
-    "alertas operacionais e visao multi-aldeia compacta"
+    "alertas operacionais e visao multi-aldeia compacta",
+    "planejador de ondas/fakes em lote com horario de chegada e intervalo",
+    "apoio programado por horario de chegada",
+    "Assistente de Farm A/B/C editavel e persistente"
   ],
   "server_authoritative": [
     "rt78_schedule_attack",
+    "rt78_schedule_wave",
+    "rt78_schedule_support",
     "rt78_cancel_scheduled",
     "rt78_farm_batch",
     "rt78_observe_target",
@@ -32,6 +37,8 @@
     "dashboard version 78 PASS",
     "schedule attack PASS",
     "cancel scheduled and troop refund PASS",
+    "wave of two scheduled orders PASS",
+    "scheduled support creates real online_supports outbound PASS",
     "target intel observation PASS",
     "strategy maintenance PASS",
     "market route create PASS",
