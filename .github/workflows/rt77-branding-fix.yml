@@ -1,0 +1,33 @@
+name: RT77 Branding Fix
+
+on:
+  push:
+    paths:
+      - 'rt77-branding-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  branding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Aplicar marca visível RT77
+        run: python tools/apply_rt77_branding.py
+      - name: Validar e publicar
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '<title>Reinos Tribais — RT77 Funcional</title>' index.html
+          grep -q 'RT77 • ONLINE • ADMIN DIRETO + RECOVERY + 19 MENUS' index.html
+          grep -q 'CENTRAL OPERACIONAL RT77' index.html
+          grep -q 'RT77 • ALDEIA INTEGRADA • ONLINE' index.html
+          cmp index.html JOGAR_REINOS_TRIBAIS.html
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html JOGAR_REINOS_TRIBAIS.html RT77_HTML_SHA256.txt
+          if git diff --cached --quiet; then echo 'branding already applied'; else git commit -m 'finish RT77 visible branding'; git push origin HEAD:main; fi
