@@ -26,22 +26,24 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          from PIL import Image
-          import re,hashlib,json
+          import re,hashlib,struct
           a=Path('index.html'); b=Path('JOGAR_REINOS_TRIBAIS.html')
           assert a.read_bytes()==b.read_bytes()
           s=a.read_text(encoding='utf-8')
           required=['const VERSION = 77;','const RT_BUILD = "77.0";','rt77_world_maintenance','rt77_recall_support','rt77_claim_ranked_reward','window.RT77 = window.RT76;','function renameHero','useInventoryItem','rt66-guided-admin-css']
           assert all(x in s for x in required),[x for x in required if x not in s]
+          def png_size(p):
+            d=Path(p).read_bytes()
+            assert len(d)>=24 and d[:8]==b'\x89PNG\r\n\x1a\n',p
+            return struct.unpack('>II',d[16:24])
           files=sorted(Path('assets/v54/buildings').glob('*_l[0-4].png'))
           assert len(files)==95,len(files)
           families={}
           for p in files:
             m=re.match(r'(.+)_l([0-4])\.png$',p.name); families.setdefault(m.group(1),set()).add(int(m.group(2)))
-            with Image.open(p) as im: assert im.size==(480,400), (p,im.size); im.verify()
+            assert png_size(p)==(480,400),(p,png_size(p))
           assert len(families)==19 and all(v==set(range(5)) for v in families.values())
-          for p in [Path('assets/v54/map/interaction_overlay.png')]+[Path(f'assets/v54/map/village_stage{i}.png') for i in range(1,5)]:
-            with Image.open(p) as im: im.verify()
+          for p in [Path('assets/v54/map/interaction_overlay.png')]+[Path(f'assets/v54/map/village_stage{i}.png') for i in range(1,5)]: png_size(p)
           Path('/tmp/inline').mkdir(exist_ok=True)
           for i,x in enumerate(re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S|re.I)): Path(f'/tmp/inline/{i}.js').write_text(x,encoding='utf-8')
           sha=hashlib.sha256(a.read_bytes()).hexdigest()
@@ -84,6 +86,7 @@ jobs:
           $pngs=Get-ChildItem assets\v54\buildings -Filter '*.png' -File
           if($pngs.Count-ne95){throw "Building PNG $($pngs.Count)/95"}
           foreach($p in $pngs){$b=[IO.File]::ReadAllBytes($p.FullName);if($b.Length-lt24 -or $b[0]-ne137 -or $b[1]-ne80 -or $b[2]-ne78 -or $b[3]-ne71){throw "Invalid PNG $($p.Name)"};$w=[Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($b,16));$h=[Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($b,20));if($w-ne480 -or $h-ne400){throw "$($p.Name) ${w}x${h}"}}
+          foreach($rel in @('assets\v54\map\village_stage1.png','assets\v54\map\village_stage2.png','assets\v54\map\village_stage3.png','assets\v54\map\village_stage4.png','assets\v54\map\interaction_overlay.png')){if(-not(Test-Path $rel)){throw "Missing $rel"}}
           node --check rt76-runtime.js
           node --check rt76-map-ai.js
           node --check rt76-master-plan.js
