@@ -1,8 +1,8 @@
 from pathlib import Path
 p=Path('rt76-master-plan.js')
 s=p.read_text(encoding='utf-8')
-marker='/* RT76_MASTER_BASE_INIT */'
-if marker not in s:
+base_marker='/* RT76_MASTER_BASE_INIT */'
+if base_marker not in s:
     old="""    s.rt76||={};
     const m=s.rt76.master||=( {"""
     new="""    s.rt76||={};
@@ -22,5 +22,22 @@ if marker not in s:
     if old not in s:
         raise SystemExit('master ensure anchor not found')
     s=s.replace(old,new,1)
+
+inject_marker='/* RT76_MASTER_INJECT_ENSURE */'
+if inject_marker not in s:
+    old="function inject(){const s=S(),p=document.querySelector('.content-panel');"
+    new="function inject(){/* RT76_MASTER_INJECT_ENSURE */ ensure();const s=S(),p=document.querySelector('.content-panel');"
+    if old not in s:
+        raise SystemExit('master inject anchor not found')
+    s=s.replace(old,new,1)
+
+poll_marker='/* RT76_MASTER_STATE_WATCH */'
+if poll_marker not in s:
+    old="  ensure();inject();\n})();"
+    new="  /* RT76_MASTER_STATE_WATCH */ setInterval(()=>{try{if(S())ensure()}catch(_){}},200);\n  ensure();inject();\n})();"
+    if old not in s:
+        raise SystemExit('master tail anchor not found')
+    s=s.replace(old,new,1)
+
 p.write_text(s,encoding='utf-8')
-print('RT76 master base init: OK')
+print('RT76 master base init + state watch: OK')
