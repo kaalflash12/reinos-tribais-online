@@ -1,0 +1,57 @@
+name: RT77 Full Screenshot Audit
+
+on:
+  push:
+    paths:
+      - 'rt77-full-screenshot-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Preparar capturador
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          python -m pip install --disable-pip-version-check --quiet selenium
+          $url='https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/main/tools/rt77_capture_all_screens.py'
+          Invoke-WebRequest -UseBasicParsing $url -OutFile "$env:RUNNER_TEMP\rt77_capture_all_screens.py"
+          python -m py_compile "$env:RUNNER_TEMP\rt77_capture_all_screens.py"
+          Write-Host 'PASS capturador carregado'
+
+      - name: Capturar todas as telas do jogo e ADM
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          python "$env:RUNNER_TEMP\rt77_capture_all_screens.py"
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_COMPLETOS'
+          if(-not(Test-Path $root)){throw 'Pasta de prints ausente'}
+          $pngs=Get-ChildItem $root -Filter '*.png' -File
+          Write-Host "PRINTS=$($pngs.Count)"
+          if($pngs.Count -lt 45){throw "Quantidade insuficiente de prints: $($pngs.Count)"}
+          if(-not(Test-Path (Join-Path $root 'INDICE_PRINTS_RT77.md'))){throw 'Índice ausente'}
+
+      - name: Compactar pacote de prints
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_COMPLETOS'
+          $zip=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_TODAS_FUNCOES_E_ADM.zip'
+          Compress-Archive -Path "$root\*" -DestinationPath $zip -Force
+          $sha=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -Encoding ascii "$env:RUNNER_TEMP\RT77_PRINTS_SHA256.txt" $sha
+          Write-Host "ZIP_SHA256=$sha"
+
+      - name: Upload prints completos RT77
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT77_PRINTS_TODAS_FUNCOES_E_ADM
+          path: |
+            ${{ runner.temp }}\RT77_PRINTS_TODAS_FUNCOES_E_ADM.zip
+            ${{ runner.temp }}\RT77_PRINTS_SHA256.txt
+            ${{ runner.temp }}\RT77_PRINTS_COMPLETOS\INDICE_PRINTS_RT77.md
+            ${{ runner.temp }}\RT77_PRINTS_COMPLETOS\manifest.json
+          if-no-files-found: error
