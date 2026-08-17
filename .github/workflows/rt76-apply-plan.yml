@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Aplicar RT76 no HTML real
         run: python tools/apply_rt76_plan.py
+      - name: Inicializar estruturas base do runtime mestre
+        run: python tools/fix_rt76_master_init.py
       - name: Validar JavaScript
         shell: bash
         run: |
@@ -33,6 +35,7 @@ jobs:
           assert contract['source_lines']==1349
           assert len(contract['phases'])==16
           assert contract['global_complete'] is False
+          assert 'RT76_MASTER_BASE_INIT' in Path('rt76-master-plan.js').read_text(encoding='utf-8')
           out=Path('/tmp/rt76-js');out.mkdir(exist_ok=True)
           scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',h,re.S|re.I)
           for i,s in enumerate([x for x in scripts if x.strip()],1):(out/f'{i:03}.js').write_text(s,encoding='utf-8')
