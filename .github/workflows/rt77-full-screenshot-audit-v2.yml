@@ -1,0 +1,70 @@
+name: RT77 Full Screenshot Audit V2
+
+on:
+  push:
+    paths:
+      - 'rt77-full-screenshot-v2-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Preparar capturador robusto
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          python -m pip install --disable-pip-version-check --quiet selenium
+          $src="$env:RUNNER_TEMP\rt77_capture_all_screens.py"
+          Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/main/tools/rt77_capture_all_screens.py' -OutFile $src
+          $s=Get-Content $src -Raw
+          $old="d.get('http://127.0.0.1:8765/index.html?rt77-admin-audit=1'); wait_ready(d)"
+          $new=$old+"`n        d.execute_script(`"window.__rt77OrigFetch=window.fetch.bind(window); window.fetch=(u,o)=>String(u).includes('rt-admin-support-v64')?Promise.resolve(new Response(JSON.stringify({supports:[]}),{status:200,headers:{'Content-Type':'application/json'}})):window.__rt77OrigFetch(u,o);`")"
+          $s=$s.Replace($old,$new)
+          $old2="        game_capture(d)`n        admin_capture(d)"
+          $new2="        try:`n            game_capture(d)`n        except Exception as e:`n            manifest.append({'kind':'ERRO','name':'fase_jogo','file':'','notes':repr(e)})`n            print('ERRO FASE JOGO',repr(e))`n        try:`n            admin_capture(d)`n        except Exception as e:`n            manifest.append({'kind':'ERRO','name':'fase_adm','file':'','notes':repr(e)})`n            print('ERRO FASE ADM',repr(e))"
+          $s=$s.Replace($old2,$new2)
+          Set-Content -Encoding UTF8 $src $s
+          python -m py_compile $src
+          Write-Host 'PASS capturador V2 preparado'
+
+      - name: Capturar e preservar tudo mesmo com falha parcial
+        shell: pwsh
+        run: |
+          $src="$env:RUNNER_TEMP\rt77_capture_all_screens.py"
+          $log="$env:RUNNER_TEMP\RT77_CAPTURE_LOG.txt"
+          python $src 2>&1 | Tee-Object -FilePath $log
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_COMPLETOS'
+          if(-not(Test-Path $root)){New-Item -ItemType Directory -Force $root|Out-Null}
+          $pngs=Get-ChildItem $root -Filter '*.png' -File -ErrorAction SilentlyContinue
+          "PRINTS=$($pngs.Count)" | Add-Content $log
+          Copy-Item $log (Join-Path $root 'RT77_CAPTURE_LOG.txt') -Force
+          Write-Host "PRINTS=$($pngs.Count)"
+
+      - name: Compactar e subir pacote sempre
+        if: always()
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_COMPLETOS'
+          if(-not(Test-Path $root)){New-Item -ItemType Directory -Force $root|Out-Null}
+          $zip=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_TODAS_FUNCOES_E_ADM_V2.zip'
+          Compress-Archive -Path "$root\*" -DestinationPath $zip -Force
+          $sha=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -Encoding ascii "$env:RUNNER_TEMP\RT77_PRINTS_SHA256.txt" $sha
+          Write-Host "ZIP_SHA256=$sha"
+
+      - name: Upload prints completos RT77 V2
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT77_PRINTS_TODAS_FUNCOES_E_ADM_V2
+          path: |
+            ${{ runner.temp }}\RT77_PRINTS_TODAS_FUNCOES_E_ADM_V2.zip
+            ${{ runner.temp }}\RT77_PRINTS_SHA256.txt
+            ${{ runner.temp }}\RT77_CAPTURE_LOG.txt
+            ${{ runner.temp }}\RT77_PRINTS_COMPLETOS\INDICE_PRINTS_RT77.md
+            ${{ runner.temp }}\RT77_PRINTS_COMPLETOS\manifest.json
+          if-no-files-found: warn
