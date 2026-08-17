@@ -1,1 +1,1 @@
-2026-08-17T18:05:00Z RT76.2 contrato mestre MD 1349 linhas + planner jobs logistica IA tribo
+2026-08-17T18:18:00Z RT76.2 retry contrato MD apos corrigir origem incoming
