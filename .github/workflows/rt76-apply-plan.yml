@@ -11,7 +11,7 @@ permissions:
 jobs:
   apply-test-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - name: Aplicar RT76 no HTML real
@@ -22,11 +22,17 @@ jobs:
           set -euo pipefail
           node --check rt76-runtime.js
           node --check rt76-map-ai.js
+          node --check rt76-master-plan.js
           python - <<'PY'
           from pathlib import Path
-          import re
+          import re,json
           h=Path('index.html').read_text(encoding='utf-8')
           assert h==Path('JOGAR_REINOS_TRIBAIS.html').read_text(encoding='utf-8')
+          assert 'rt76-master-plan.js?v=76.2' in h
+          contract=json.loads(Path('PLANO_MESTRE_RT76_CONTRATO.json').read_text(encoding='utf-8'))
+          assert contract['source_lines']==1349
+          assert len(contract['phases'])==16
+          assert contract['global_complete'] is False
           out=Path('/tmp/rt76-js');out.mkdir(exist_ok=True)
           scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',h,re.S|re.I)
           for i,s in enumerate([x for x in scripts if x.strip()],1):(out/f'{i:03}.js').write_text(s,encoding='utf-8')
@@ -61,17 +67,19 @@ jobs:
           PY
       - name: Regressão integral desktop e mobile
         run: python tools/rt76_full_regression_current.py
-      - name: Testar especificamente Guerra Farm Mercado Gerente Mapa IA e API
+      - name: Testar Guerra Farm Mercado Gerente Mapa IA e API
         run: python tools/rt76_feature_e2e.py
+      - name: Testar contrato MD planner waves suporte retirada jobs logistica IA tribo
+        run: python tools/rt76_master_contract_e2e.py
       - name: Publicar somente após TODOS os PASS
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "kaalflash12"
           git config user.email "mestrederpg35@gmail.com"
-          git add JOGAR_REINOS_TRIBAIS.html index.html rt76-runtime.js rt76-map-ai.js AUDITORIA_RT76_PLANO_APLICADO.json
+          git add JOGAR_REINOS_TRIBAIS.html index.html rt76-runtime.js rt76-map-ai.js rt76-master-plan.js AUDITORIA_RT76_PLANO_APLICADO.json PLANO_MESTRE_RT76_CONTRATO.json
           if git diff --cached --quiet; then echo "Sem alterações"; exit 0; fi
-          git commit -m "RT76.1 integrar plano mestre guerra mercado mapa IA e API"
+          git commit -m "RT76.2 aplicar contrato MD planner jobs logistica IA e tribo"
           git push origin main
       - name: Evidências mesmo se falhar
         if: always()
@@ -81,5 +89,7 @@ jobs:
           path: |
             RT76_EVIDENCIAS_ATUAIS
             RT76_FEATURE_E2E
+            RT76_MASTER_CONTRACT_E2E
             AUDITORIA_RT76_PLANO_APLICADO.json
+            PLANO_MESTRE_RT76_CONTRATO.json
           if-no-files-found: warn
