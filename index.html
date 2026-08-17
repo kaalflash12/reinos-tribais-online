@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#5d3a1a">
 <meta name="description" content="Jogo de estratégia medieval independente em português, com conta e save online via Supabase.">
-<title>Reinos Tribais — RT77 Funcional</title>
+<title>Reinos Tribais — RT78 Estratégia Completa</title>
 <style>
 :root {
   --ink: #2a1a0f;
@@ -3197,9 +3197,10 @@ window.GAME_DATA = (() => {
   const D = window.GAME_DATA;
   let SAVE_KEY = 'reinos_tribais_ptbr_save_v60_local';
   const LEGACY_SAVE_KEYS = ['reinos_tribais_ptbr_save_v59_local','reinos_tribais_ptbr_save_v58_local','reinos_tribais_ptbr_save_v57_local','reinos_tribais_ptbr_save_v56_local','reinos_tribais_ptbr_save_v55_local','reinos_tribais_ptbr_save_v40','reinos_tribais_ptbr_save_v38','reinos_tribais_ptbr_save_v37','reinos_tribais_ptbr_save_v36','reinos_tribais_ptbr_save_v35','reinos_tribais_ptbr_save_v34','reinos_tribais_ptbr_save_v33','reinos_tribais_ptbr_save_v32','reinos_tribais_ptbr_save_v31','reinos_tribais_ptbr_save_v30','reinos_tribais_ptbr_save_v29','reinos_tribais_ptbr_save_v28','reinos_tribais_ptbr_save_v27','reinos_tribais_ptbr_save_v26','reinos_tribais_ptbr_save_v25','reinos_tribais_ptbr_save_v24','reinos_tribais_ptbr_save_v23','reinos_tribais_ptbr_save_v22','reinos_tribais_ptbr_save_v21','reinos_tribais_ptbr_save_v20','reinos_tribais_ptbr_save_v19','reinos_tribais_ptbr_save_v18','reinos_tribais_ptbr_save_v17'];
-  const VERSION = 77;
-  const RT_BUILD = "77.0";
+  const VERSION = 78;
+  const RT_BUILD = "78.0";
   const RT77_FULL_FUNCTIONAL_PATCH = true;
+  const RT78_STRATEGY_ENGINE = true;
   const RT76_PLAN = true;
   const RT60_VILLAGE_LAYER_VERSION = "RT61_AUDITED_FIXED_LAYERS_EMPTY_L0_WORLD_BOSSES";
   const RESOURCE_KEYS = ['wood', 'clay', 'iron'];
@@ -4041,7 +4042,7 @@ const HERO_SET_BONUSES = {
       <main class="rt55-entry">
         <section class="rt55-entry-copy">
           <div class="rt55-logo-line"><img src="assets/icons/reinos_tribais_icon.png" alt=""><b>REINOS TRIBAIS</b></div>
-          <span class="rt55-kicker">RT77 • ONLINE • ADMIN DIRETO + RECOVERY + 19 MENUS</span>
+          <span class="rt55-kicker">RT78 • ONLINE • ESTRATÉGIA + ADMIN + RECOVERY</span>
           <h1>Erga sua aldeia.<br><em>Domine o mundo.</em></h1>
           <p>Construa, pesquise, recrute, negocie e dispute mundos compartilhados. Contas, aldeias, ataques, mercado, tribos, eventos, ranking e estado do mundo são sincronizados pelo Supabase Realtime.</p>
           <div class="rt55-entry-features">
@@ -8779,6 +8780,6 @@ function renderMap() {
 
 <script src="rt76-runtime.js?v=77.0"></script>
 <script src="rt76-map-ai.js?v=77.0"></script>
-<script src="rt76-master-plan.js?v=77.0"></script>
+<script src="rt76-master-plan.js?v=78.0"></script>
 </body>
 </html>
