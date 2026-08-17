@@ -39,5 +39,11 @@ if poll_marker not in s:
         raise SystemExit('master tail anchor not found')
     s=s.replace(old,new,1)
 
+# A engine existente considera IA qualquer aldeia que nao seja player nem barbarian.
+s=s.replace("Object.values(S().villages).filter(v=>v.owner==='ai')","Object.values(S().villages).filter(v=>v.owner!=='player'&&v.owner!=='barbarian'&&!v._onlineRemote)")
+
+# A tela de mapa profissional nao possui obrigatoriamente .panel-title; use currentView como fonte autoritativa.
+s=s.replace("if(/Mapa/.test(title)&&!document.querySelector('#rt76-master-intel'))","if((String(window.currentView||'')==='map'||/Mapa/.test(title))&&!document.querySelector('#rt76-master-intel'))")
+
 p.write_text(s,encoding='utf-8')
-print('RT76 master base init + state watch: OK')
+print('RT76 master init + AIJob + map view alignment: OK')
