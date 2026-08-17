@@ -1,0 +1,96 @@
+name: RT77 Real Admin Screens TEMP
+
+on:
+  push:
+    paths:
+      - 'rt77-real-admin-screens-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - name: Preparar Selenium
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          python -m pip install --disable-pip-version-check --quiet selenium
+
+      - name: Capturar ADM real RT77
+        shell: pwsh
+        env:
+          RT77_AUDIT_TOKEN: '61bac8ab634840f9fdb7df72c6815724abd9cc745724c637c1e604fe89801904'
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          import os,time,json
+          from pathlib import Path
+          from selenium import webdriver
+          from selenium.webdriver.edge.options import Options
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+
+          OUT=Path(os.environ['RUNNER_TEMP'])/'RT77_ADM_REAL_PRINTS';OUT.mkdir(exist_ok=True)
+          manifest=[]
+          opts=Options();opts.add_argument('--headless=new');opts.add_argument('--window-size=1600,1000');opts.add_argument('--disable-gpu');opts.add_argument('--no-first-run')
+          d=webdriver.Edge(options=opts)
+          try:
+            d.get('https://kaalflash12.github.io/reinos-tribais-online/?adm-real-audit=1')
+            WebDriverWait(d,30).until(lambda x:x.execute_script('return document.readyState')=='complete')
+            token=os.environ['RT77_AUDIT_TOKEN']
+            d.execute_script("sessionStorage.setItem('rt60_admin_token',arguments[0]);",token)
+            d.refresh()
+            WebDriverWait(d,35).until(EC.presence_of_element_located((By.CSS_SELECTOR,'.rt60-admin-shell')))
+            time.sleep(1)
+            def shot(kind,name,note=''):
+              d.execute_script('window.scrollTo(0,0)');time.sleep(.25)
+              f=OUT/f'{len(manifest)+1:03d}_{kind}_{name}.png';d.save_screenshot(str(f));manifest.append({'kind':kind,'name':name,'file':f.name,'notes':note});print('SHOT',name,flush=True)
+            tabs=['overview','worlds','players','villages','mapops','events','ranked','combat','market','tribes','comms','rewards','database','audit','security']
+            for tab in tabs:
+              btn=WebDriverWait(d,15).until(EC.element_to_be_clickable((By.CSS_SELECTOR,f'[data-admin-tab="{tab}"]')))
+              d.execute_script('arguments[0].click()',btn);time.sleep(.45);shot('ADM',tab,'Aba real do painel RT77 publicado.')
+            # Modais de edição que não salvam nada enquanto só são abertos.
+            for tab,selector,name in [
+              ('players','[data-rt64-edit-player]','editar_jogador'),
+              ('players','[data-rt64-password]','definir_senha_jogador'),
+              ('villages','[data-rt64-edit-village]','editar_aldeia_integral'),
+              ('events','[data-rt64-edit-monster]','editar_monstro_boss')]:
+              btn=d.find_element(By.CSS_SELECTOR,f'[data-admin-tab="{tab}"]');d.execute_script('arguments[0].click()',btn);time.sleep(.35)
+              elems=d.find_elements(By.CSS_SELECTOR,selector)
+              if not elems:
+                manifest.append({'kind':'ERRO','name':name,'file':'','notes':f'Sem elemento {selector} nos dados atuais.'});continue
+              d.execute_script('arguments[0].click()',elems[0]);time.sleep(.4);shot('ADM_MODAL',name,'Modal real aberto; nenhuma alteração foi confirmada.')
+              d.execute_script("document.querySelectorAll('.rt60-admin-modal').forEach(x=>x.remove())")
+            (OUT/'manifest_admin_real.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+            (OUT/'INDICE_ADM_REAL_RT77.md').write_text('# ADM REAL RT77\n\n'+'\n'.join(f"{i+1:03d}. {x['kind']} — {x['name']} — {x['file'] or 'SEM PRINT'} — {x['notes']}" for i,x in enumerate(manifest)),encoding='utf-8')
+            print('TOTAL',sum(1 for x in manifest if x['file']),'ERROS',sum(1 for x in manifest if x['kind']=='ERRO'),flush=True)
+          finally:
+            d.quit()
+          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\capture_admin_real.py"
+          python "$env:RUNNER_TEMP\capture_admin_real.py"
+
+      - name: Compactar ADM real
+        if: always()
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_ADM_REAL_PRINTS'
+          if(-not(Test-Path $root)){New-Item -ItemType Directory -Force $root|Out-Null}
+          $zip=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_ADM_REAL.zip'
+          Compress-Archive -Path "$root\*" -DestinationPath $zip -Force
+          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content -Encoding ascii "$env:RUNNER_TEMP\RT77_ADM_REAL_SHA256.txt"
+
+      - name: Upload ADM real
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT77_PRINTS_ADM_REAL
+          path: |
+            ${{ runner.temp }}\RT77_PRINTS_ADM_REAL.zip
+            ${{ runner.temp }}\RT77_ADM_REAL_SHA256.txt
+            ${{ runner.temp }}\RT77_ADM_REAL_PRINTS\manifest_admin_real.json
+            ${{ runner.temp }}\RT77_ADM_REAL_PRINTS\INDICE_ADM_REAL_RT77.md
+          if-no-files-found: warn
