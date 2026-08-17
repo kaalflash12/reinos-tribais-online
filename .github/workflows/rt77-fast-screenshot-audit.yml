@@ -1,0 +1,56 @@
+name: RT77 Fast Screenshot Audit
+
+on:
+  push:
+    paths:
+      - 'rt77-fast-screenshot-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - name: Preparar auditor rápido
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          python -m pip install --disable-pip-version-check --quiet selenium
+          Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/main/tools/rt77_capture_fast.py' -OutFile "$env:RUNNER_TEMP\rt77_capture_fast.py"
+          python -m py_compile "$env:RUNNER_TEMP\rt77_capture_fast.py"
+
+      - name: Capturar prints
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Continue'
+          python "$env:RUNNER_TEMP\rt77_capture_fast.py" 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP\RT77_FAST_CAPTURE_LOG.txt"
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_FAST'
+          $n=(Get-ChildItem $root -Filter '*.png' -File -ErrorAction SilentlyContinue).Count
+          Write-Host "PRINTS=$n"
+          "PRINTS=$n" | Add-Content "$env:RUNNER_TEMP\RT77_FAST_CAPTURE_LOG.txt"
+
+      - name: Compactar pacote
+        if: always()
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_FAST'
+          if(-not(Test-Path $root)){New-Item -ItemType Directory -Force $root|Out-Null}
+          Copy-Item "$env:RUNNER_TEMP\RT77_FAST_CAPTURE_LOG.txt" (Join-Path $root 'RT77_FAST_CAPTURE_LOG.txt') -Force -ErrorAction SilentlyContinue
+          $zip=Join-Path $env:RUNNER_TEMP 'RT77_PRINTS_JOGO_E_ADM_COMPLETOS.zip'
+          Compress-Archive -Path "$root\*" -DestinationPath $zip -Force
+          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content -Encoding ascii "$env:RUNNER_TEMP\RT77_PRINTS_SHA256.txt"
+
+      - name: Upload pacote
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT77_PRINTS_JOGO_E_ADM_COMPLETOS
+          path: |
+            ${{ runner.temp }}\RT77_PRINTS_JOGO_E_ADM_COMPLETOS.zip
+            ${{ runner.temp }}\RT77_PRINTS_SHA256.txt
+            ${{ runner.temp }}\RT77_FAST_CAPTURE_LOG.txt
+            ${{ runner.temp }}\RT77_PRINTS_FAST\INDICE_PRINTS_RT77.md
+            ${{ runner.temp }}\RT77_PRINTS_FAST\manifest.json
+          if-no-files-found: warn
