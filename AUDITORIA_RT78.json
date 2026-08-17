@@ -5,6 +5,7 @@
   "frontend": [
     "Central Estrategica dedicada em overlay, sem empilhar as ferramentas no rodape das telas",
     "abas Visao Geral, Guerra, Farm, Mercado 2.0, Imperio, Inteligencia e Historico",
+    "Gerente de Conta 2.0 em modulo dedicado conectado ao servidor",
     "painel secundario da aldeia recolhido por padrao",
     "mapa limitado ao viewport para evitar pagina vertical gigante",
     "alertas operacionais e visao multi-aldeia compacta",
@@ -22,6 +23,7 @@
     "rt78_market_route_upsert",
     "rt78_market_route_delete",
     "rt78_process_automations",
+    "rt78_manager_tick",
     "rt78_dashboard",
     "rt78_world_maintenance",
     "rt78_strategy_save"
@@ -31,6 +33,7 @@
     "dashboard de ordens, rotas, configuracoes e logs",
     "cancelamento administrativo de ordem ainda agendada com devolucao de tropas",
     "ativar, pausar e excluir rotas automaticas",
+    "ativar ou desativar Gerente 2.0 por jogador",
     "auditoria das acoes administrativas"
   ],
   "database_tests": [
@@ -44,13 +47,15 @@
     "market route create PASS",
     "market route real resource execution PASS",
     "farm batch PASS",
-    "farm batch creates real outbound58 server command PASS"
+    "farm batch creates real outbound58 server command PASS",
+    "manager building goal creates real build queue PASS",
+    "manager troop goal creates real recruit queue PASS"
   ],
   "security": {
     "rt78_tables_rls": true,
     "anon_direct_table_access": false,
     "rpc_auth_and_ownership_checks": true,
-    "rt78_unit_speed_search_path_fixed": true
+    "rt78_helper_search_paths_fixed": true
   },
   "scope_note": "RT78 corrige o principal deficit funcional e visual identificado na RT77. Itens do benchmark que ainda nao possuam interface + estado real + persistencia + execucao + teste nao devem ser chamados de PASS."
 }
