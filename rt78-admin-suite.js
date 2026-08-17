@@ -13,3 +13,5 @@
  document.addEventListener('click',e=>{if(e.target.closest('[data-rt78a-open]')){open=true;render();refresh();return}if(e.target.closest('[data-rt78a-close]')){open=false;render();return}if(e.target.closest('[data-rt78a-refresh]')){refresh();return}const c=e.target.closest('[data-rt78a-cancel]');if(c){act('cancel_schedule',{id:c.dataset.rt78aCancel});return}const t=e.target.closest('[data-rt78a-toggle]');if(t){act('route_toggle',{id:t.dataset.rt78aToggle,enabled:t.dataset.enabled==='1'});return}const d=e.target.closest('[data-rt78a-delete]');if(d){act('route_delete',{id:d.dataset.rt78aDelete});return}const m=e.target.closest('[data-rt78a-manager]');if(m){act('settings_patch',{world_id:m.dataset.world,user_id:m.dataset.rt78aManager,patch:{manager:{enabled:m.dataset.enabled==='1'}}});return}},true);
  new MutationObserver(()=>queueMicrotask(ensure)).observe(document.documentElement,{childList:true,subtree:true});ensure();
 })();
+
+;(()=>{if(window.__RT78_MANAGER_LOADER__)return;window.__RT78_MANAGER_LOADER__=true;const x=document.createElement('script');x.src='rt78-manager-suite.js?v=78.0';x.defer=true;document.head.appendChild(x)})();
