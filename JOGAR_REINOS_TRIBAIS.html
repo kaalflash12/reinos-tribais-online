@@ -3198,7 +3198,7 @@ window.GAME_DATA = (() => {
   let SAVE_KEY = 'reinos_tribais_ptbr_save_v60_local';
   const LEGACY_SAVE_KEYS = ['reinos_tribais_ptbr_save_v59_local','reinos_tribais_ptbr_save_v58_local','reinos_tribais_ptbr_save_v57_local','reinos_tribais_ptbr_save_v56_local','reinos_tribais_ptbr_save_v55_local','reinos_tribais_ptbr_save_v40','reinos_tribais_ptbr_save_v38','reinos_tribais_ptbr_save_v37','reinos_tribais_ptbr_save_v36','reinos_tribais_ptbr_save_v35','reinos_tribais_ptbr_save_v34','reinos_tribais_ptbr_save_v33','reinos_tribais_ptbr_save_v32','reinos_tribais_ptbr_save_v31','reinos_tribais_ptbr_save_v30','reinos_tribais_ptbr_save_v29','reinos_tribais_ptbr_save_v28','reinos_tribais_ptbr_save_v27','reinos_tribais_ptbr_save_v26','reinos_tribais_ptbr_save_v25','reinos_tribais_ptbr_save_v24','reinos_tribais_ptbr_save_v23','reinos_tribais_ptbr_save_v22','reinos_tribais_ptbr_save_v21','reinos_tribais_ptbr_save_v20','reinos_tribais_ptbr_save_v19','reinos_tribais_ptbr_save_v18','reinos_tribais_ptbr_save_v17'];
   const VERSION = 76;
-  const RT_BUILD = "76.1";
+  const RT_BUILD = "76.2";
   const RT76_PLAN = true;
   const RT60_VILLAGE_LAYER_VERSION = "RT61_AUDITED_FIXED_LAYERS_EMPTY_L0_WORLD_BOSSES";
   const RESOURCE_KEYS = ['wood', 'clay', 'iron'];
@@ -8569,6 +8569,7 @@ function renderMap() {
 
 
 
+
 /* RT76_BRIDGE_START */
 {
   const rt76Ensure=()=>{if(!state)return null;state.rt76||={};const r=state.rt76;r.schema=1;r.scheduledCommands||=[];r.targetIntel||={};r.actionLog||=[];r.market||={minStock:{wood:5000,clay:5000,iron:5000},cycleLimit:3,autoEqualize:false,history:[]};r.market.minStock||={wood:5000,clay:5000,iron:5000};r.market.history||=[];r.farm||={templates:{A:{spear:25},B:{axe:40,light:10},C:{light:40,spy:1}},cycleLimit:5};r.manager||={researchPriority:[],autoScavenge:false,decisionLog:[],lastExtraRun:0};r.manager.researchPriority||=[];r.manager.decisionLog||=[];return r};
@@ -8594,7 +8595,7 @@ function renderMap() {
   if(state)rt76Ensure();window.__RT76_PLAN_APPLIED__=true;
 }
 /* RT76_BRIDGE_END */
-  Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,hasHeroItem,getVillageVisualStage});
+  Object.assign(window,{CLOUD,productionPerHour,ensureMarketOffers,hasHeroItem,getVillageVisualStage,sendSupport,travelDuration,aiPersonality,aiPersonalityLabel,storageCapacity});
 /* RT76_WAVE2_START */
 {
   const rt76w2=()=>{if(!state)return null;state.rt76||={};const r=state.rt76;r.map||={selected:[],favorites:[],filter:'all',query:''};r.map.selected||=[];r.map.favorites||=[];r.aiActivity||=[];return r};
@@ -8762,7 +8763,8 @@ function renderMap() {
 (()=>{window.RT72_VISUAL_GUARD=true;document.addEventListener('error',e=>{const el=e.target;if(el?.tagName==='IMG'&&el.closest?.('.village-scene')){el.style.display='none';console.error('RT72 asset de aldeia ausente:',el.src)}},true)})();
 </script>
 
-<script src="rt76-runtime.js?v=76.1"></script>
-<script src="rt76-map-ai.js?v=76.1"></script>
+<script src="rt76-runtime.js?v=76.2"></script>
+<script src="rt76-map-ai.js?v=76.2"></script>
+<script src="rt76-master-plan.js?v=76.2"></script>
 </body>
 </html>

@@ -19,6 +19,18 @@
   function ensure(){
     const s=S(); if(!s)return null;
     s.rt76||={};
+    /* RT76_MASTER_BASE_INIT */
+    s.rt76.scheduledCommands||=[];
+    s.rt76.targetIntel||={};
+    s.rt76.actionLog||=[];
+    s.rt76.farm||={templates:{A:{spear:25},B:{axe:40,light:10},C:{light:40,spy:1}},cycleLimit:5};
+    s.rt76.farm.templates||={A:{spear:25},B:{axe:40,light:10},C:{light:40,spy:1}};
+    s.rt76.market||={minStock:{wood:5000,clay:5000,iron:5000},cycleLimit:3,autoEqualize:false,history:[]};
+    s.rt76.market.minStock||={wood:5000,clay:5000,iron:5000};
+    s.rt76.market.history||=[];
+    s.rt76.manager||={researchPriority:[],autoScavenge:false,decisionLog:[],lastExtraRun:0};
+    s.rt76.manager.researchPriority||=[];
+    s.rt76.manager.decisionLog||=[];
     const m=s.rt76.master||=( {
       schema:2,
       commandPresets:[], targetGroups:[], waves:[], scheduledSupport:[], recallHistory:[],
@@ -136,7 +148,7 @@
     opportunist:{label:'Oportunista',priorities:['OBSERVE','WEAK_TARGET','FARM','ATTACK']}
   };
   function planAIJobs(ts=stamp()){
-    const m=ensure(),ais=Object.values(S().villages).filter(v=>v.owner==='ai');if(!ais.length)return 0;let added=0;
+    const m=ensure(),ais=Object.values(S().villages).filter(v=>v.owner!=='player'&&v.owner!=='barbarian'&&!v._onlineRemote);if(!ais.length)return 0;let added=0;
     for(const v of ais){const profile=typeof window.aiPersonality==='function'?window.aiPersonality(v):['raider','warden','expander','opportunist'][Math.abs(String(v.id).split('').reduce((a,c)=>a+c.charCodeAt(0),0))%4];const exists=m.aiJobs.some(j=>j.villageId===v.id&&j.status==='planned'&&ts-j.createdAt<120000);if(exists)continue;const x={id:uid('aijob'),villageId:v.id,ownerName:v.ownerName||'IA',profile,priorities:clone(AI_PROFILES[profile]?.priorities||[]),status:'planned',createdAt:ts};m.aiJobs.push(x);added++;}
     m.aiJobs=m.aiJobs.slice(-400);if(added)save();return added;
   }
@@ -192,7 +204,7 @@
   function intelCard(){const ids=A.map?.state?.().selected||[],rows=ids.map(id=>{const v=S().villages[id],h=Intel.history(id),c=v?Intel.classify(id):null;return v?`<div class="queue-item"><b>${esc(v.name)} ${v.x}|${v.y}</b> • ${h.length} observação(ões) • ${c?.growing?'crescendo ':''}${c?.inactive?'inativo ':''}${c?.hostile?'hostil ':''}${c?.farmable?'farmável':''} <button class="btn small-btn" data-rt76-observe="${v.id}">Observar</button></div>`:''}).join('');return `<section class="dashboard-card rt76-master-card" id="rt76-master-intel"><h2>🔭 Histórico de inteligência</h2><button class="btn" data-rt76-observe-selected>Observar selecionados</button>${rows||'<p class="muted">Selecione alvos no painel de inteligência do mapa.</p>'}</section>`}
   function tribeCard(){if(!S().player.tribe||!S().player.tribeData)return'';const m=ensure(),td=S().player.tribeData;return `<section class="dashboard-card rt76-master-card" id="rt76-master-tribe"><h2>🏰 Projetos coletivos da tribo</h2><div class="small">Tesouro: 🪵${fmt(td.treasury?.wood)} 🧱${fmt(td.treasury?.clay)} ⛓️${fmt(td.treasury?.iron)}</div><div class="btn-row"><button class="btn" data-rt76-create-project="roads">Estradas</button><button class="btn" data-rt76-create-project="fortifications">Fortificações</button><button class="btn" data-rt76-create-project="trade">Entreposto</button></div>${m.tribeProjects.map(p=>`<div class="queue-item"><b>${esc(p.name)}</b> • ${p.status} • 🪵${fmt(p.progress.wood)}/${fmt(p.cost.wood)} 🧱${fmt(p.progress.clay)}/${fmt(p.cost.clay)} ⛓️${fmt(p.progress.iron)}/${fmt(p.cost.iron)} ${p.status==='active'?`<button class="btn small-btn" data-rt76-fund-project="${p.id}">Financiar do tesouro</button>`:''}</div>`).join('')}</section>`}
 
-  function inject(){const s=S(),p=document.querySelector('.content-panel');if(!s||!p)return;const title=document.querySelector('.panel-title')?.textContent||'';if(/Praça/.test(title)&&!document.querySelector('#rt76-master-planner'))p.insertAdjacentHTML('beforeend',plannerCard()+farmRulesCard());if(/^Mercado/.test(title)&&!document.querySelector('#rt76-master-logistics'))p.insertAdjacentHTML('beforeend',marketCard());if(/Gerente/.test(title)&&!document.querySelector('#rt76-master-governor'))p.insertAdjacentHTML('beforeend',governorCard());if(/Central de Sistemas/.test(title)&&!document.querySelector('#rt76-master-engine'))p.insertAdjacentHTML('beforeend',systemsCard());if(/Mapa/.test(title)&&!document.querySelector('#rt76-master-intel'))p.insertAdjacentHTML('beforeend',intelCard());if(/^Tribo/.test(title)&&!document.querySelector('#rt76-master-tribe'))p.insertAdjacentHTML('beforeend',tribeCard())}
+  function inject(){/* RT76_MASTER_INJECT_ENSURE */ ensure();const s=S(),p=document.querySelector('.content-panel');if(!s||!p)return;const title=document.querySelector('.panel-title')?.textContent||'';if(/Praça/.test(title)&&!document.querySelector('#rt76-master-planner'))p.insertAdjacentHTML('beforeend',plannerCard()+farmRulesCard());if(/^Mercado/.test(title)&&!document.querySelector('#rt76-master-logistics'))p.insertAdjacentHTML('beforeend',marketCard());if(/Gerente/.test(title)&&!document.querySelector('#rt76-master-governor'))p.insertAdjacentHTML('beforeend',governorCard());if(/Central de Sistemas/.test(title)&&!document.querySelector('#rt76-master-engine'))p.insertAdjacentHTML('beforeend',systemsCard());if((String(window.currentView||'')==='map'||/Mapa/.test(title))&&!document.querySelector('#rt76-master-intel'))p.insertAdjacentHTML('beforeend',intelCard());if(/^Tribo/.test(title)&&!document.querySelector('#rt76-master-tribe'))p.insertAdjacentHTML('beforeend',tribeCard())}
 
   document.addEventListener('submit',e=>{const f=e.target;if(f.id==='rt76-wave-form'){e.preventDefault();const fd=new FormData(f),v=A.test.getActiveVillage(),troops={};for(const k of Object.keys(D().units))troops[k]=n(fd.get('wave_'+k));try{Planner.planWave({sourceId:v.id,targetId:fd.get('targetId'),troops,arrivalAt:Date.parse(String(fd.get('arrival'))),count:n(fd.get('count'))||1,gapMs:n(fd.get('gap')),kind:String(fd.get('kind')||'attack')});alert('Ondas programadas.')}catch(x){alert(x.message)}A.test.render();return}if(f.id==='rt76-farm-rules-form'){e.preventDefault();const fd=new FormData(f);Farm.setRules({maxDistance:+fd.get('maxDistance'),maxWall:+fd.get('maxWall'),maxLossPct:+fd.get('maxLossPct'),reattackMinutes:+fd.get('reattackMinutes'),cycleLimit:+fd.get('cycleLimit')});A.test.render();return}if(f.id==='rt76-route-form'){e.preventDefault();const fd=new FormData(f);try{Market.addRoute({sourceId:fd.get('sourceId'),targetId:fd.get('targetId'),resource:fd.get('resource'),amount:+fd.get('amount'),minSource:+fd.get('minSource'),intervalMs:(+fd.get('interval')||5)*60000});A.test.render()}catch(x){alert(x.message)}return}},true);
   document.addEventListener('change',e=>{const x=e.target.closest('[data-rt76-role]');if(x){Governor.setRole(x.dataset.rt76Role,x.value);A.test.render()}},true);
@@ -205,5 +217,6 @@
 
   const obs=new MutationObserver(()=>queueMicrotask(inject));obs.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
   setInterval(()=>{try{Planner.processSupport(stamp());Jobs.process(stamp(),6);Market.runRoutes(stamp());Empire.runLogistics();planAIJobs(stamp());reconcileAIJobs(stamp());inject()}catch(e){console.error('RT76 master scheduler',e)}},5000);
+  /* RT76_MASTER_STATE_WATCH */ setInterval(()=>{try{if(S())ensure()}catch(_){}},200);
   ensure();inject();
 })();

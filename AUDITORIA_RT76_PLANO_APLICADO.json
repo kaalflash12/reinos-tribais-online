@@ -1,7 +1,12 @@
 {
-  "build": "RT76.1",
-  "source_html_sha256": "07f50f39569fdf2b68f384cf10799c8638e9725ccc09c01920b4a3d151d697a4",
-  "patched_html_sha256": "f522cf13f16ee9da6b7be0c259e758a729b8a93295d5b49d432d424fee785405",
+  "build": "RT76.2",
+  "source_html_sha256": "f522cf13f16ee9da6b7be0c259e758a729b8a93295d5b49d432d424fee785405",
+  "patched_html_sha256": "e9c2f4de0753be66a84000def78f2516315e31dff808109ef2581dffceb45268",
+  "md_contract": {
+    "file": "Markdown(20260816-185951).md colado",
+    "lines": 1349,
+    "repo_contract": "PLANO_MESTRE_RT76_CONTRATO.json"
+  },
   "implemented": {
     "phase0_regression_gate": true,
     "central_war_scheduled_arrival": true,
@@ -20,12 +25,31 @@
     "unified_action_api": true,
     "map_intelligence_scan_selection": true,
     "ai_activity_observer": true,
-    "map_ai_ui": true
+    "map_ai_ui": true,
+    "planner_waves_and_sync": true,
+    "planner_fake": true,
+    "planner_recall": true,
+    "scheduled_support_model": true,
+    "farm_configurable_rules": true,
+    "farm_batch_limit": true,
+    "intel_history_and_classification": true,
+    "incoming_progressive_identification": true,
+    "market_routes": true,
+    "market_supply_requests": true,
+    "generic_job_queue": true,
+    "ai_job_model": true,
+    "governor_profiles": true,
+    "empire_roles_and_bulk_actions": true,
+    "logistics_rules": true,
+    "tribe_collective_projects": true,
+    "strategic_alerts": true,
+    "map_context_actions": true,
+    "md_contract_traceability": true
   },
   "not_claimed_complete": [
     "full Supabase transactional P0",
     "entire admin redesign",
-    "all 15 master-plan phases",
+    "same-rules local/online proof",
     "all historical requirements"
   ]
 }
