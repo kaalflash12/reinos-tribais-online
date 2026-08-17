@@ -1,0 +1,106 @@
+name: RT77 Real Admin Screens Trimmed TEMP
+
+on:
+  push:
+    paths:
+      - 'rt77-real-admin-trimmed-trigger.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Preparar
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          python -m pip install --disable-pip-version-check --quiet selenium
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_ADMIN_AUDIT_SITE'
+          New-Item -ItemType Directory -Force $root|Out-Null
+          $html=(Invoke-WebRequest -UseBasicParsing 'https://kaalflash12.github.io/reinos-tribais-online/?admin-trim-source=1').Content
+          $html=$html.Replace("try{const sr=await adminSupportRequest('support_list');data.onlineSupports=Array.isArray(sr?.supports)?sr.supports:[]}catch{data.onlineSupports=[]}","data.onlineSupports=data.onlineSupports||[]")
+          $needle="window.addEventListener('beforeunload', () => saveState(true));"
+          if(-not$html.Contains($needle)){throw 'Ponto de exposição não encontrado'}
+          $html=$html.Replace($needle,"window.__RT77AUDIT={renderIntegratedAdmin,RTADMIN,adminRequest,rt64PlayerEditor,rt64VillageEditor,rt64MonsterEditor};`n$needle")
+          Set-Content -Encoding UTF8 (Join-Path $root 'index.html') $html
+
+      - name: Capturar ADM real com dados limitados só na tela
+        shell: pwsh
+        env:
+          RT77_AUDIT_TOKEN: '61bac8ab634840f9fdb7df72c6815724abd9cc745724c637c1e604fe89801904'
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_ADMIN_AUDIT_SITE'
+          $out=Join-Path $env:RUNNER_TEMP 'RT77_ADM_REAL_PRINTS_TRIMMED'
+          New-Item -ItemType Directory -Force $out|Out-Null
+          $server=Start-Process python -ArgumentList @('-m','http.server','8878','--bind','127.0.0.1','--directory',$root) -PassThru -WindowStyle Hidden
+          Start-Sleep 1
+          try{
+          @'
+          import os,time,json
+          from pathlib import Path
+          from selenium import webdriver
+          from selenium.webdriver.edge.options import Options
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          OUT=Path(os.environ['RUNNER_TEMP'])/'RT77_ADM_REAL_PRINTS_TRIMMED'; manifest=[]
+          o=Options();o.add_argument('--headless=new');o.add_argument('--window-size=1600,1000');o.add_argument('--disable-gpu');o.add_argument('--no-first-run')
+          d=webdriver.Edge(options=o)
+          try:
+            d.get('http://127.0.0.1:8878/index.html?admin-real-trimmed=1')
+            WebDriverWait(d,25).until(lambda x:x.execute_script('return typeof window.__RT77AUDIT')=='object')
+            token=os.environ['RT77_AUDIT_TOKEN']
+            d.execute_script("window.__RT77AUDIT.RTADMIN.token=arguments[0];window.__RT77AUDIT.RTADMIN.info={username:'reinos_admin',role:'superadmin'};sessionStorage.setItem('rt60_admin_token',arguments[0]);",token)
+            script="""
+              const done=arguments[arguments.length-1];
+              window.__RT77AUDIT.adminRequest('dashboard').then(async d=>{
+                const cut=(k,n)=>{if(Array.isArray(d[k]))d[k]=d[k].slice(0,n)};
+                cut('villages',35);cut('players',35);cut('nodes',30);cut('events',30);cut('monsters',30);cut('commands',30);cut('attacks',30);cut('onlineSupports',30);cut('tribes',30);cut('tribeMembers',50);cut('offers',30);cut('messages',30);cut('reports',30);cut('entitlements',30);cut('rtWorldEvents',30);cut('eventProgress',30);cut('eventRewards',30);cut('auditLog',40);cut('ratings',40);cut('matches',30);cut('monsterHits',30);cut('adminSessions',20);cut('adminAccounts',20);
+                await window.__RT77AUDIT.renderIntegratedAdmin(d,true); done(JSON.stringify({ok:true,worlds:(d.worlds||[]).length,players:(d.players||[]).length,villages:(d.villages||[]).length}));
+              }).catch(e=>done(JSON.stringify({ok:false,error:String(e&&e.message||e)})));
+            """
+            d.set_script_timeout(40)
+            result=json.loads(d.execute_async_script(script));print('DASH',result,flush=True)
+            if not result.get('ok'): raise RuntimeError(result)
+            WebDriverWait(d,15).until(EC.presence_of_element_located((By.CSS_SELECTOR,'.rt60-admin-shell')))
+            def shot(kind,name,note=''):
+              d.execute_script('window.scrollTo(0,0)');time.sleep(.18)
+              f=OUT/f'{len(manifest)+1:03d}_{kind}_{name}.png';d.save_screenshot(str(f));manifest.append({'kind':kind,'name':name,'file':f.name,'notes':note});print('SHOT',name,flush=True)
+            tabs=['overview','worlds','players','villages','mapops','events','ranked','combat','market','tribes','comms','rewards','database','audit','security']
+            for t in tabs:
+              btn=d.find_element(By.CSS_SELECTOR,f'[data-admin-tab="{t}"]');d.execute_script('arguments[0].click()',btn);time.sleep(.22);shot('ADM',t,'ADM real RT77; dados reais limitados apenas na quantidade renderizada para a captura.')
+            for tab,sel,name in [('players','[data-rt64-edit-player]','editar_jogador'),('players','[data-rt64-password]','definir_senha_jogador'),('villages','[data-rt64-edit-village]','editar_aldeia_integral'),('events','[data-rt64-edit-monster]','editar_monstro_boss')]:
+              d.execute_script('arguments[0].click()',d.find_element(By.CSS_SELECTOR,f'[data-admin-tab="{tab}"]'));time.sleep(.2)
+              es=d.find_elements(By.CSS_SELECTOR,sel)
+              if not es: manifest.append({'kind':'ERRO','name':name,'file':'','notes':f'Sem {sel} nos dados carregados'});continue
+              d.execute_script('arguments[0].click()',es[0]);time.sleep(.25);shot('ADM_MODAL',name,'Modal real aberto sem salvar/confirmar alteração.');d.execute_script("document.querySelectorAll('.rt60-admin-modal').forEach(x=>x.remove())")
+            (OUT/'manifest_admin_real.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+            (OUT/'INDICE_ADM_REAL_RT77.md').write_text('# ADM REAL RT77\n\n'+'\n'.join(f"{i+1:03d}. {x['kind']} — {x['name']} — {x['file'] or 'SEM PRINT'} — {x['notes']}" for i,x in enumerate(manifest)),encoding='utf-8')
+            print('TOTAL',sum(bool(x['file']) for x in manifest),'ERROS',sum(x['kind']=='ERRO' for x in manifest),flush=True)
+          finally:d.quit()
+          '@ | Set-Content -Encoding UTF8 "$env:RUNNER_TEMP\capture_admin_trimmed.py"
+          python "$env:RUNNER_TEMP\capture_admin_trimmed.py"
+          } finally { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
+
+      - name: Compactar
+        if: always()
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'RT77_ADM_REAL_PRINTS_TRIMMED'
+          if(-not(Test-Path $root)){New-Item -ItemType Directory -Force $root|Out-Null}
+          Compress-Archive -Path "$root\*" -DestinationPath "$env:RUNNER_TEMP\RT77_PRINTS_ADM_REAL_TRIMMED.zip" -Force
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT77_PRINTS_ADM_REAL_TRIMMED
+          path: |
+            ${{ runner.temp }}\RT77_PRINTS_ADM_REAL_TRIMMED.zip
+            ${{ runner.temp }}\RT77_ADM_REAL_PRINTS_TRIMMED\manifest_admin_real.json
+            ${{ runner.temp }}\RT77_ADM_REAL_PRINTS_TRIMMED\INDICE_ADM_REAL_RT77.md
+          if-no-files-found: warn
