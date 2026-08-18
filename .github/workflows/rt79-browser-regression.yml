@@ -10,7 +10,7 @@ permissions:
 jobs:
   chromium-regression:
     runs-on: windows-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Install Selenium
@@ -26,18 +26,39 @@ jobs:
           node --check rt79-village-ui.js
           node --check rt79-admin-logistics-addon.js
           node --check rt78-manager-suite.js
+          node --check rt76-map-ai.js
           python -m py_compile tools/rt79_chrome_fast_regression.py tools/promote_rt79_1.py
-      - name: Start game server on runner network
+      - name: Start local game server
         shell: pwsh
         run: |
-          $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } | Sort-Object InterfaceMetric | Select-Object -First 1 -ExpandProperty IPAddress)
-          if (-not $ip) { throw 'Nenhum IPv4 do runner encontrado.' }
-          "RT79_TEST_URL=http://$ip`:8765/" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          $p = Start-Process python -ArgumentList '-m','http.server','8765','--bind','0.0.0.0' -PassThru -WindowStyle Hidden
+          $p = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1' -PassThru -WindowStyle Hidden
           $p.Id | Set-Content "$env:RUNNER_TEMP\rt79_http_pid.txt"
           Start-Sleep -Seconds 2
-          Invoke-WebRequest -UseBasicParsing "http://$ip`:8765/index.html" | Out-Null
-          Write-Host "Browser test URL: http://$ip`:8765/"
+          Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/index.html | Out-Null
+      - name: Expose branch through temporary HTTPS tunnel
+        shell: pwsh
+        run: |
+          $cf = "$env:RUNNER_TEMP\cloudflared.exe"
+          Invoke-WebRequest -UseBasicParsing "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $cf
+          $out = "$env:RUNNER_TEMP\cloudflared.out.log"
+          $err = "$env:RUNNER_TEMP\cloudflared.err.log"
+          $proc = Start-Process $cf -ArgumentList 'tunnel','--url','http://127.0.0.1:8765','--no-autoupdate' -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err
+          $proc.Id | Set-Content "$env:RUNNER_TEMP\rt79_cloudflared_pid.txt"
+          $url = $null
+          for ($i=0; $i -lt 75 -and -not $url; $i++) {
+            Start-Sleep -Seconds 1
+            $txt = ((Get-Content $out,$err -ErrorAction SilentlyContinue) -join "`n")
+            $m = [regex]::Match($txt, 'https://[a-z0-9-]+\.trycloudflare\.com')
+            if ($m.Success) { $url = $m.Value }
+          }
+          if (-not $url) { Get-Content $out,$err -ErrorAction SilentlyContinue; throw 'Quick Tunnel não forneceu URL HTTPS.' }
+          $ok = $false
+          for ($i=0; $i -lt 45 -and -not $ok; $i++) {
+            try { Invoke-WebRequest -UseBasicParsing "$url/index.html?ci=1" -TimeoutSec 10 | Out-Null; $ok=$true } catch { Start-Sleep -Seconds 1 }
+          }
+          if (-not $ok) { throw "Tunnel criado mas index não respondeu: $url" }
+          "RT79_TEST_URL=$url/" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Browser test URL: $url/"
       - name: Run Windows Chrome functional regression
         shell: pwsh
         run: python tools/rt79_chrome_fast_regression.py
