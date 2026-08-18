@@ -1,0 +1,13 @@
+{
+  "pass": false,
+  "browser": "chrome",
+  "error": "TimeoutException()",
+  "tests": 0,
+  "manifest": [],
+  "diagnostic": {
+    "diagnostic_error": "TimeoutException()"
+  },
+  "workflow_run_id": "32195876328",
+  "workflow_commit": "4d05b8dea57e433af2239ee5da0f310b84cde38d",
+  "persisted_at": "2026-08-18T23:11:08.2860942Z"
+}
