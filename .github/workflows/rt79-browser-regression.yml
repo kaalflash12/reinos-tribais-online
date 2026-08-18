@@ -6,7 +6,7 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   chromium-regression:
     runs-on: windows-latest
@@ -44,6 +44,21 @@ jobs:
         env:
           RT79_TEST_URL: http://127.0.0.1:8765/
         run: python tools/rt79_browser_addons_smoke.py
+      - name: Promote RT79.1 physical HTML on review branch
+        if: github.event_name == 'pull_request' && github.head_ref == 'rt79-1-full-review'
+        shell: pwsh
+        run: |
+          python tools/promote_rt79_1.py
+          $changes = git status --porcelain -- index.html JOGAR_REINOS_TRIBAIS.html
+          if ($changes) {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add index.html JOGAR_REINOS_TRIBAIS.html
+            git commit -m "RT79.1: promote physical game HTML after Edge gate"
+            git push origin "HEAD:${{ github.head_ref }}"
+          } else {
+            Write-Host "RT79.1 physical HTML already promoted."
+          }
       - name: Upload RT79 browser proof
         if: always()
         uses: actions/upload-artifact@v4
