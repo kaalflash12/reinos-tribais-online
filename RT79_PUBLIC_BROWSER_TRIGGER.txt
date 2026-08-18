@@ -1,1 +1,1 @@
-RT79.1 public GitHub Pages Chrome regression trigger
+RT79.1 public GitHub Pages Chrome regression trigger v2
