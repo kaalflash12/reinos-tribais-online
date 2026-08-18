@@ -43,18 +43,33 @@ jobs:
       - name: Run Chrome functional regression against public Pages
         shell: pwsh
         run: python tools/rt79_chrome_fast_regression.py
-      - name: Persist successful browser proof in repository
+      - name: Persist browser proof in repository
+        if: always()
         shell: pwsh
         run: |
           $src=Join-Path $env:RUNNER_TEMP 'RT79_BROWSER_REGRESSION\PROVA_BROWSER_RT79.json'
-          if(-not(Test-Path $src)){throw 'Prova do navegador não foi produzida.'}
-          $proof=Get-Content $src -Raw | ConvertFrom-Json
-          if(-not $proof.pass){throw 'Prova do navegador não está em PASS.'}
-          Copy-Item $src 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Force
+          if(Test-Path $src){
+            Copy-Item $src 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Force
+          } else {
+            $fallback=[ordered]@{
+              pass=$false
+              browser='chrome'
+              error='browser proof not produced; inspect workflow step conclusions'
+              run_id='${{ github.run_id }}'
+              commit='${{ github.sha }}'
+              generated_at=(Get-Date).ToUniversalTime().ToString('o')
+            }
+            $fallback | ConvertTo-Json -Depth 8 | Set-Content 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Encoding UTF8
+          }
+          $proof=Get-Content 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Raw | ConvertFrom-Json
+          $proof | Add-Member -NotePropertyName workflow_run_id -NotePropertyValue '${{ github.run_id }}' -Force
+          $proof | Add-Member -NotePropertyName workflow_commit -NotePropertyValue '${{ github.sha }}' -Force
+          $proof | Add-Member -NotePropertyName persisted_at -NotePropertyValue ((Get-Date).ToUniversalTime().ToString('o')) -Force
+          $proof | ConvertTo-Json -Depth 20 | Set-Content 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Encoding UTF8
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add AUDITORIA_RT79_1_PUBLIC_BROWSER.json
-          git commit -m 'RT79.1 browser proof: public Pages PASS'
+          git commit -m "RT79.1 public browser proof: $($proof.pass)" || echo 'No proof change to commit'
           git push origin HEAD:main
       - name: Upload proof
         if: always()
