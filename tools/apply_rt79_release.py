@@ -1,6 +1,13 @@
 from pathlib import Path
 
 FILES=['index.html','JOGAR_REINOS_TRIBAIS.html']
+LOADERS=[
+    '<script src="rt79-suite.js?v=79.0"></script>',
+    '<script src="rt79-groups-addon.js?v=79.0"></script>',
+    '<script src="rt79-logistics-ai-addon.js?v=79.0"></script>',
+    '<script src="rt79-village-ui.js?v=79.0"></script>',
+    '<script src="rt79-admin-suite.js?v=79.0"></script>',
+]
 for name in FILES:
     p=Path(name)
     s=p.read_text(encoding='utf-8')
@@ -17,11 +24,14 @@ for name in FILES:
     if 'window.RT79_CORE' not in s:
         s=s.replace('  window.RT77 = window.RT76;','  window.RT77 = window.RT76;\n  window.RT79_CORE = {version:\'79.0\',cloud:()=>CLOUD,state:()=>state,render:()=>renderAll(),save:()=>saveState(true)};')
     anchor='<script src="rt76-master-plan.js?v=78.0"></script>'
-    add=anchor+'\n<script src="rt79-suite.js?v=79.0"></script>\n<script src="rt79-admin-suite.js?v=79.0"></script>'
-    if 'rt79-suite.js?v=79.0' not in s:
-        if anchor not in s: raise RuntimeError(f'loader anchor missing: {name}')
-        s=s.replace(anchor,add)
-    if 'const VERSION = 79;' not in s or 'const RT_BUILD = "79.0";' not in s or 'window.CLOUD=CLOUD;' not in s or 'rt79-suite.js?v=79.0' not in s:
-        raise RuntimeError(f'RT79 markers missing after patch: {name}')
+    if anchor not in s:
+        raise RuntimeError(f'loader anchor missing: {name}')
+    for tag in LOADERS:
+        if tag not in s:
+            s=s.replace(anchor,anchor+'\n'+tag)
+    required=['const VERSION = 79;','const RT_BUILD = "79.0";','window.CLOUD=CLOUD;','rt79-suite.js?v=79.0','rt79-groups-addon.js?v=79.0','rt79-logistics-ai-addon.js?v=79.0','rt79-village-ui.js?v=79.0','rt79-admin-suite.js?v=79.0']
+    missing=[x for x in required if x not in s]
+    if missing:
+        raise RuntimeError(f'RT79 markers missing after patch in {name}: {missing}')
     p.write_text(s,encoding='utf-8')
-print('RT79 release patch applied')
+print('RT79 complete release patch applied')
