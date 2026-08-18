@@ -7,6 +7,7 @@ LOADERS=[
     '<script src="rt79-logistics-ai-addon.js?v=79.0"></script>',
     '<script src="rt79-village-ui.js?v=79.0"></script>',
     '<script src="rt79-admin-suite.js?v=79.0"></script>',
+    '<script src="rt79-admin-logistics-addon.js?v=79.0"></script>',
 ]
 for name in FILES:
     p=Path(name)
@@ -29,7 +30,7 @@ for name in FILES:
     for tag in LOADERS:
         if tag not in s:
             s=s.replace(anchor,anchor+'\n'+tag)
-    required=['const VERSION = 79;','const RT_BUILD = "79.0";','window.CLOUD=CLOUD;','rt79-suite.js?v=79.0','rt79-groups-addon.js?v=79.0','rt79-logistics-ai-addon.js?v=79.0','rt79-village-ui.js?v=79.0','rt79-admin-suite.js?v=79.0']
+    required=['const VERSION = 79;','const RT_BUILD = "79.0";','window.CLOUD=CLOUD;','rt79-suite.js?v=79.0','rt79-groups-addon.js?v=79.0','rt79-logistics-ai-addon.js?v=79.0','rt79-village-ui.js?v=79.0','rt79-admin-suite.js?v=79.0','rt79-admin-logistics-addon.js?v=79.0']
     missing=[x for x in required if x not in s]
     if missing:
         raise RuntimeError(f'RT79 markers missing after patch in {name}: {missing}')
