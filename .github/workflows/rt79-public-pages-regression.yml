@@ -2,9 +2,11 @@ name: RT79.1 Public Pages Regression
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   public-chrome:
     runs-on: windows-latest
@@ -41,6 +43,19 @@ jobs:
       - name: Run Chrome functional regression against public Pages
         shell: pwsh
         run: python tools/rt79_chrome_fast_regression.py
+      - name: Persist successful browser proof in repository
+        shell: pwsh
+        run: |
+          $src=Join-Path $env:RUNNER_TEMP 'RT79_BROWSER_REGRESSION\PROVA_BROWSER_RT79.json'
+          if(-not(Test-Path $src)){throw 'Prova do navegador não foi produzida.'}
+          $proof=Get-Content $src -Raw | ConvertFrom-Json
+          if(-not $proof.pass){throw 'Prova do navegador não está em PASS.'}
+          Copy-Item $src 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Force
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add AUDITORIA_RT79_1_PUBLIC_BROWSER.json
+          git commit -m 'RT79.1 browser proof: public Pages PASS'
+          git push origin HEAD:main
       - name: Upload proof
         if: always()
         uses: actions/upload-artifact@v4
