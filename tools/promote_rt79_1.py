@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# RT79.1 Chrome gate trigger: physical promotion only runs after the browser regression passes.
 FILES=[Path('index.html'),Path('JOGAR_REINOS_TRIBAIS.html')]
 for path in FILES:
     text=path.read_text(encoding='utf-8')
