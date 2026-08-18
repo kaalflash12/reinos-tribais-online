@@ -31,9 +31,7 @@
     "supabase_project": "rlyiwlwzrdgvcwawrnpl",
     "scheduler": "pg_cron every minute -> private.rt79_system_tick()",
     "new_tables": ["rt79_resource_transfers", "rt79_barbarian_ai_state"],
-    "new_or_extended_rpc": [
-      "rt79_dashboard", "rt79_world_maintenance", "rt79_transfer_resources", "rt79_transfer_cancel", "rt79_transfer_tick", "rt79_equalize_resources", "rt79_barbarian_tick", "rt79_admin_barbarian_tick"
-    ],
+    "new_or_extended_rpc": ["rt79_dashboard", "rt79_world_maintenance", "rt79_transfer_resources", "rt79_transfer_cancel", "rt79_transfer_tick", "rt79_equalize_resources", "rt79_barbarian_tick", "rt79_admin_barbarian_tick"],
     "security": "new RT79 tables have RLS enabled, direct anon/auth table grants revoked; public client RPCs require authenticated session/ownership; admin barbarian tick is not executable by anon/authenticated"
   },
   "admin": {
@@ -63,5 +61,5 @@
     "paladin_item_overlays": "16 PASS"
   },
   "browser_note": "The local container Chromium could not complete localhost execution in this environment. The repository contains the Windows/Edge RT79 regression plus addon smoke workflow; do not call the new addon browser proof PASS until a workflow artifact is observed.",
-  "online_note": "main currently has the RT79 runtime bootstrap in rt78-admin-suite.js, so the public RT78 core loader loads the six RT79 modules. The release workflow is also configured to rewrite the physical index/JOGAR version markers to 79.0; physical index rewrite must be verified separately before claiming the HTML file itself is RT79."
+  "online_note": "The physical main index.html is still marked RT78. The already-loaded rt78-admin-suite.js now bootstraps all six RT79 modules, and rt79-logistics-ai-addon.js bridges the legacy CLOUD binding to window.CLOUD so the RT79 runtime can call Supabase. This runtime bridge is active in main, but the physical index VERSION/BUILD rewrite must still be verified separately before calling the file itself RT79."
 }
