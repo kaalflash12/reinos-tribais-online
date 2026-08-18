@@ -28,6 +28,11 @@ jobs:
           node --check rt78-manager-suite.js
           node --check rt76-map-ai.js
           python -m py_compile tools/rt79_chrome_fast_regression.py tools/promote_rt79_1.py
+      - name: Promote working copy to physical RT79.1
+        shell: pwsh
+        run: |
+          python tools/promote_rt79_1.py
+          Select-String -Path index.html -Pattern 'const VERSION = 79;','const RT_BUILD = "79.1";','rt79-suite.js?v=79.1' | ForEach-Object { $_.Line }
       - name: Start local game server
         shell: pwsh
         run: |
@@ -62,11 +67,10 @@ jobs:
       - name: Run Windows Chrome functional regression
         shell: pwsh
         run: python tools/rt79_chrome_fast_regression.py
-      - name: Promote RT79.1 physical HTML on review branch
+      - name: Commit promoted RT79.1 HTML to review branch
         if: github.event_name == 'pull_request' && github.head_ref == 'rt79-1-full-review'
         shell: pwsh
         run: |
-          python tools/promote_rt79_1.py
           $changes = git status --porcelain -- index.html JOGAR_REINOS_TRIBAIS.html
           if ($changes) {
             git config user.name "github-actions[bot]"
