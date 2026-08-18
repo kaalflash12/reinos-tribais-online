@@ -2,7 +2,7 @@
 (()=>{
   if(window.__RT79_STRATEGY_SUITE__) return;
   window.__RT79_STRATEGY_SUITE__=true;
-  const VERSION='79.0';
+  const VERSION='79.1';
   const $=(s,r=document)=>r.querySelector(s);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const num=v=>Math.max(0,Math.floor(Number(v)||0));
@@ -59,7 +59,8 @@
   async function farmRecommend(form){const fd=new FormData(form);state.recommend=await rpc('rt79_farm_recommend',{p_world_id:cloud().worldId,p_source_village_id:fd.get('source'),p_limit:num(fd.get('limit'))||10,p_max_distance:Number(fd.get('distance')||25),p_max_wall:num(fd.get('wall'))||8});render();}
   function ensure(){
     if(!$('#rt79-overlay')){const o=document.createElement('div');o.id='rt79-overlay';document.body.appendChild(o)}
-    document.title=document.title.replace(/RT78[^|—]*/,'RT79 Completo');
+    const nextTitle=document.title.replace(/RT78[^|—]*/,'RT79.1 Revisado');
+    if(nextTitle!==document.title) document.title=nextTitle;
     document.querySelectorAll('.rt78-launch,.rt78-manager-launch').forEach(x=>x.style.display='none');
     if(!$('[data-rt79-open]')){const b=document.createElement('button');b.type='button';b.dataset.rt79Open='1';b.className='rt79-launch';b.innerHTML='⚔ Central Estratégica <small>RT79</small>';const nav=$('.rt17-nav-main')||$('.rt17-nav')||$('.topbar-inner')||$('.rt22-topbar');nav?.appendChild(b)}
   }
@@ -89,7 +90,9 @@
     if(f.id==='rt79-meta-form'){act(()=>saveConfig(cfg=>{cfg.villageMeta={...(cfg.villageMeta||{})};const vid=String(fd.get('village')||'');cfg.villageMeta[vid]={favorite:Boolean(fd.get('favorite')),group:String(fd.get('group')||'').trim(),tags:String(fd.get('tags')||'').split(',').map(x=>x.trim()).filter(Boolean).slice(0,12),note:String(fd.get('note')||'').trim().slice(0,1000)}}),'Metadados da aldeia salvos.');return}
     if(f.id==='rt79-intel-form'){act(()=>rpc('rt78_observe_target',{p_world_id:cloud().worldId,p_target_village_id:fd.get('target')}),'Observação registrada.');return}
   },true);
-  new MutationObserver(()=>queueMicrotask(ensure)).observe(document.documentElement,{childList:true,subtree:true});
+  let ensurePending=false;
+  const scheduleEnsure=()=>{if(ensurePending)return;ensurePending=true;setTimeout(()=>{ensurePending=false;ensure()},60)};
+  new MutationObserver(scheduleEnsure).observe(document.body||document.documentElement,{childList:true,subtree:true});
   setInterval(()=>{ensure();if(state.open&&online()&&Date.now()-state.last>30000)refresh(true).catch(()=>{})},5000);
   window.RT79={version:VERSION,open:()=>{state.open=true;render();refresh(true)},refresh:()=>refresh(true),rpc};ensure();render();
 })();

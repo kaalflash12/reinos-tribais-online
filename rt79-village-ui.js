@@ -32,7 +32,8 @@
     scene.querySelector('.rt79-wall-perimeter')?.remove();
     let badge=scene.querySelector('.rt79-scene-badge');
     if(!badge){badge=document.createElement('div');badge.className='rt79-scene-badge';scene.appendChild(badge)}
-    badge.textContent='RT79.1 • ALDEIA VIVA • 19 EDIFÍCIOS';
+    const badgeText='RT79.1 • ALDEIA VIVA • 19 EDIFÍCIOS';
+    if(badge.textContent!==badgeText) badge.textContent=badgeText;
   }
   function ensureToolbar(scene){
     const center=scene.closest('.rt22-center')||scene.parentElement;if(!center)return;
@@ -79,5 +80,6 @@
   .rt79-map-inspector{display:none;position:fixed;z-index:1000004;width:240px;background:#11160ff2;color:#eddfba;border:1px solid #786134;border-radius:7px;padding:8px;box-shadow:0 8px 24px #000a;font:12px system-ui;pointer-events:none}.rt79-map-inspector.show{display:grid;gap:3px}.rt79-map-inspector b{color:#efc766}
   @media(max-width:820px){.rt79-village-toolbar{grid-template-columns:1fr}.rt79-vactions{justify-content:flex-start}body.rt79-village-active .game-shell .rt24-village-hud{position:relative!important;right:auto!important;top:auto!important;width:100%!important;margin:0 0 5px!important}}
   `;document.head.appendChild(css);
-  new MutationObserver(()=>queueMicrotask(ensure)).observe(document.documentElement,{childList:true,subtree:true});setInterval(ensure,1800);ensure();
+  let ensurePending=false;const scheduleEnsure=()=>{if(ensurePending)return;ensurePending=true;setTimeout(()=>{ensurePending=false;ensure()},80)};
+  new MutationObserver(scheduleEnsure).observe(document.body||document.documentElement,{childList:true,subtree:true});setInterval(ensure,1800);ensure();
 })();
