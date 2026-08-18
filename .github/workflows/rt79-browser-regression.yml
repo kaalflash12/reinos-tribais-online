@@ -27,17 +27,19 @@ jobs:
           node --check rt79-admin-logistics-addon.js
           node --check rt78-manager-suite.js
           python -m py_compile tools/rt79_browser_regression.py tools/rt79_browser_regression_v2.py tools/rt79_browser_regression_v3.py tools/rt79_browser_addons_smoke.py tools/rt79_chrome_full_regression.py tools/promote_rt79_1.py
-      - name: Start local game server
+      - name: Start game server on runner network
         shell: pwsh
         run: |
-          $p = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1' -PassThru -WindowStyle Hidden
+          $ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } | Sort-Object InterfaceMetric | Select-Object -First 1 -ExpandProperty IPAddress)
+          if (-not $ip) { throw 'Nenhum IPv4 do runner encontrado.' }
+          "RT79_TEST_URL=http://$ip`:8765/" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $p = Start-Process python -ArgumentList '-m','http.server','8765','--bind','0.0.0.0' -PassThru -WindowStyle Hidden
           $p.Id | Set-Content "$env:RUNNER_TEMP\rt79_http_pid.txt"
           Start-Sleep -Seconds 2
-          Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/index.html | Out-Null
+          Invoke-WebRequest -UseBasicParsing "http://$ip`:8765/index.html" | Out-Null
+          Write-Host "Browser test URL: http://$ip`:8765/"
       - name: Run full Windows Chrome Chromium regression
         shell: pwsh
-        env:
-          RT79_TEST_URL: http://127.0.0.1:8765/
         run: python tools/rt79_chrome_full_regression.py
       - name: Promote RT79.1 physical HTML on review branch
         if: github.event_name == 'pull_request' && github.head_ref == 'rt79-1-full-review'
