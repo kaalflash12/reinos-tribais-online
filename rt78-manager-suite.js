@@ -11,4 +11,5 @@
   };
   load('rt79-suite.js','__RT79_STRATEGY_SUITE__');
   load('rt79-admin-suite.js','__RT79_ADMIN_SUITE__');
+  load('rt79-groups-addon.js','__RT79_GROUPS_ADDON__');
 })();
