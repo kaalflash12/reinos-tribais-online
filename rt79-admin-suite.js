@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
  if(window.__RT79_ADMIN_SUITE__)return;window.__RT79_ADMIN_SUITE__=true;
- const $=(s,r=document)=>r.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c])),dt=v=>v?new Date(v).toLocaleString('pt-BR'):'—';
+ const $=(s,r=document)=>r.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),dt=v=>v?new Date(v).toLocaleString('pt-BR'):'—';
  let open=false,data=null,error='',loading=false;
  const token=()=>sessionStorage.getItem('rt60_admin_token')||sessionStorage.getItem('rt59_admin_token')||sessionStorage.getItem('rt58_admin_token')||'';
  async function req(action,payload={}){const c=window.CLOUD;if(!c?.url||!c?.key)throw Error('Configuração Supabase indisponível.');const t=token();if(!t)throw Error('Faça login no ADM primeiro.');const r=await fetch(`${c.url}/functions/v1/rt-admin-strategy-v79`,{method:'POST',headers:{apikey:c.key,'Content-Type':'application/json','x-admin-token':t},body:JSON.stringify({action,...payload})}),text=await r.text();let d=null;try{d=text?JSON.parse(text):null}catch{d=text}if(!r.ok)throw Error(d?.error||d?.message||String(d||r.status));return d}
