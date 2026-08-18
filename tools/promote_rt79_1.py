@@ -1,10 +1,11 @@
 from pathlib import Path
 
-# RT79.1 Chrome gate trigger: physical promotion only runs after the browser regression passes.
+# RT79.1 physical promotion only runs after the browser regression passes.
 FILES=[Path('index.html'),Path('JOGAR_REINOS_TRIBAIS.html')]
 for path in FILES:
     text=path.read_text(encoding='utf-8')
     text=text.replace('<title>Reinos Tribais — RT78 Estratégia Completa</title>','<title>Reinos Tribais — RT79.1 Revisado</title>')
+    text=text.replace('<title>Reinos Tribais — RT79 Completo</title>','<title>Reinos Tribais — RT79.1 Revisado</title>')
     text=text.replace('const VERSION = 78;','const VERSION = 79;')
     text=text.replace('const RT_BUILD = "78.0";','const RT_BUILD = "79.1";')
     text=text.replace("window.RT76={version:'78.0'","window.RT76={version:'79.1'")
@@ -17,6 +18,9 @@ for path in FILES:
     text=text.replace('Central de Sistemas RT77','Central de Sistemas RT79.1')
     text=text.replace('RT62 com os 19 edifícios ancorados pelos lotes','RT79.1 com os 19 edifícios ancorados pelos lotes')
     text=text.replace('[76,77,78].includes','[76,77,78,79].includes')
+    text=text.replace('rt76-runtime.js?v=77.0','rt76-runtime.js?v=79.1')
+    text=text.replace('rt76-map-ai.js?v=77.0','rt76-map-ai.js?v=79.1')
+    text=text.replace('rt76-master-plan.js?v=78.0','rt76-master-plan.js?v=79.1')
     marker='</body>'
     loaders='''
 <script src="rt79-suite.js?v=79.1"></script>
@@ -35,18 +39,13 @@ FILES[1].write_bytes(FILES[0].read_bytes())
 
 html=FILES[0].read_text(encoding='utf-8')
 required=[
+    '<title>Reinos Tribais — RT79.1 Revisado</title>',
     'const VERSION = 79;',
     'const RT_BUILD = "79.1";',
-    'rt79-suite.js?v=79.1',
-    'rt79-groups-addon.js?v=79.1',
-    'rt79-logistics-ai-addon.js?v=79.1',
-    'rt79-village-ui.js?v=79.1',
-    'rt79-admin-suite.js?v=79.1',
-    'rt79-admin-logistics-addon.js?v=79.1',
+    'rt76-runtime.js?v=79.1','rt76-map-ai.js?v=79.1','rt76-master-plan.js?v=79.1',
+    'rt79-suite.js?v=79.1','rt79-groups-addon.js?v=79.1','rt79-logistics-ai-addon.js?v=79.1','rt79-village-ui.js?v=79.1','rt79-admin-suite.js?v=79.1','rt79-admin-logistics-addon.js?v=79.1'
 ]
 missing=[x for x in required if x not in html]
-if missing:
-    raise SystemExit('RT79.1 promotion incomplete: '+', '.join(missing))
-if FILES[0].read_bytes()!=FILES[1].read_bytes():
-    raise SystemExit('index.html and JOGAR_REINOS_TRIBAIS.html diverged')
+if missing: raise SystemExit('RT79.1 promotion incomplete: '+', '.join(missing))
+if FILES[0].read_bytes()!=FILES[1].read_bytes(): raise SystemExit('index.html and JOGAR_REINOS_TRIBAIS.html diverged')
 print('RT79.1 physical promotion PASS')
