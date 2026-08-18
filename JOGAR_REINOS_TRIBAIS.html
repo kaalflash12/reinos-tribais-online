@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#5d3a1a">
 <meta name="description" content="Jogo de estratégia medieval independente em português, com conta e save online via Supabase.">
-<title>Reinos Tribais — RT77 Funcional</title>
+<title>Reinos Tribais — RT79.1 Revisado</title>
 <style>
 :root {
   --ink: #2a1a0f;
@@ -3197,9 +3197,10 @@ window.GAME_DATA = (() => {
   const D = window.GAME_DATA;
   let SAVE_KEY = 'reinos_tribais_ptbr_save_v60_local';
   const LEGACY_SAVE_KEYS = ['reinos_tribais_ptbr_save_v59_local','reinos_tribais_ptbr_save_v58_local','reinos_tribais_ptbr_save_v57_local','reinos_tribais_ptbr_save_v56_local','reinos_tribais_ptbr_save_v55_local','reinos_tribais_ptbr_save_v40','reinos_tribais_ptbr_save_v38','reinos_tribais_ptbr_save_v37','reinos_tribais_ptbr_save_v36','reinos_tribais_ptbr_save_v35','reinos_tribais_ptbr_save_v34','reinos_tribais_ptbr_save_v33','reinos_tribais_ptbr_save_v32','reinos_tribais_ptbr_save_v31','reinos_tribais_ptbr_save_v30','reinos_tribais_ptbr_save_v29','reinos_tribais_ptbr_save_v28','reinos_tribais_ptbr_save_v27','reinos_tribais_ptbr_save_v26','reinos_tribais_ptbr_save_v25','reinos_tribais_ptbr_save_v24','reinos_tribais_ptbr_save_v23','reinos_tribais_ptbr_save_v22','reinos_tribais_ptbr_save_v21','reinos_tribais_ptbr_save_v20','reinos_tribais_ptbr_save_v19','reinos_tribais_ptbr_save_v18','reinos_tribais_ptbr_save_v17'];
-  const VERSION = 77;
-  const RT_BUILD = "77.0";
+  const VERSION = 79;
+  const RT_BUILD = "79.1";
   const RT77_FULL_FUNCTIONAL_PATCH = true;
+  const RT78_STRATEGY_ENGINE = true;
   const RT76_PLAN = true;
   const RT60_VILLAGE_LAYER_VERSION = "RT61_AUDITED_FIXED_LAYERS_EMPTY_L0_WORLD_BOSSES";
   const RESOURCE_KEYS = ['wood', 'clay', 'iron'];
@@ -4041,7 +4042,7 @@ const HERO_SET_BONUSES = {
       <main class="rt55-entry">
         <section class="rt55-entry-copy">
           <div class="rt55-logo-line"><img src="assets/icons/reinos_tribais_icon.png" alt=""><b>REINOS TRIBAIS</b></div>
-          <span class="rt55-kicker">RT77 • ONLINE • ADMIN DIRETO + RECOVERY + 19 MENUS</span>
+          <span class="rt55-kicker">RT78 • ONLINE • ESTRATÉGIA + ADMIN + RECOVERY</span>
           <h1>Erga sua aldeia.<br><em>Domine o mundo.</em></h1>
           <p>Construa, pesquise, recrute, negocie e dispute mundos compartilhados. Contas, aldeias, ataques, mercado, tribos, eventos, ranking e estado do mundo são sincronizados pelo Supabase Realtime.</p>
           <div class="rt55-entry-features">
@@ -4080,7 +4081,7 @@ const HERO_SET_BONUSES = {
             <span class="rt18-online-badge">☁ Mundos compartilhados • Supabase Realtime</span>
             <h1>Reinos Tribais</h1>
             <p>A tela abre primeiro e a internet só conecta quando você entra. Depois do login, escolha um mundo aberto; aldeias, ataques, mercado, eventos e ranking são compartilhados entre todos nele.</p>
-            <p class="small">Backend: São Paulo • Realtime + combate RT77 + sincronização</p><p class="small"><b>Segurança:</b> tokens online não são persistidos no PC. Fechou o navegador, precisa autenticar novamente.</p>
+            <p class="small">Backend: São Paulo • Realtime + combate RT79.1 + sincronização</p><p class="small"><b>Segurança:</b> tokens online não são persistidos no PC. Fechou o navegador, precisa autenticar novamente.</p>
             <button class="rt18-auth-btn secondary" type="button" data-play-offline>Jogar agora em modo local</button>
             ${continueButton}
           </div>
@@ -4486,9 +4487,9 @@ function rt70FinalizeModal(id){
   try{rt66HumanizeEnums()}catch(e){}
   raw.forEach(ta=>{if(ta.closest('.rt66-advanced'))ta.hidden=false});
   const form=body.querySelector('form');
-  if(form&&!form.querySelector('.rt70-admin-status'))form.insertAdjacentHTML('afterbegin','<div class="rt70-admin-status"><span>●</span><b>RT77 GUIADA</b> tarefas comuns usam controles visuais; dados técnicos ficam somente em Avançado.</div>');
+  if(form&&!form.querySelector('.rt70-admin-status'))form.insertAdjacentHTML('afterbegin','<div class="rt70-admin-status"><span>●</span><b>RT79.1 GUIADA</b> tarefas comuns usam controles visuais; dados técnicos ficam somente em Avançado.</div>');
 }
-function rt70StampAdmin(){const intro=document.querySelector('.rt67-page-intro');if(intro&&!intro.querySelector('.rt70-build-badge'))intro.insertAdjacentHTML('beforeend','<span class="rt70-build-badge">RT77 • plano funcional</span>')}
+function rt70StampAdmin(){const intro=document.querySelector('.rt67-page-intro');if(intro&&!intro.querySelector('.rt70-build-badge'))intro.insertAdjacentHTML('beforeend','<span class="rt70-build-badge">RT79.1 • plano funcional</span>')}
 const RT70_OBSERVER=new MutationObserver(()=>queueMicrotask(rt70StampAdmin));RT70_OBSERVER.observe(document.documentElement,{childList:true,subtree:true});window.addEventListener('DOMContentLoaded',rt70StampAdmin);setTimeout(rt70StampAdmin,0);
 if(!window.RT72_MODAL_EVENTS_BOUND){window.RT72_MODAL_EVENTS_BOUND=true;document.addEventListener('keydown',e=>{if(e.key==='Escape'){const m=[...document.querySelectorAll('.rt64-modal')].pop();if(m)rt64CloseModal(m.id)}});document.addEventListener('click',e=>{if(e.target?.classList?.contains('rt64-modal'))rt64CloseModal(e.target.id)})}
   function rt64PlayerEditor(worldId,userId){
@@ -4556,7 +4557,7 @@ if(!window.RT72_MODAL_EVENTS_BOUND){window.RT72_MODAL_EVENTS_BOUND=true;document
     const dbCards=Object.entries(dbCounts).map(([k,v])=>`<article><b>${nfmt(v)}</b><span>${escapeHtml(k)}</span></article>`).join('');
     const adminAccountRows=adminAccounts.map(a=>`<tr><td><b>${escapeHtml(a.username)}</b><small>${escapeHtml(a.display_name||'')}</small></td><td><select data-rt64-admin-role="${a.id}">${['superadmin','admin','moderator'].map(r=>`<option ${a.role===r?'selected':''}>${r}</option>`).join('')}</select></td><td>${a.active?'<span class="rt64-badge good">ativo</span>':'<span class="rt64-badge bad">inativo</span>'}</td><td>${rt64FmtDate(a.last_login_at)}</td><td><button data-rt64-admin-active="${a.id}:${a.active?'0':'1'}">${a.active?'Desativar':'Ativar'}</button></td></tr>`).join('');
     const adminSessionRows=adminSessions.map(s=>`<tr><td class="rt64-mono">${escapeHtml(s.id)}</td><td>${escapeHtml(adminAccounts.find(a=>a.id===s.admin_id)?.username||s.admin_id)}</td><td>${rt64FmtDate(s.created_at)}</td><td>${rt64FmtDate(s.last_seen_at)}</td><td>${rt64FmtDate(s.expires_at)}</td><td><button class="danger" data-rt64-revoke-admin-session="${s.id}">Revogar</button></td></tr>`).join('');
-    $('#app').innerHTML=`<main class="rt60-admin-shell"><header class="rt60-admin-top"><div><h1>REINOS TRIBAIS • CENTRAL OPERACIONAL RT77</h1><p>${escapeHtml(RTADMIN.info?.username||RTADMIN.username)} • backend v${data.version||64} • interface guiada RT77 • ${rt64FmtDate(data.generated_at)}</p></div><span></span><label>Mundo <select data-admin-map-world>${worldOptions}</select></label><button data-admin-refresh>↻ Atualizar</button><button data-admin-logout class="rt67-admin-logout">Sair do admin</button></header><div class="rt60-admin-layout"><nav class="rt60-admin-nav">${nav.map(([id,ico,label])=>`<button class="${current===id?'active':''}" data-admin-tab="${id}"><b>${ico}</b>${label}</button>`).join('')}</nav><section class="rt60-admin-main">
+    $('#app').innerHTML=`<main class="rt60-admin-shell"><header class="rt60-admin-top"><div><h1>REINOS TRIBAIS • CENTRAL OPERACIONAL RT79.1</h1><p>${escapeHtml(RTADMIN.info?.username||RTADMIN.username)} • backend v${data.version||64} • interface guiada RT79.1 • ${rt64FmtDate(data.generated_at)}</p></div><span></span><label>Mundo <select data-admin-map-world>${worldOptions}</select></label><button data-admin-refresh>↻ Atualizar</button><button data-admin-logout class="rt67-admin-logout">Sair do admin</button></header><div class="rt60-admin-layout"><nav class="rt60-admin-nav">${nav.map(([id,ico,label])=>`<button class="${current===id?'active':''}" data-admin-tab="${id}"><b>${ico}</b>${label}</button>`).join('')}</nav><section class="rt60-admin-main">
       <div class="rt64-kpis"><article><b>${worlds.length}</b><span>Mundos</span></article><article><b>${players.length}</b><span>Jogadores</span></article><article><b>${online}</b><span>Online 15m</span></article><article><b>${villages.length}</b><span>Aldeias</span></article><article><b>${activeCommands.length}</b><span>Comandos</span></article><article><b>${activeMonsters.length}</b><span>Bosses</span></article><article><b>${activeEvents.length}</b><span>Eventos</span></article><article><b>${openOffers.length}</b><span>Ofertas</span></article></div>
       <section data-admin-panel="overview" class="${current==='overview'?'':'hidden'}"><div class="rt64-grid2"><article class="rt64-panel"><h2>Saúde operacional</h2><div class="rt64-health">${stats.map(s=>`<article><b>${escapeHtml(rt64WorldLabel(s.world_id))}</b><small>${s.players} jogadores • ${s.online} online • ${s.villages} aldeias</small><small>${s.nodes} pontos • ${s.monsters} bosses • ${s.events} eventos</small><small>${s.commands} comandos • ${s.tribes} tribos • ${s.offers||0} ofertas</small></article>`).join('')}</div></article><article class="rt64-panel"><h2>Comunicado rápido</h2><form id="rt64-message-quick-form"><div class="rt64-form-grid"><label>Mundo<select name="world_id">${worldOptions}</select></label><label>Destino<select name="user_id"><option value="">Todos no mundo</option>${pWorld.map(p=>`<option value="${p.user_id}">${escapeHtml(p.player_name)} • ${escapeHtml(p.email||'')}</option>`).join('')}</select></label><label>Assunto<input name="subject" value="Comunicado do servidor"></label></div><label>Mensagem<textarea name="body" rows="5"></textarea></label><button>Enviar</button></form></article></div><article class="rt64-panel"><h2>Cobertura do painel</h2><div class="rt64-health">${[['Mundos','criar/editar/ativar/resetar'],['Contas','Auth, save, recursos, premium, herói, pesquisa'],['Aldeias','19 prédios, tropas, filas, apoios, coleta'],['Mapa','pontos, aldeias, bosses'],['Eventos','templates, edição, progresso, recompensas'],['Ranked','temporadas, ratings, partidas'],['Combate','comandos + apoios online + ataques'],['Mercado','ofertas + cancelamento com devolução'],['Tribos','dados + membros + cargos'],['Comunicação','mensagens + relatórios'],['Recompensas','entitlements + progresso'],['Segurança','admins + sessões + senhas'],['Banco','contagem de domínios'],['Auditoria','ações administrativas']].map(x=>`<article><b>✓ ${x[0]}</b><small>${x[1]}</small></article>`).join('')}</div></article></section>
       <section data-admin-panel="worlds" class="${current==='worlds'?'':'hidden'}"><div class="rt64-split"><article class="rt64-panel"><h2>Mundos existentes</h2>${worlds.map(w=>`<form class="rt64-world-form" data-world-id="${w.id}"><div class="rt64-form-grid"><label>Nome<input value="${escapeHtml(w.name)}" disabled></label><label>Velocidade mundo<input name="worldSpeed" type="number" value="${Number(w.settings?.worldSpeed)||8}"></label><label>Velocidade unidades<input name="unitSpeed" type="number" value="${Number(w.settings?.unitSpeed)||3}"></label><label>Raio mapa<input name="mapRadius" type="number" value="${Number(w.settings?.mapRadius)||35}"></label><label>Multip. recursos<input name="resourceMultiplier" type="number" step=".1" value="${Number(w.settings?.resourceMultiplier)||1}"></label><label>Multip. mercado<input name="marketMultiplier" type="number" step=".1" value="${Number(w.settings?.marketMultiplier)||1}"></label><label>Máx jogadores<input name="max_players" type="number" value="${Number(w.max_players)||50}"></label><label>Temporada<input name="season_number" type="number" value="${Number(w.season_number)||1}"></label><label>Status<select name="status">${['open','closed','maintenance'].map(s=>`<option ${w.status===s?'selected':''}>${s}</option>`).join('')}</select></label>${['archers','militia','church','watchtower','flags','scavenging','eventSystem','monstersEnabled'].map(k=>`<label>${k}<select name="${k}"><option value="1" ${w.settings?.[k]!==false?'selected':''}>ON</option><option value="0" ${w.settings?.[k]===false?'selected':''}>OFF</option></select></label>`).join('')}</div><div class="rt64-actions"><button>Salvar configurações</button><button type="button" data-admin-world-toggle="${w.id}" data-active="${w.is_active?'1':'0'}">${w.is_active?'Desativar':'Ativar'}</button><button type="button" class="danger" data-admin-world-reset="${w.id}" data-name="${escapeHtml(w.name)}">Resetar mundo</button></div></form>`).join('<hr>')}</article><aside class="rt64-panel"><h2>Criar mundo</h2><form id="rt64-create-world"><label>Nome<input name="name" value="Novo Mundo"></label><label>Velocidade<input name="speed" type="number" value="8"></label><label>Raio mapa<input name="mapRadius" type="number" value="35"></label><button>Criar mundo</button></form></aside></div></section>
@@ -6940,7 +6941,7 @@ function tick() {
         <div class="rt23-start-shade"></div>
         <section class="rt23-start-copy" aria-label="Apresentação do jogo">
           <div class="rt23-start-brand"><img src="assets/icons/reinos_tribais_icon.png" alt="Brasão de Reinos Tribais"><span>REINOS<br>TRIBAIS</span></div>
-          <p class="rt23-eyebrow">RT77 • ALDEIA INTEGRADA • ONLINE</p>
+          <p class="rt23-eyebrow">RT79.1 • ALDEIA INTEGRADA • ONLINE</p>
           <h1>Erga sua aldeia.<br><span>Domine o mundo.</span></h1>
           <p class="rt23-start-lead">Cada edifício fica ancorado no lote correto, abre sua função própria e evolui em patamares de nível. Construção, pesquisa, tropas, comércio, comandos, relatórios, Paladino e sistemas do reino ficam acessíveis sem funções escondidas.</p>
           <div class="rt23-feature-grid">
@@ -6995,7 +6996,7 @@ function tick() {
             </div>
           </section>
         </div>
-        <div class="footer-note">Reinos Tribais — RT77 • aldeia ativa • sistemas consolidados • mapa vivo • multiplayer</div>
+        <div class="footer-note">Reinos Tribais — RT79.1 • aldeia ativa • sistemas consolidados • mapa vivo • multiplayer</div>
       </div>
       ${modalHtml}
       <div class="toast-stack" id="toast-stack"></div>`;
@@ -7308,7 +7309,7 @@ function renderView() {
         <div class="village-scene rt17-village-scene rt24-village-stage-${villageVisual.stage}">
           <img class="rt54-map-layer" src="assets/v54/map/village_stage${villageVisual.stage}.png" alt="Terreno da aldeia, estágio ${villageVisual.stage}" aria-hidden="true">
           <img class="rt53-map-layer rt54-interaction-layer" src="assets/v54/map/interaction_overlay.png" alt="" aria-hidden="true">
-          <div class="rt24-scene-atmosphere" aria-hidden="true"></div>${villageLayers}${hotspotMarkup}<span class="rt75-scene-build" aria-hidden="true">RT77 • aldeia ativa</span></div>
+          <div class="rt24-scene-atmosphere" aria-hidden="true"></div>${villageLayers}${hotspotMarkup}<span class="rt75-scene-build" aria-hidden="true">RT79.1 • aldeia ativa</span></div>
         <div class="rt25-building-index" aria-label="Índice dos 19 edifícios">${buildingIndex}</div>
         <nav class="rt22-navicons">${nav.map(([view,icon,label])=>`<button data-view="${view}"><b>${icon}</b><span>${label}</span></button>`).join('')}</nav>
         <section class="rt22-map-box"><div class="rt22-map-toolbar"><b>MAPA GLOBAL</b><span>Centro ${ensureMapUi().mapCenter.x}|${ensureMapUi().mapCenter.y}</span><button data-view="map">Abrir mapa completo</button><button data-map-home>Centralizar</button><span>🌐 ${Object.values(state.villages).filter(x=>x._onlineRemote).length} jogadores online visíveis</span></div><div class="rt22-map-preview">${renderDashboardMap()}</div></section>
@@ -7359,7 +7360,7 @@ function renderView() {
       ['missions','⭐','Missões e conquistas','Objetivos persistentes, progresso e recompensas de recursos.',`${state.player.claimedQuests.length}/${D.quests.length} recebidas`],
       ['hero','⚜️','Paladino e História','Experiência, talentos, aventuras, armas, relíquias e Arsenal.',`Nível ${hero.level} • capítulo ${ensureHeroStoryState(hero).chapter}`]
     ];
-    return `<h1 class="panel-title">Central de Sistemas RT77</h1><div class="notice info"><b>Nada fica escondido na aldeia.</b> Esta central reúne as mecânicas próprias inspiradas nos fluxos clássicos de Tribal Wars e Travian, sem copiar artes oficiais.</div><div class="rt25-system-grid">${systems.map(([view,icon,name,desc,status])=>`<button class="rt25-system-card" data-view="${view}"><span>${icon}</span><div><h3>${name}</h3><p>${desc}</p><small>${escapeHtml(String(status))} • Abrir →</small></div></button>`).join('')}</div>`;
+    return `<h1 class="panel-title">Central de Sistemas RT79.1</h1><div class="notice info"><b>Nada fica escondido na aldeia.</b> Esta central reúne as mecânicas próprias inspiradas nos fluxos clássicos de Tribal Wars e Travian, sem copiar artes oficiais.</div><div class="rt25-system-grid">${systems.map(([view,icon,name,desc,status])=>`<button class="rt25-system-card" data-view="${view}"><span>${icon}</span><div><h3>${name}</h3><p>${desc}</p><small>${escapeHtml(String(status))} • Abrir →</small></div></button>`).join('')}</div>`;
   }
 
 
@@ -8076,7 +8077,7 @@ function renderMap() {
   }
 
   function renderSettings() {
-    return `<h1 class="panel-title">Configurações do mundo</h1><form id="settings-form" class="game-card"><div class="card-grid"><label>Velocidade do mundo<select class="select-input" name="worldSpeed" ${CLOUD.ready?'disabled':''}>${[1,4,8,20,50].map(x=>`<option value="${x}" ${state.settings.worldSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Velocidade das unidades<select class="select-input" name="unitSpeed" ${CLOUD.ready?'disabled':''}>${[1,2,3,5,10].map(x=>`<option value="${x}" ${state.settings.unitSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Sistema do Ferreiro<select class="select-input" name="researchSystem" ${CLOUD.ready?'disabled':''}><option value="simple" ${state.settings.researchSystem==='simple'?'selected':''}>Pesquisa simples</option><option value="three" ${state.settings.researchSystem==='three'?'selected':''}>3 níveis</option><option value="ten" ${state.settings.researchSystem==='ten'?'selected':''}>10 níveis</option></select></label></div><h3>Recursos do mundo</h3><div class="card-grid"><label><input type="checkbox" name="archers" ${state.settings.archers?'checked':''}> Arqueiros</label><label><input type="checkbox" name="militia" ${state.settings.militia?'checked':''}> Milícia</label><label><input type="checkbox" name="church" ${state.settings.church?'checked':''}> Igreja</label><label><input type="checkbox" name="watchtower" ${state.settings.watchtower?'checked':''}> Torre de Vigia</label><label><input type="checkbox" name="flags" ${state.settings.flags?'checked':''}> Bandeiras</label><label><input type="checkbox" name="scavenging" ${state.settings.scavenging?'checked':''}> Coleta</label><label><input type="checkbox" name="sound" ${state.settings.sound?'checked':''}> Sons da interface</label></div><button class="btn primary" type="submit">Salvar configurações</button></form><h2 class="section-title">Salvamento</h2><div class="btn-row"><button class="btn" data-export-save>Exportar salvamento</button><label class="btn secondary">Importar salvamento<input id="import-save" type="file" accept="application/json" hidden></label><button class="btn danger" data-reset-game>Apagar mundo e recomeçar</button></div><h2 class="section-title">Informações</h2><div class="notice">Versão ${VERSION}. Aldeia integrada e jogável: a arte é a própria cena clicável, sem colagens sobrepostas. Sistema de pesquisa: ${state.settings.researchSystem}. Mundo ${state.world.radius*2+1}×${state.world.radius*2+1}. RT62 com os 19 edifícios ancorados pelos lotes, função própria por edifício, Central de Sistemas, ataques/saques separados, alvos de catapulta por nível e Mercadores NPC no mapa vivo.</div>`;
+    return `<h1 class="panel-title">Configurações do mundo</h1><form id="settings-form" class="game-card"><div class="card-grid"><label>Velocidade do mundo<select class="select-input" name="worldSpeed" ${CLOUD.ready?'disabled':''}>${[1,4,8,20,50].map(x=>`<option value="${x}" ${state.settings.worldSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Velocidade das unidades<select class="select-input" name="unitSpeed" ${CLOUD.ready?'disabled':''}>${[1,2,3,5,10].map(x=>`<option value="${x}" ${state.settings.unitSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Sistema do Ferreiro<select class="select-input" name="researchSystem" ${CLOUD.ready?'disabled':''}><option value="simple" ${state.settings.researchSystem==='simple'?'selected':''}>Pesquisa simples</option><option value="three" ${state.settings.researchSystem==='three'?'selected':''}>3 níveis</option><option value="ten" ${state.settings.researchSystem==='ten'?'selected':''}>10 níveis</option></select></label></div><h3>Recursos do mundo</h3><div class="card-grid"><label><input type="checkbox" name="archers" ${state.settings.archers?'checked':''}> Arqueiros</label><label><input type="checkbox" name="militia" ${state.settings.militia?'checked':''}> Milícia</label><label><input type="checkbox" name="church" ${state.settings.church?'checked':''}> Igreja</label><label><input type="checkbox" name="watchtower" ${state.settings.watchtower?'checked':''}> Torre de Vigia</label><label><input type="checkbox" name="flags" ${state.settings.flags?'checked':''}> Bandeiras</label><label><input type="checkbox" name="scavenging" ${state.settings.scavenging?'checked':''}> Coleta</label><label><input type="checkbox" name="sound" ${state.settings.sound?'checked':''}> Sons da interface</label></div><button class="btn primary" type="submit">Salvar configurações</button></form><h2 class="section-title">Salvamento</h2><div class="btn-row"><button class="btn" data-export-save>Exportar salvamento</button><label class="btn secondary">Importar salvamento<input id="import-save" type="file" accept="application/json" hidden></label><button class="btn danger" data-reset-game>Apagar mundo e recomeçar</button></div><h2 class="section-title">Informações</h2><div class="notice">Versão ${VERSION}. Aldeia integrada e jogável: a arte é a própria cena clicável, sem colagens sobrepostas. Sistema de pesquisa: ${state.settings.researchSystem}. Mundo ${state.world.radius*2+1}×${state.world.radius*2+1}. RT79.1 com os 19 edifícios ancorados pelos lotes, função própria por edifício, Central de Sistemas, ataques/saques separados, alvos de catapulta por nível e Mercadores NPC no mapa vivo.</div>`;
   }
 
 
@@ -8777,8 +8778,15 @@ function renderMap() {
 (()=>{window.RT72_VISUAL_GUARD=true;document.addEventListener('error',e=>{const el=e.target;if(el?.tagName==='IMG'&&el.closest?.('.village-scene')){el.style.display='none';console.error('RT72 asset de aldeia ausente:',el.src)}},true)})();
 </script>
 
-<script src="rt76-runtime.js?v=77.0"></script>
-<script src="rt76-map-ai.js?v=77.0"></script>
-<script src="rt76-master-plan.js?v=77.0"></script>
+<script src="rt76-runtime.js?v=79.1"></script>
+<script src="rt76-map-ai.js?v=79.1"></script>
+<script src="rt76-master-plan.js?v=79.1"></script>
+
+<script src="rt79-suite.js?v=79.1"></script>
+<script src="rt79-groups-addon.js?v=79.1"></script>
+<script src="rt79-logistics-ai-addon.js?v=79.1"></script>
+<script src="rt79-village-ui.js?v=79.1"></script>
+<script src="rt79-admin-suite.js?v=79.1"></script>
+<script src="rt79-admin-logistics-addon.js?v=79.1"></script>
 </body>
 </html>

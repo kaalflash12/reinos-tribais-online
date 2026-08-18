@@ -27,7 +27,10 @@ def main():
         req(d,"return !!document.querySelector('.rt79-village-toolbar')",'village toolbar missing')
         hit=d.execute_script("return document.querySelectorAll('.village-scene .rt60-village-hitbox').length")
         if hit<19: raise AssertionError(f'expected 19 village hitboxes, got {hit}')
-        req(d,"return !!document.querySelector('.rt79-wall-perimeter')",'wall perimeter missing')
+        req(d,"return !!document.querySelector('.village-scene>.rt54-map-layer')",'authoritative raster village map missing')
+        req(d,"return !!document.querySelector('.village-scene [data-village-building=\"wall\"]')",'real wall building layer missing')
+        artificial=d.execute_script("return {roads:document.querySelectorAll('.rt79-road-net').length,wall:document.querySelectorAll('.rt79-wall-perimeter').length}")
+        if artificial['roads'] or artificial['wall']: raise AssertionError('artificial village correction overlay returned '+json.dumps(artificial))
         d.execute_script("document.querySelector('[data-rt79-vcat=\"military\"]')?.click()")
         focused=d.execute_script("return [document.querySelectorAll('.village-scene .rt79-focus').length,document.querySelectorAll('.village-scene .rt79-dim').length]")
         if focused[0]<1 or focused[1]<1: raise AssertionError('category filtering did not affect scene')
@@ -43,7 +46,7 @@ def main():
         d.execute_script("document.querySelector('[data-rt79-tab=\"manager\"]')?.click()");time.sleep(.8)
         req(d,"return !!document.querySelector('#rt79-group-goals-card')",'group goals UI missing')
         d.save_screenshot(str(OUT/'ADDON_04_METAS_GRUPO.png'))
-        proof={'pass':True,'loaders':flags,'village_hitboxes':hit,'focused':focused,'cards':['logistics','barbarian_ai','group_goals']}
+        proof={'pass':True,'loaders':flags,'village_hitboxes':hit,'artificial_overlays':artificial,'focused':focused,'cards':['logistics','barbarian_ai','group_goals']}
     except Exception as e:
         proof={'pass':False,'error':repr(e)}
         try:d.save_screenshot(str(OUT/'ADDON_FAILURE.png'))
