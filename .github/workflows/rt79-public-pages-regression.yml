@@ -28,21 +28,23 @@ jobs:
           node --check rt79-village-ui.js
           node --check rt79-logistics-ai-addon.js
           python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py
-      - name: Wait for GitHub Pages RT79.1
+      - name: Wait for GitHub Pages RT79.1 observer hotfix
         shell: pwsh
         run: |
           $base='https://kaalflash12.github.io/reinos-tribais-online/'
           $ok=$false
-          for($i=0;$i -lt 60 -and -not $ok;$i++){
+          for($i=0;$i -lt 90 -and -not $ok;$i++){
             try{
-              $html=(Invoke-WebRequest -UseBasicParsing ($base+'index.html?rt791='+[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -TimeoutSec 15).Content
-              $suite=(Invoke-WebRequest -UseBasicParsing ($base+'rt79-suite.js?v=79.1') -TimeoutSec 15).Content
-              $ai=(Invoke-WebRequest -UseBasicParsing ($base+'rt76-map-ai.js?v=79.1') -TimeoutSec 15).Content
-              if($html -match 'const VERSION = 79;' -and $html -match 'const RT_BUILD = "79.1";' -and $suite -match '__RT79_STRATEGY_SUITE__' -and $ai -match '__RT79_AI_RESEARCH__'){$ok=$true}
+              $stamp=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+              $html=(Invoke-WebRequest -UseBasicParsing ($base+'index.html?rt791='+$stamp) -TimeoutSec 15).Content
+              $suite=(Invoke-WebRequest -UseBasicParsing ($base+'rt79-suite.js?v=79.1&hotfix='+$stamp) -TimeoutSec 15).Content
+              $village=(Invoke-WebRequest -UseBasicParsing ($base+'rt79-village-ui.js?v=79.1&hotfix='+$stamp) -TimeoutSec 15).Content
+              $ai=(Invoke-WebRequest -UseBasicParsing ($base+'rt76-map-ai.js?v=79.1&hotfix='+$stamp) -TimeoutSec 15).Content
+              if($html -match 'const VERSION = 79;' -and $html -match 'const RT_BUILD = "79.1";' -and $suite -match "const VERSION='79.1';" -and $suite -match 'if\(nextTitle!==document\.title\)' -and $suite -match 'new MutationObserver\(scheduleEnsure\)' -and $village -match 'if\(badge\.textContent!==badgeText\)' -and $village -match 'new MutationObserver\(scheduleEnsure\)' -and $ai -match '__RT79_AI_RESEARCH__'){$ok=$true}
             }catch{}
             if(-not $ok){Start-Sleep -Seconds 3}
           }
-          if(-not $ok){throw 'GitHub Pages não publicou RT79.1 completo dentro do gate.'}
+          if(-not $ok){throw 'GitHub Pages ainda não publicou o hotfix RT79.1 do MutationObserver.'}
           'RT79_TEST_URL=https://kaalflash12.github.io/reinos-tribais-online/' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Run Edge functional regression against public Pages
         shell: pwsh
