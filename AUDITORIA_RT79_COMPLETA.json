@@ -55,7 +55,8 @@
     {"name":"scheduler","result":"PASS","proof":"cron job rt79-system-tick is active every minute and recent recorded runs are succeeded"}
   ],
   "static_package_checks": {
-    "inline_html_script_blocks": "13/13 node --check PASS",
+    "script_tags_detected": 13,
+    "non_empty_inline_script_blocks": "3/3 node --check PASS",
     "rt79_external_js": "node --check PASS",
     "building_visual_tiers": "19 families x 5 = 95 PASS",
     "unit_stage_assets": "40 PASS",
