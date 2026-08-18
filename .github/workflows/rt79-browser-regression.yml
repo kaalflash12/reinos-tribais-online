@@ -24,6 +24,7 @@ jobs:
           node --check rt79-groups-addon.js
           node --check rt79-logistics-ai-addon.js
           node --check rt79-village-ui.js
+          node --check rt79-admin-logistics-addon.js
           node --check rt78-manager-suite.js
           python -m py_compile tools/rt79_browser_regression.py tools/rt79_browser_regression_v2.py tools/rt79_browser_regression_v3.py tools/rt79_browser_addons_smoke.py
       - name: Start local game server
