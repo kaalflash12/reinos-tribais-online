@@ -31,3 +31,21 @@ for path in FILES:
         text=text.replace('?v=79.0','?v=79.1')
     path.write_text(text,encoding='utf-8')
 FILES[1].write_bytes(FILES[0].read_bytes())
+
+html=FILES[0].read_text(encoding='utf-8')
+required=[
+    'const VERSION = 79;',
+    'const RT_BUILD = "79.1";',
+    'rt79-suite.js?v=79.1',
+    'rt79-groups-addon.js?v=79.1',
+    'rt79-logistics-ai-addon.js?v=79.1',
+    'rt79-village-ui.js?v=79.1',
+    'rt79-admin-suite.js?v=79.1',
+    'rt79-admin-logistics-addon.js?v=79.1',
+]
+missing=[x for x in required if x not in html]
+if missing:
+    raise SystemExit('RT79.1 promotion incomplete: '+', '.join(missing))
+if FILES[0].read_bytes()!=FILES[1].read_bytes():
+    raise SystemExit('index.html and JOGAR_REINOS_TRIBAIS.html diverged')
+print('RT79.1 physical promotion PASS')
