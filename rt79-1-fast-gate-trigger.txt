@@ -1,1 +1,1 @@
-RT79.1 HTTPS tunnel Chrome gate trigger v3
+RT79.1 HTTPS tunnel Chrome gate trigger v4 + AI profiles
