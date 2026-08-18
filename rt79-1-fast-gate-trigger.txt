@@ -1,1 +1,1 @@
-RT79.1 fast functional gate trigger
+RT79.1 optimized Chrome functional gate trigger v2
