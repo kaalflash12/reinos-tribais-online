@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths-ignore:
       - 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json'
   workflow_dispatch:
 permissions:
   contents: write
@@ -43,34 +47,29 @@ jobs:
       - name: Run Chrome functional regression against public Pages
         shell: pwsh
         run: python tools/rt79_chrome_fast_regression.py
-      - name: Persist browser proof in repository
+      - name: Persist browser proof to main
         if: always()
         shell: pwsh
         run: |
           $src=Join-Path $env:RUNNER_TEMP 'RT79_BROWSER_REGRESSION\PROVA_BROWSER_RT79.json'
           if(Test-Path $src){
-            Copy-Item $src 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Force
+            Copy-Item $src (Join-Path $env:RUNNER_TEMP 'RT79_PUBLIC_PROOF.json') -Force
           } else {
-            $fallback=[ordered]@{
-              pass=$false
-              browser='chrome'
-              error='browser proof not produced; inspect workflow step conclusions'
-              run_id='${{ github.run_id }}'
-              commit='${{ github.sha }}'
-              generated_at=(Get-Date).ToUniversalTime().ToString('o')
-            }
-            $fallback | ConvertTo-Json -Depth 8 | Set-Content 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Encoding UTF8
+            [ordered]@{pass=$false;browser='chrome';error='browser proof not produced; inspect workflow step conclusions';run_id='${{ github.run_id }}';commit='${{ github.sha }}';generated_at=(Get-Date).ToUniversalTime().ToString('o')} | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $env:RUNNER_TEMP 'RT79_PUBLIC_PROOF.json') -Encoding UTF8
           }
-          $proof=Get-Content 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Raw | ConvertFrom-Json
+          $proofPath=Join-Path $env:RUNNER_TEMP 'RT79_PUBLIC_PROOF.json'
+          $proof=Get-Content $proofPath -Raw | ConvertFrom-Json
           $proof | Add-Member -NotePropertyName workflow_run_id -NotePropertyValue '${{ github.run_id }}' -Force
           $proof | Add-Member -NotePropertyName workflow_commit -NotePropertyValue '${{ github.sha }}' -Force
           $proof | Add-Member -NotePropertyName persisted_at -NotePropertyValue ((Get-Date).ToUniversalTime().ToString('o')) -Force
-          $proof | ConvertTo-Json -Depth 20 | Set-Content 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Encoding UTF8
+          $proof | ConvertTo-Json -Depth 20 | Set-Content $proofPath -Encoding UTF8
+          git fetch origin main
+          git checkout -B rt79-proof-main origin/main
+          Copy-Item $proofPath 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Force
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add AUDITORIA_RT79_1_PUBLIC_BROWSER.json
-          git commit -m "RT79.1 public browser proof: $($proof.pass)" || echo 'No proof change to commit'
-          git push origin HEAD:main
+          if(-not (git diff --cached --quiet)){git commit -m "RT79.1 public browser proof: $($proof.pass)";git push origin HEAD:main}
       - name: Upload proof
         if: always()
         uses: actions/upload-artifact@v4
