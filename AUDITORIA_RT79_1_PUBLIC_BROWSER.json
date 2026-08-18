@@ -1,13 +1,13 @@
 {
   "pass": false,
-  "browser": "chrome-public-none",
-  "error": "TimeoutException()",
+  "browser": "edge",
+  "error": "ReadTimeoutError(\"HTTPConnectionPool(host='localhost', port=53005): Read timed out. (read timeout=120)\")",
   "tests": 0,
   "manifest": [],
   "diagnostic": {
-    "diagnostic_error": "MaxRetryError('HTTPConnectionPool(host=\\'localhost\\', port=50502): Max retries exceeded with url: /session/4a5d84d1d008867fb9df436f44268df4/title (Caused by ReadTimeoutError(\"HTTPConnectionPool(host=\\'localhost\\', port=50502): Read timed out. (read timeout=120)\"))')"
+    "diagnostic_error": "MaxRetryError('HTTPConnectionPool(host=\\'localhost\\', port=53005): Max retries exceeded with url: /session/327628e4d725cdc6cb416536f2744cfd/title (Caused by ReadTimeoutError(\"HTTPConnectionPool(host=\\'localhost\\', port=53005): Read timed out. (read timeout=120)\"))')"
   },
-  "workflow_run_id": "32197620896",
-  "workflow_commit": "9d514e8d713fc40817690bf0444c33a849ac842c",
-  "persisted_at": "2026-08-18T23:47:55.1021715Z"
+  "workflow_run_id": "32198029280",
+  "workflow_commit": "075f06fd849f4305ff01699393f0826e7a2b057d",
+  "persisted_at": "2026-08-18T23:49:17.4411856Z"
 }
