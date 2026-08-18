@@ -23,10 +23,19 @@ jobs:
           node --check rt79-admin-suite.js
           node --check rt79-groups-addon.js
           node --check rt78-manager-suite.js
-          python -m py_compile tools/rt79_browser_regression.py tools/rt79_browser_regression_v2.py
-      - name: Run Edge Chromium regression against public RT79
+          python -m py_compile tools/rt79_browser_regression.py tools/rt79_browser_regression_v2.py tools/rt79_browser_regression_v3.py
+      - name: Start local game server
         shell: pwsh
-        run: python tools/rt79_browser_regression_v2.py
+        run: |
+          $p = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1' -PassThru -WindowStyle Hidden
+          $p.Id | Set-Content "$env:RUNNER_TEMP\rt79_http_pid.txt"
+          Start-Sleep -Seconds 2
+          Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/index.html | Out-Null
+      - name: Run full Edge Chromium E2E regression
+        shell: pwsh
+        env:
+          RT79_TEST_URL: http://127.0.0.1:8765/
+        run: python tools/rt79_browser_regression_v3.py
       - name: Upload RT79 browser proof
         if: always()
         uses: actions/upload-artifact@v4
