@@ -21,11 +21,12 @@ jobs:
         run: |
           node --check rt79-suite.js
           node --check rt79-admin-suite.js
+          node --check rt79-groups-addon.js
           node --check rt78-manager-suite.js
-          python -m py_compile tools/rt79_browser_regression.py
+          python -m py_compile tools/rt79_browser_regression.py tools/rt79_browser_regression_v2.py
       - name: Run Edge Chromium regression against public RT79
         shell: pwsh
-        run: python tools/rt79_browser_regression.py
+        run: python tools/rt79_browser_regression_v2.py
       - name: Upload RT79 browser proof
         if: always()
         uses: actions/upload-artifact@v4
