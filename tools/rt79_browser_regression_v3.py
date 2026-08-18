@@ -51,29 +51,24 @@ def building_details(d):
 
 def e2e(d):
     prep_state(d)
-    # construção via botão real
     r.click(d,'[data-view="buildings"]')
     before=d.execute_script("const s=RT76.state();return s.villages[s.activeVillageId].buildQueue.length")
     ok=d.execute_script("const e=document.querySelector('[data-build]:not([disabled])');if(e){e.click();return e.dataset.build}return ''")
     time.sleep(.3);after=d.execute_script("const s=RT76.state();return s.villages[s.activeVillageId].buildQueue.length")
     r.require(ok and after>before,'build E2E did not queue');r.record('e2e_build',True,ok);r.shot(d,'e2e_build')
-    # recrutamento
     r.click(d,'[data-view="recruit"]');before=d.execute_script("const s=RT76.state();return s.villages[s.activeVillageId].recruitQueue.length")
     ok=d.execute_script("const e=document.querySelector('[data-recruit]:not([disabled])');if(!e)return '';const q=document.querySelector('#qty-'+e.dataset.recruit);if(q)q.value='1';e.click();return e.dataset.recruit")
     time.sleep(.3);after=d.execute_script("const s=RT76.state();return s.villages[s.activeVillageId].recruitQueue.length")
     r.require(ok and after>before,'recruit E2E did not queue');r.record('e2e_recruit',True,ok);r.shot(d,'e2e_recruit')
-    # pesquisa
     r.click(d,'[data-view="research"]');before=d.execute_script("return (RT76.state().research?.queue||[]).length")
     ok=d.execute_script("const e=document.querySelector('[data-research]:not([disabled])');if(e){e.click();return e.dataset.research}return ''")
     time.sleep(.3);after=d.execute_script("return (RT76.state().research?.queue||[]).length")
     r.require(ok and after>before,'research E2E did not queue');r.record('e2e_research',True,ok);r.shot(d,'e2e_research')
-    # mercado local
     d.execute_script("const s=RT76.state(),v=s.villages[s.activeVillageId];v.resources.wood=5000;v.resources.clay=1000;v.resources.iron=1000;v.buildings.warehouse=20;")
     r.click(d,'[data-view="market"]');before=d.execute_script("const s=RT76.state(),v=s.villages[s.activeVillageId];return [v.resources.wood,v.resources.clay]")
     ok=d.execute_script("const f=document.querySelector('#market-form');if(!f)return false;f.elements.from.value='wood';f.elements.to.value='clay';f.elements.amount.value='100';f.requestSubmit();return true")
     time.sleep(.25);after=d.execute_script("const s=RT76.state(),v=s.villages[s.activeVillageId];return [v.resources.wood,v.resources.clay]")
     r.require(ok and after[0]<before[0] and after[1]>before[1],'market E2E did not exchange resources');r.record('e2e_market',True,json.dumps({'before':before,'after':after}));r.shot(d,'e2e_market')
-    # combate via mapa/modal/formulário
     d.execute_script("const s=RT76.state(),v=s.villages[s.activeVillageId];v.units.spear=Math.max(50,Number(v.units.spear||0));")
     r.click(d,'[data-view="map"]')
     target=d.execute_script("const s=RT76.state(),src=s.villages[s.activeVillageId],t=Object.values(s.villages).find(v=>v.owner!=='player');if(!t)return null;s.ui.mapCenter={x:t.x,y:t.y};return t.id")
@@ -85,13 +80,11 @@ def e2e(d):
     ok=d.execute_script("const f=document.querySelector('#attack-form');if(!f)return false;const i=f.querySelector('[name=\"attack_spear\"]');if(!i)return false;i.value='1';f.requestSubmit();return true")
     time.sleep(.3);after=d.execute_script("return RT76.state().commands.length")
     r.require(ok and after>before,'attack E2E did not create command');r.record('e2e_attack',True,target);r.shot(d,'e2e_attack')
-    # Paladino/equipamento individual
     d.execute_script("const s=RT76.state(),h=s.player.hero;h.story=h.story||{};h.story.inventory=h.story.inventory||[];if(!h.story.inventory.includes('dawnblade'))h.story.inventory.push('dawnblade');h.story.equipment=h.story.equipment||{};delete h.story.equipment.weapon;")
     r.click(d,'[data-view="arsenal"]')
     ok=d.execute_script("const e=document.querySelector('[data-equip-hero-item=\"dawnblade\"]');if(e){e.click();return true}return false")
     time.sleep(.25);equipped=d.execute_script("return RT76.state().player.hero.story.equipment.weapon")
-    r.require(ok and equipped==='dawnblade','Paladin equipment E2E failed');r.record('e2e_paladin_equipment',True,equipped);r.shot(d,'e2e_paladin_equipment')
-    # save + reload
+    r.require(ok and equipped=='dawnblade','Paladin equipment E2E failed');r.record('e2e_paladin_equipment',True,equipped);r.shot(d,'e2e_paladin_equipment')
     name=d.execute_script("RT76.save();return RT76.state().player.name")
     safe_nav(d,PUBLIC+'?rt79-reload=3')
     r.click(d,'[data-play-offline]');time.sleep(.8)
