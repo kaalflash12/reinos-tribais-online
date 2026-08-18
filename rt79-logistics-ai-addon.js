@@ -1,5 +1,6 @@
 'use strict';
 (()=>{
+  try{if(!window.CLOUD&&typeof CLOUD!=='undefined')window.CLOUD=CLOUD}catch{}
   if(window.__RT79_LOGISTICS_AI_ADDON__) return;
   window.__RT79_LOGISTICS_AI_ADDON__=true;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
