@@ -5,14 +5,11 @@ import rt79_browser_regression as r
 PUBLIC=os.environ.get('RT79_TEST_URL','http://127.0.0.1:8765/')
 orig_base_views=r.base_views
 
-def safe_nav(d,url,timeout=25):
+def safe_nav(d,url,timeout=12):
     d.set_page_load_timeout(timeout)
     try:d.get(url)
-    except TimeoutException:
-        try:d.execute_script('window.stop()')
-        except Exception:pass
-    r.WebDriverWait(d,25).until(lambda x:x.execute_script("return document.readyState==='interactive'||document.readyState==='complete'"))
-    time.sleep(.6)
+    except TimeoutException:pass
+    time.sleep(1.8)
 
 def start_local(d):
     safe_nav(d,PUBLIC+'?rt79-e2e=3')
@@ -102,4 +99,16 @@ def mobile(d):
     if d.execute_script("return !!document.querySelector('[data-rt79-open]')"):
         r.install_mock(d);r.click(d,'[data-rt79-open]');time.sleep(.5);r.shot(d,'mobile_rt79')
 
-r.start_local=start_local;r.base_views=base_views;r.mobile=mobile;r.main()
+def robust_main():
+    opts=r.Options();opts.page_load_strategy='eager';opts.add_argument('--headless=new');opts.add_argument('--disable-gpu');opts.add_argument('--no-sandbox');opts.add_argument('--window-size=1600,1000');opts.add_argument('--disable-background-networking')
+    d=r.webdriver.Edge(options=opts)
+    try:
+        start_local(d);base_views(d);r.rt79_tabs(d);mobile(d)
+        failures=[x for x in r.manifest if x.get('pass') is False]
+        proof={'pass':not failures,'failures':failures,'screenshots':len([x for x in r.manifest if x.get('file')]),'manifest':r.manifest}
+        (r.OUT/'PROVA_BROWSER_RT79.json').write_text(json.dumps(proof,ensure_ascii=False,indent=2),encoding='utf-8')
+        print(json.dumps({'pass':proof['pass'],'screenshots':proof['screenshots'],'failures':len(failures)}))
+        if failures:raise SystemExit(2)
+    finally:d.quit()
+
+r.start_local=start_local;r.base_views=base_views;r.mobile=mobile;r.main=robust_main;r.main()
