@@ -26,7 +26,7 @@ jobs:
           node --check rt79-village-ui.js
           node --check rt79-admin-logistics-addon.js
           node --check rt78-manager-suite.js
-          python -m py_compile tools/rt79_browser_regression.py tools/rt79_browser_regression_v2.py tools/rt79_browser_regression_v3.py tools/rt79_browser_addons_smoke.py
+          python -m py_compile tools/rt79_browser_regression.py tools/rt79_browser_regression_v2.py tools/rt79_browser_regression_v3.py tools/rt79_browser_addons_smoke.py tools/rt79_chrome_full_regression.py tools/promote_rt79_1.py
       - name: Start local game server
         shell: pwsh
         run: |
@@ -34,16 +34,11 @@ jobs:
           $p.Id | Set-Content "$env:RUNNER_TEMP\rt79_http_pid.txt"
           Start-Sleep -Seconds 2
           Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/index.html | Out-Null
-      - name: Run full Edge Chromium E2E regression
+      - name: Run full Windows Chrome Chromium regression
         shell: pwsh
         env:
           RT79_TEST_URL: http://127.0.0.1:8765/
-        run: python tools/rt79_browser_regression_v3.py
-      - name: Run RT79 addon smoke
-        shell: pwsh
-        env:
-          RT79_TEST_URL: http://127.0.0.1:8765/
-        run: python tools/rt79_browser_addons_smoke.py
+        run: python tools/rt79_chrome_full_regression.py
       - name: Promote RT79.1 physical HTML on review branch
         if: github.event_name == 'pull_request' && github.head_ref == 'rt79-1-full-review'
         shell: pwsh
@@ -54,7 +49,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add index.html JOGAR_REINOS_TRIBAIS.html
-            git commit -m "RT79.1: promote physical game HTML after Edge gate"
+            git commit -m "RT79.1: promote physical game HTML after Chrome gate"
             git push origin "HEAD:${{ github.head_ref }}"
           } else {
             Write-Host "RT79.1 physical HTML already promoted."
