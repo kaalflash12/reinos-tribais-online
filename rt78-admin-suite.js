@@ -15,3 +15,11 @@
 })();
 
 ;(()=>{if(window.__RT78_MANAGER_LOADER__)return;window.__RT78_MANAGER_LOADER__=true;const x=document.createElement('script');x.src='rt78-manager-suite.js?v=78.0';x.defer=true;document.head.appendChild(x)})();
+
+;(()=>{
+ if(window.__RT79_FALLBACK_BOOTSTRAP__)return;window.__RT79_FALLBACK_BOOTSTRAP__=true;
+ const srcs=['rt79-suite.js?v=79.0','rt79-groups-addon.js?v=79.0','rt79-logistics-ai-addon.js?v=79.0','rt79-village-ui.js?v=79.0','rt79-admin-suite.js?v=79.0','rt79-admin-logistics-addon.js?v=79.0'];
+ let chain=Promise.resolve();
+ for(const src of srcs) chain=chain.then(()=>new Promise(resolve=>{if([...document.scripts].some(s=>String(s.src).includes(src.split('?')[0]))){resolve();return}const x=document.createElement('script');x.src=src;x.async=false;x.onload=resolve;x.onerror=resolve;document.head.appendChild(x)}));
+ chain.then(()=>{document.title=document.title.replace(/RT78[^|—]*/,'RT79 Completo');document.documentElement.dataset.rtRuntime='79.0'});
+})();
