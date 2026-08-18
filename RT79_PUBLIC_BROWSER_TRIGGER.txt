@@ -1,1 +1,1 @@
-RT79.1 public GitHub Pages Edge regression trigger v3
+RT79.1 public GitHub Pages Edge regression trigger v4 after observer hotfix a45e442
