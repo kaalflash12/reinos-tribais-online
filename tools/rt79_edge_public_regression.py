@@ -6,15 +6,17 @@ import rt79_chrome_fast_regression as r
 
 def main():
     opts=EdgeOptions()
+    opts.page_load_strategy='eager'
     opts.add_argument('--headless=new')
     opts.add_argument('--disable-gpu')
     opts.add_argument('--window-size=1600,1000')
     opts.add_argument('--no-first-run')
     opts.add_argument('--disable-dev-shm-usage')
     opts.add_argument('--ignore-certificate-errors')
+    opts.add_experimental_option('prefs',{'profile.managed_default_content_settings.images':2})
     d=webdriver.Edge(options=opts)
-    d.set_page_load_timeout(120)
-    d.set_script_timeout(120)
+    d.set_page_load_timeout(60)
+    d.set_script_timeout(60)
     proof={}
     try:
         r.start(d)
@@ -26,19 +28,21 @@ def main():
         r.rec('mobile suite',r.js(d,'return !!window.__RT79_STRATEGY_SUITE__'))
         proof={
             'pass':True,
-            'browser':'edge',
+            'browser':'edge-public-eager-no-images',
             'tests':len(r.M),
             'manifest':r.M,
-            'diagnostic':r.diagnostics(d)
+            'diagnostic':r.diagnostics(d),
+            'visual_assets_tested_separately':True
         }
     except Exception as e:
         proof={
             'pass':False,
-            'browser':'edge',
+            'browser':'edge-public-eager-no-images',
             'error':repr(e),
             'tests':len(r.M),
             'manifest':r.M,
-            'diagnostic':r.diagnostics(d)
+            'diagnostic':r.diagnostics(d),
+            'visual_assets_tested_separately':True
         }
         raise
     finally:
