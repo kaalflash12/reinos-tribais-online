@@ -32,7 +32,8 @@ jobs:
         shell: pwsh
         run: |
           python tools/promote_rt79_1.py
-          Select-String -Path index.html -Pattern 'const VERSION = 79;','const RT_BUILD = "79.1";','rt79-suite.js?v=79.1' | ForEach-Object { $_.Line }
+          $html = Get-Content index.html -Raw
+          if ($html -notmatch 'const VERSION = 79;' -or $html -notmatch 'const RT_BUILD = "79.1";' -or $html -notmatch 'rt79-suite\.js\?v=79\.1') { throw 'HTML físico RT79.1 incompleto.' }
       - name: Start local game server
         shell: pwsh
         run: |
@@ -62,6 +63,10 @@ jobs:
             try { Invoke-WebRequest -UseBasicParsing "$url/index.html?ci=1" -TimeoutSec 10 | Out-Null; $ok=$true } catch { Start-Sleep -Seconds 1 }
           }
           if (-not $ok) { throw "Tunnel criado mas index não respondeu: $url" }
+          $suite = (Invoke-WebRequest -UseBasicParsing "$url/rt79-suite.js?v=79.1" -TimeoutSec 15).Content
+          if ($suite -notmatch '__RT79_STRATEGY_SUITE__') { throw 'rt79-suite.js não chegou corretamente pelo HTTPS.' }
+          $ai = (Invoke-WebRequest -UseBasicParsing "$url/rt76-map-ai.js?v=79.1" -TimeoutSec 15).Content
+          if ($ai -notmatch '__RT79_AI_RESEARCH__') { throw 'rt76-map-ai.js RT79.1 não chegou corretamente pelo HTTPS.' }
           "RT79_TEST_URL=$url/" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "Browser test URL: $url/"
       - name: Run Windows Chrome functional regression
