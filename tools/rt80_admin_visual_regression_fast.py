@@ -1,5 +1,5 @@
 from pathlib import Path
-import json, os, time, sys
+import json, os, time, re
 from selenium import webdriver
 from selenium.webdriver.edge.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
@@ -37,14 +37,22 @@ def open_modal(d,selector,name):
 
 
 def main():
-    base.prepare_html(); log('audit HTML prepared')
+    base.prepare_html()
+    # The real HTML has one synchronous external dependency (Supabase CDN). The
+    # renderer under test does not need it because dashboard data is injected.
+    # Removing it only from the temporary audit copy makes this proof deterministic
+    # and keeps every local production runtime/script unchanged.
+    audit=base.AUDIT_HTML.read_text(encoding='utf-8')
+    audit=re.sub(r'<script[^>]+src=["\']https://cdn\.jsdelivr\.net/[^"\']+["\'][^>]*>\s*</script>','',audit,flags=re.I)
+    base.AUDIT_HTML.write_text(audit,encoding='utf-8')
+    log('audit HTML prepared without external CDN')
     opts=Options();opts.page_load_strategy='none'
     for a in ['--headless=new','--disable-gpu','--no-sandbox','--window-size=1600,1000','--disable-dev-shm-usage','--disable-background-networking','--disable-default-apps','--no-first-run']:
         opts.add_argument(a)
     d=webdriver.Edge(options=opts);d.set_page_load_timeout(12);d.set_script_timeout(25)
     try:
         log('opening local audit page');d.get(BASE+'rt80_admin_audit.html?rt80-admin-audit=1')
-        WebDriverWait(d,20).until(lambda x:x.execute_script("return !!window.__RT80_ADMIN_AUDIT__"));d.execute_script('window.stop()');log('renderer exposed; external loading stopped')
+        WebDriverWait(d,20).until(lambda x:x.execute_script("return !!window.__RT80_ADMIN_AUDIT__"));d.execute_script('window.stop()');log('renderer exposed; loading stopped')
         result=d.execute_async_script("""
           const mock=arguments[0],done=arguments[arguments.length-1];
           (async()=>{try{const a=window.__RT80_ADMIN_AUDIT__;a.RTADMIN.token='audit-only';a.RTADMIN.username='auditoria';a.RTADMIN.info={username:'auditoria',role:'superadmin'};a.RTADMIN.ui={tab:'overview',worldId:'w1',mapX:500,mapY:500};await a.renderIntegratedAdmin(mock,true);done({ok:true})}catch(e){done({ok:false,error:String(e?.stack||e)})}})();
