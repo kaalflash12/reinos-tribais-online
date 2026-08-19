@@ -1,0 +1,38 @@
+name: RT80 Core Consistency
+on:
+  push:
+    branches: ['rt80-admin-overhaul']
+    paths:
+      - 'tools/apply_rt80_core_consistency.py'
+      - '.github/workflows/rt80-core-consistency.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rt80-admin-overhaul
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply RT80 core consistency
+        run: python tools/apply_rt80_core_consistency.py
+      - name: Validate patched source
+        shell: bash
+        run: |
+          grep -q 'const RT_BUILD = "80.5";' index.html
+          grep -q '77,78,79].includes(Number(parsed.version))' index.html
+          grep -q 'CENTRAL OPERACIONAL RT80.5' index.html
+          diff -q index.html JOGAR_REINOS_TRIBAIS.html
+      - name: Commit patched source
+        shell: bash
+        run: |
+          if git diff --quiet -- index.html JOGAR_REINOS_TRIBAIS.html; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html JOGAR_REINOS_TRIBAIS.html
+          git commit -m 'RT80.5: align build branding and save compatibility'
+          git push origin HEAD:rt80-admin-overhaul
