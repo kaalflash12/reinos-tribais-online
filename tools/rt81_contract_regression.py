@@ -25,6 +25,7 @@ strategy=[text(f'backend/rt81/{i:02d}_{name}.sql') for i,name in [
 ]]
 strategy_all='\n'.join(strategy)
 signal_norm=re.sub(r'\s+','',strategy[9])
+edge_norm=re.sub(r'\s+','',edge)
 
 must('planner atomic RPC wired','rt81_schedule_batch' in suite)
 must('multi-target selector wired','name="batchTargets"' in suite and 'targetGap' in suite)
@@ -49,7 +50,7 @@ must('ensure village implemented directly','async function ensureVillage' in edg
 must('sync village implemented directly','async function syncVillage' in edge and "action==='sync_village'" in edge and 'await syncVillage' in edge)
 must('only attack is proxied to legacy chain','async function proxyAttack' in edge and "action==='send_attack'" in edge and 'proxyAttack(req,body)' in edge)
 must('legacy due pass restored','async function resolveLegacyDue' in edge and 'rt81_due_pass:true' in edge)
-must('legacy due pass is finite',"if(action==='poll'){if(!body.rt81_due_pass)await resolveLegacyDue(req,body);return out(await poll(u,wid))}" in edge)
+must('legacy due pass is finite',"if(action==='poll'){if(!body.rt81_due_pass)awaitresolveLegacyDue(req,body);returnout(awaitpoll(u,wid))}" in edge_norm)
 must('generic legacy proxy removed','async function proxy(req,body)' not in edge and 'return await proxy(req,body)' not in edge)
 must('raw commands select locked to owner','commands_select_own' in lock and 'owner_user_id' in lock)
 must('raw villages select locked to owner','villages_select_own' in lock and 'owner_user_id' in lock)
