@@ -58,6 +58,48 @@ def audit_page(d,view,label=None):
     shot(d,label or f'PAGE_{view.upper()}_RT80')
 
 
+def extra_quality_checks(d,view):
+    if view=='inventory':
+        check(d,'inventory: cards use dark game surface','''
+          const c=document.querySelector('.item-card');
+          if(!c)return false;
+          const s=getComputedStyle(c);
+          return !s.backgroundImage.includes('255, 244, 210') && !s.backgroundImage.includes('228, 201, 140') && parseFloat(s.minHeight)>=150;
+        ''')
+        check(d,'inventory: item text has light foreground','''
+          const c=document.querySelector('.item-card');
+          const h=c?.querySelector('h3');
+          return !!h && getComputedStyle(c).color!=='rgb(42, 26, 15)' && getComputedStyle(h).color!=='rgb(42, 26, 15)';
+        ''')
+    elif view=='premium':
+        check(d,'premium: benefits no longer parchment cards','''
+          const a=document.querySelector('.rt13-feature-grid > article');
+          if(!a)return false;
+          const s=getComputedStyle(a);
+          return !s.backgroundImage.includes('255, 244, 210') && getComputedStyle(a.querySelector('b')||a).color!=='rgb(42, 26, 15)';
+        ''')
+    elif view=='events':
+        check(d,'events: operational header separated','''
+          const h=document.querySelector('.rt60-events-screen > .panel-header');
+          const span=h?.querySelector(':scope > span');
+          const small=span?.querySelector('small');
+          const b=span?.querySelector('b');
+          return !!h && getComputedStyle(h).display==='flex' && !!b && !!small && getComputedStyle(small).display==='block';
+        ''')
+        check(d,'events: refresh button matches game UI','''
+          const b=document.querySelector('.rt60-events-screen > .panel-header .button');
+          if(!b)return false;
+          const s=getComputedStyle(b);
+          return s.backgroundColor!=='rgb(255, 255, 255)' && s.color!=='rgb(0, 0, 0)';
+        ''')
+    elif view in ('manager','settings'):
+        check(d,f'{view}: no visible legacy RT76/RT79 branding','''
+          const p=document.querySelector('.content-panel');
+          const t=p?.innerText||'';
+          return !/\bRT76\b|\bRT79(?:\.1)?\b|Versão\s+79\b/.test(t);
+        ''')
+
+
 def main():
     opts=Options();opts.page_load_strategy='eager'
     opts.add_argument('--headless=new');opts.add_argument('--disable-gpu');opts.add_argument('--no-sandbox')
@@ -96,7 +138,6 @@ def main():
         check(d,'building category focus','return document.querySelectorAll(".village-scene .rt79-focus").length>0 && document.querySelectorAll(".village-scene .rt79-dim").length>0')
         shot(d,'VILLAGE_MILITARY_FOCUS')
 
-        # Map keeps its own spatial mode and therefore is audited separately.
         click(d,'[data-view="map"]')
         check(d,'map mode','return document.body.classList.contains("rt80-map-mode")')
         check(d,'map toolbar','return !!document.querySelector(".rt80-map-toolbar")')
@@ -138,7 +179,6 @@ def main():
           return !!h && getComputedStyle(h).display!=='none' && r.width>500 && r.height>180;
         ''')
 
-        # Wide audit: all primary and secondary gameplay views requested in RT80.
         secondary=[
           ('systems','SYSTEMS'),('recruit','RECRUIT'),('rally','RALLY'),('academy','ACADEMY'),
           ('arsenal','ARSENAL'),('commands','COMMANDS'),('missions','MISSIONS'),('reports','REPORTS'),
@@ -148,6 +188,7 @@ def main():
         ]
         for view,label in secondary:
             audit_page(d,view,f'PAGE_{label}_RT80')
+            extra_quality_checks(d,view)
 
         d.set_window_size(430,932);time.sleep(.8)
         click(d,'[data-view="overview"]');time.sleep(.7)
