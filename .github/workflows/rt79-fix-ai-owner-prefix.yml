@@ -1,0 +1,50 @@
+name: RT79.1 Fix AI Owner Prefix
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rt79-fix-ai-owner-prefix
+      - name: Make RT76/79 AI extensions recognize ai_* owners
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          pred="(v=>v.owner==='ai'||String(v.owner||'').startsWith('ai_'))"
+          for name in ['index.html','JOGAR_REINOS_TRIBAIS.html']:
+              p=Path(name);s=p.read_text(encoding='utf-8')
+              old="Object.values(state.villages).filter(v=>v.owner==='ai')"
+              if s.count(old)!=2: raise SystemExit(f'{name}: expected 2 legacy AI telemetry filters, found {s.count(old)}')
+              s=s.replace(old,"Object.values(state.villages).filter"+pred)
+              p.write_text(s,encoding='utf-8')
+          p=Path('rt76-map-ai.js');s=p.read_text(encoding='utf-8')
+          old="Object.values(s.villages).filter(v=>v.owner==='ai')"
+          if s.count(old)!=1: raise SystemExit(f'rt76-map-ai.js: expected 1 AI research filter, found {s.count(old)}')
+          s=s.replace(old,"Object.values(s.villages).filter"+pred)
+          p.write_text(s,encoding='utf-8')
+          p=Path('tools/rt79_chrome_fast_regression.py');s=p.read_text(encoding='utf-8')
+          old="Object.values(s.villages).find(v=>v.owner==='ai')"
+          if s.count(old)!=1: raise SystemExit(f'test: expected 1 AI selector, found {s.count(old)}')
+          s=s.replace(old,"Object.values(s.villages).find(v=>v.owner==='ai'||String(v.owner||'').startsWith('ai_'))")
+          p.write_text(s,encoding='utf-8')
+          PY
+          node --check rt76-map-ai.js
+          python -m py_compile tools/rt79_chrome_fast_regression.py
+          cmp -s index.html JOGAR_REINOS_TRIBAIS.html
+          test $(grep -o "startsWith('ai_')" index.html | wc -l) -ge 2
+          test $(grep -o "startsWith('ai_')" rt76-map-ai.js | wc -l) -ge 1
+          grep -F "startsWith('ai_')" tools/rt79_chrome_fast_regression.py
+      - name: Commit AI owner fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html JOGAR_REINOS_TRIBAIS.html rt76-map-ai.js tools/rt79_chrome_fast_regression.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'RT79.1: make AI extensions recognize generated ai_* villages'
+            git push origin HEAD:rt79-fix-ai-owner-prefix
+          fi
