@@ -1,5 +1,8 @@
 name: RT80 Source Snapshot TEMP
 on:
+  pull_request:
+    paths:
+      - '**'
   push:
     branches: ['rt80-admin-overhaul']
     paths:
