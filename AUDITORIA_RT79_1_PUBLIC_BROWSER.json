@@ -1,14 +1,48 @@
 {
   "pass": false,
   "browser": "edge-public-eager-no-images",
-  "error": "TimeoutException()",
-  "tests": 0,
-  "manifest": [],
+  "error": "AssertionError('launcher: ')",
+  "tests": 2,
+  "manifest": [
+    {
+      "name": "RT79 suite",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "launcher",
+      "pass": false,
+      "detail": ""
+    }
+  ],
   "diagnostic": {
-    "diagnostic_error": "TimeoutException()"
+    "title": "Reinos Tribais — RT79.1 Revisado",
+    "url": "https://kaalflash12.github.io/reinos-tribais-online/?fast=1",
+    "readyState": "complete",
+    "scripts": [
+      "https://kaalflash12.github.io/reinos-tribais-online/rt76-runtime.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt76-map-ai.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt76-master-plan.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-suite.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-groups-addon.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-logistics-ai-addon.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-village-ui.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-admin-suite.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-admin-logistics-addon.js?v=79.1"
+    ],
+    "hasPlay": true,
+    "hasSuite": true,
+    "console": [
+      {
+        "level": "SEVERE",
+        "message": "https://kaalflash12.github.io/favicon.ico - Failed to load resource: the server responded with a status of 404 ()",
+        "source": "network",
+        "timestamp": 1787100229602
+      }
+    ]
   },
   "visual_assets_tested_separately": true,
-  "workflow_run_id": "32202038772",
-  "workflow_commit": "a9205621d6d9f034369520cb91806aaff86dce9f",
-  "persisted_at": "2026-08-19T00:42:52.0161106Z"
+  "workflow_run_id": "32202289106",
+  "workflow_commit": "4609c7f4008a4aa2ec67c52148d1abf2ff035eb0",
+  "persisted_at": "2026-08-19T00:43:52.5668043Z"
 }
