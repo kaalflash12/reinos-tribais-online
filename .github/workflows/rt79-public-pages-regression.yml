@@ -23,12 +23,14 @@ jobs:
       - name: Validate local syntax
         shell: pwsh
         run: |
+          node --check rt76-master-plan.js
+          node --check rt76-runtime.js
           node --check rt76-map-ai.js
           node --check rt79-suite.js
           node --check rt79-village-ui.js
           node --check rt79-logistics-ai-addon.js
           python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py
-      - name: Wait for GitHub Pages RT79.1 observer hotfix
+      - name: Wait for GitHub Pages RT79.1 startup hotfixes
         shell: pwsh
         run: |
           $base='https://kaalflash12.github.io/reinos-tribais-online/'
@@ -39,12 +41,16 @@ jobs:
               $html=(Invoke-WebRequest -UseBasicParsing ($base+'index.html?rt791='+$stamp) -TimeoutSec 15).Content
               $suite=(Invoke-WebRequest -UseBasicParsing ($base+'rt79-suite.js?v=79.1&hotfix='+$stamp) -TimeoutSec 15).Content
               $village=(Invoke-WebRequest -UseBasicParsing ($base+'rt79-village-ui.js?v=79.1&hotfix='+$stamp) -TimeoutSec 15).Content
+              $master=(Invoke-WebRequest -UseBasicParsing ($base+'rt76-master-plan.js?v=79.1&hotfix='+$stamp) -TimeoutSec 15).Content
+              $runtime=(Invoke-WebRequest -UseBasicParsing ($base+'rt76-runtime.js?v=79.1&hotfix='+$stamp) -TimeoutSec 15).Content
               $ai=(Invoke-WebRequest -UseBasicParsing ($base+'rt76-map-ai.js?v=79.1&hotfix='+$stamp) -TimeoutSec 15).Content
-              if($html -match 'const VERSION = 79;' -and $html -match 'const RT_BUILD = "79.1";' -and $suite -match "const VERSION='79.1';" -and $suite -match 'if\(nextTitle!==document\.title\)' -and $suite -match 'new MutationObserver\(scheduleEnsure\)' -and $village -match 'if\(badge\.textContent!==badgeText\)' -and $village -match 'new MutationObserver\(scheduleEnsure\)' -and $ai -match '__RT79_AI_RESEARCH__'){$ok=$true}
+              $rt79ok=($html -match 'const VERSION = 79;' -and $html -match 'const RT_BUILD = "79.1";' -and $suite -match "const VERSION='79.1';" -and $suite -match 'if\(nextTitle!==document\.title\)' -and $suite -match 'new MutationObserver\(scheduleEnsure\)' -and $village -match 'if\(badge\.textContent!==badgeText\)' -and $village -match 'new MutationObserver\(scheduleEnsure\)')
+              $legacyok=($master -match 'if\(legacyTitle!==document\.title\)' -and $master -match 'new MutationObserver\(scheduleEnsure\)' -and $master -match '__RT78_ADMIN_LOADER_DISABLED_BY_RT79__' -and $runtime -match 'new MutationObserver\(scheduleInject\)' -and $ai -match 'new MutationObserver\(scheduleInject\)' -and $ai -match '__RT79_AI_RESEARCH__')
+              if($rt79ok -and $legacyok){$ok=$true}
             }catch{}
             if(-not $ok){Start-Sleep -Seconds 3}
           }
-          if(-not $ok){throw 'GitHub Pages ainda não publicou o hotfix RT79.1 do MutationObserver.'}
+          if(-not $ok){throw 'GitHub Pages ainda não publicou todos os hotfixes RT79.1/RT76 de startup.'}
           'RT79_TEST_URL=https://kaalflash12.github.io/reinos-tribais-online/' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Run Edge functional regression against public Pages
         shell: pwsh
