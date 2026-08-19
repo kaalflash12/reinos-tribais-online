@@ -1,1 +1,0 @@
-Apply direct RT79.1 legacy startup patch
