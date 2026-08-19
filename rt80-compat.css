@@ -1,3 +1,4 @@
+@import url('rt80-visual-polish.css?v=80.1');
 /* RT80 compatibility overrides for legacy RT55/RT79 markup. */
 .rt55-kicker{font-size:0!important}
 .rt55-kicker::after{content:'RT80 • ONLINE • ESTRATÉGIA + ADMIN + RECOVERY';font:800 12px/1.2 system-ui,sans-serif;letter-spacing:.18em;color:#d8aa45}
