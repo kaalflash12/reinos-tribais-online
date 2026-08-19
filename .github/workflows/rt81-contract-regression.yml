@@ -9,6 +9,7 @@ on:
       - 'rt81-security-runtime.js'
       - 'backend/rt81-**'
       - 'backend/rt81/**'
+      - 'backend/rt82-**'
       - 'tools/rt81_contract_regression.py'
       - '.github/workflows/rt81-contract-regression.yml'
   workflow_dispatch:
