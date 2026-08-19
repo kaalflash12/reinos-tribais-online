@@ -7,13 +7,14 @@ on:
       - 'rt80-admin-runtime.js'
       - 'rt80-compat.css'
       - 'tools/rt80_admin_visual_regression.py'
+      - 'tools/rt80_admin_visual_regression_fast.py'
       - '.github/workflows/rt80-admin-visual-regression.yml'
   workflow_dispatch:
 
 jobs:
   admin-visual:
     runs-on: windows-latest
-    timeout-minutes: 18
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,7 +37,7 @@ jobs:
       - name: Render real admin and capture 20 views
         env:
           RT80_URL: http://127.0.0.1:8765/
-        run: python tools/rt80_admin_visual_regression.py
+        run: python tools/rt80_admin_visual_regression_fast.py
       - name: Upload admin visual proof
         if: always()
         uses: actions/upload-artifact@v4
