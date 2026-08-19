@@ -40,10 +40,15 @@ jobs:
           Start-Sleep -Seconds 2
           Invoke-WebRequest http://127.0.0.1:8765/ -UseBasicParsing | Select-Object StatusCode
       - name: Run Edge core visual regression
+        id: core_visual
+        continue-on-error: true
         env:
           RT80_URL: http://127.0.0.1:8765/
         run: python tools/rt80_visual_regression.py
       - name: Run Edge full pages assets and admin audit
+        id: full_visual
+        if: always()
+        continue-on-error: true
         env:
           RT80_URL: http://127.0.0.1:8765/
         run: python tools/rt80_assets_views_admin_audit.py
@@ -61,3 +66,9 @@ jobs:
           name: RT80_FULL_VISUAL_PROOF
           path: ${{ runner.temp }}/RT80_FULL_VISUAL_PROOF
           if-no-files-found: warn
+      - name: Fail if either visual gate failed
+        if: always()
+        shell: pwsh
+        run: |
+          if ('${{ steps.core_visual.outcome }}' -ne 'success') { throw 'RT80 core visual regression failed.' }
+          if ('${{ steps.full_visual.outcome }}' -ne 'success') { throw 'RT80 full pages/assets/admin audit failed.' }
