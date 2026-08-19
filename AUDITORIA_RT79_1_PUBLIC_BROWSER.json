@@ -1,14 +1,41 @@
 {
   "pass": false,
   "browser": "edge-public-eager-no-images",
-  "error": "TimeoutException()",
-  "tests": 0,
-  "manifest": [],
+  "error": "AssertionError('launcher: ')",
+  "tests": 2,
+  "manifest": [
+    {
+      "name": "RT79 suite",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "launcher",
+      "pass": false,
+      "detail": ""
+    }
+  ],
   "diagnostic": {
-    "diagnostic_error": "TimeoutException()"
+    "title": "Reinos Tribais — RT79.1 Revisado",
+    "url": "https://kaalflash12.github.io/reinos-tribais-online/?fast=1",
+    "readyState": "complete",
+    "scripts": [
+      "https://kaalflash12.github.io/reinos-tribais-online/rt76-runtime.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt76-map-ai.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt76-master-plan.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-suite.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-groups-addon.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-logistics-ai-addon.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-village-ui.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-admin-suite.js?v=79.1",
+      "https://kaalflash12.github.io/reinos-tribais-online/rt79-admin-logistics-addon.js?v=79.1"
+    ],
+    "hasPlay": true,
+    "hasSuite": true,
+    "console": []
   },
   "visual_assets_tested_separately": true,
-  "workflow_run_id": "32202223767",
-  "workflow_commit": "890566d16d4773c5d13e13fa602d7c576b9d243f",
-  "persisted_at": "2026-08-19T00:45:47.7468639Z"
+  "workflow_run_id": "32202607125",
+  "workflow_commit": "b4fa7ecbfced297573d855dc155ba25b8ca3cf17",
+  "persisted_at": "2026-08-19T00:48:55.8966237Z"
 }
