@@ -35,10 +35,14 @@ must('real transfers visible','resource_transfers' in suite and 'Remessas reais'
 must('group goals UI connected','groupGoals' in suite and 'rt79-group-goal-form' in suite)
 must('safe world directory RPC','rt81_world_directory' in security)
 must('enemy projection disclosure','_publicVisualProjection' in security and 'Inteligência protegida' in security)
-must('edge poll security revision',"security_revision:'rt81'" in edge)
+must('edge poll security revision',"security_revision:'rt81.2'" in edge)
 must('edge public villages exclude private columns','select=id,owner_user_id,owner_kind,owner_name,tribe_name,name,x,y,points,updated_at' in edge)
 must('edge public world query does not request private columns',not re.search(r'world=await db\(`villages\?[^`]*select=[^`]*(?:resources|units|build_queue|recruit_queue)',edge))
 must('incoming sanitized below watchtower 15',"payload:lvl>=15?" in edge and "visibility='composition'" in edge)
+must('ensure village implemented directly','async function ensureVillage' in edge and "action==='ensure_village'" in edge and 'await ensureVillage' in edge)
+must('sync village implemented directly','async function syncVillage' in edge and "action==='sync_village'" in edge and 'await syncVillage' in edge)
+must('only attack is proxied to legacy chain','async function proxyAttack' in edge and "action==='send_attack'" in edge and 'proxyAttack(req,body)' in edge)
+must('generic legacy proxy removed','async function proxy(req,body)' not in edge and 'return await proxy(req,body)' not in edge)
 must('raw commands select locked to owner','commands_select_own' in lock and 'owner_user_id' in lock)
 must('raw villages select locked to owner','villages_select_own' in lock and 'owner_user_id' in lock)
 must('raw player profile select locked to owner','player_worlds_select_own' in lock and 'user_id' in lock)
@@ -53,7 +57,7 @@ must('per-resource autotrade SQL versioned',all(x in strategy[6] for x in ['min_
 must('farm recommendation SQL versioned',all(x in strategy[7] for x in ['threat_level','cooldown_seconds','confidence','recommended_model']))
 must('smart farm uses unified recommender','rt79_farm_recommend' in strategy[8])
 
-out={'build':'RT80.5+RT81','pass':True,'checks':checks,'count':len(checks)}
+out={'build':'RT80.5+RT81.2','pass':True,'checks':checks,'count':len(checks)}
 proof=ROOT/'RT81_CONTRACT_REGRESSION.json'
 proof.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(out,ensure_ascii=False,indent=2))
