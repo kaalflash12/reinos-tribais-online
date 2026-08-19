@@ -30,10 +30,11 @@ def start(d):
  diag=diagnostics(d);(OUT/'BROWSER_DIAGNOSTIC_START.json').write_text(json.dumps(diag,ensure_ascii=False,indent=2),encoding='utf-8')
  WebDriverWait(d,25).until(lambda x: js(x,'return !!window.__RT79_STRATEGY_SUITE__'))
  js(d,"Object.keys(localStorage).filter(k=>k.startsWith('reinos_tribais_ptbr_save_')).forEach(k=>localStorage.removeItem(k))")
- rec('RT79 suite',js(d,'return !!window.__RT79_STRATEGY_SUITE__'));rec('launcher',js(d,"return !!document.querySelector('[data-rt79-open]')"))
+ rec('RT79 suite',js(d,'return !!window.__RT79_STRATEGY_SUITE__'))
  click(d,'[data-play-offline]');f=WebDriverWait(d,8).until(lambda x:x.find_element(By.CSS_SELECTOR,'#start-form'))
  js(d,"arguments[0].elements.playerName.value='Audit';arguments[0].elements.villageName.value='Aldeia';arguments[0].elements.difficulty.value='normal';arguments[0].elements.mapRadius.value='16';arguments[0].elements.startProfile.value='military';arguments[0].requestSubmit()",f)
  WebDriverWait(d,12).until(lambda x:js(x,'return !!window.RT76?.state?.()?.activeVillageId'));rec('game started',True)
+ WebDriverWait(d,8).until(lambda x:js(x,"return !!document.querySelector('[data-rt79-open]')"));rec('launcher in game',True)
 
 def base_views(d):
  for v in ['systems','buildings','recruit','research','rally','academy','hero','arsenal','map','commands','missions','reports','messages','market','inventory','premium','manager','flags','ranking','tribe','help','settings','events','ranked']:
