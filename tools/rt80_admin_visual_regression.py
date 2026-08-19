@@ -115,7 +115,8 @@ def main():
         for tab,label in TABS:
             d.execute_script("document.querySelector('[data-admin-tab=\"'+arguments[0]+'\"]')?.click()",tab)
             WebDriverWait(d,10).until(lambda x,t=tab:x.execute_script("return !!document.querySelector('[data-admin-panel=\"'+arguments[0]+'\"]:not(.hidden)')",t))
-            check(d,f'{tab}: panel visible',"const p=document.querySelector('[data-admin-panel=\"'+arguments[0]+'\"]');return !!p&&getComputedStyle(p).display!=='none'",timeout=10)
+            panel_js=f"const p=document.querySelector('[data-admin-panel=\\\"{tab}\\\"]');return !!p&&getComputedStyle(p).display!=='none'"
+            check(d,f'{tab}: panel visible',panel_js,timeout=10)
             check(d,f'{tab}: no horizontal body overflow',"return document.documentElement.scrollWidth<=window.innerWidth+16",timeout=10)
             proof['tabs'].append(tab);shot(d,f'ADMIN_{label}')
 
