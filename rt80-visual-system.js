@@ -30,10 +30,18 @@
   function hideInspector(){inspector?.classList.remove('show')}
   function centerMap(){const wrap=$('.map-wrap');if(!wrap)return;wrap.scrollTo({left:Math.max(0,(wrap.scrollWidth-wrap.clientWidth)/2),top:Math.max(0,(wrap.scrollHeight-wrap.clientHeight)/2),behavior:'smooth'})}
   function ensureAriaAndLabels(){$$('.side-nav button[data-view]').forEach(btn=>{if(!btn.getAttribute('aria-label'))btn.setAttribute('aria-label',(btn.textContent||btn.dataset.view||'').trim())});$$('.map-cell.village').forEach(cell=>{if(!cell.getAttribute('tabindex'))cell.setAttribute('tabindex','0')});$$('[data-village-building]').forEach(el=>{const key=el.dataset.villageBuilding;if(key&&!el.getAttribute('aria-label'))el.setAttribute('aria-label',BUILDINGS[key]||key)})}
+  function normalizeLegacyText(){
+    const root=$('.game-shell');if(!root)return;
+    const legacy=/\bRT(?:[1-7]\d)(?:\.\d+)?\b/i;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){const p=node.parentElement;if(!p||['SCRIPT','STYLE','TEXTAREA','OPTION'].includes(p.tagName))return NodeFilter.FILTER_REJECT;const t=node.nodeValue||'';return legacy.test(t)||/Versão\s+79\b/i.test(t)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}});
+    const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+    nodes.forEach(node=>{let t=node.nodeValue||'';t=t.replace(/Versão\s+79\b/gi,'Versão RT80').replace(/\bRT(?:[1-7]\d)(?:\.\d+)?\b/gi,'RT80');node.nodeValue=t});
+  }
   function cleanLegacyVisuals(){
     $$('.rt17-nav-main,.rt17-nav').forEach(n=>n.classList.add('rt80-legacy-nav'));
     $$('.village-scene *').forEach(n=>{if(n.children.length===0&&/RT79(?:\.1)?\s*•\s*aldeia ativa/i.test((n.textContent||'').trim()))n.remove()});
-    const title=document.title.replace(/RT79(?:\.1)?/g,'RT80');if(title!==document.title)document.title=title;
+    normalizeLegacyText();
+    const title=document.title.replace(/\bRT(?:[1-7]\d)(?:\.\d+)?\b/gi,'RT80');if(title!==document.title)document.title=title;
     if(!document.querySelector('link[data-rt80-favicon]')){const l=document.createElement('link');l.rel='icon';l.href='assets/icons/reinos_tribais_icon.png';l.dataset.rt80Favicon='1';document.head.appendChild(l)}
   }
   function ensure(){applyMode();ensureVillageToolbar();ensureMapToolbar();ensureAriaAndLabels();cleanLegacyVisuals()}
@@ -41,5 +49,5 @@
   document.addEventListener('click',e=>{const view=e.target.closest('[data-view]')?.dataset.view;if(view)document.body.dataset.rt80RequestedView=view;const cat=e.target.closest('[data-rt79-vcat]');if(cat){setVillageCategory(cat.dataset.rt79Vcat);return}if(e.target.closest('[data-rt79-index]')){document.body.classList.toggle('rt79-show-index');return}if(e.target.closest('[data-rt79-panels]')){document.body.classList.toggle('rt79-show-panels');return}if(e.target.closest('[data-rt79-strategy]')){window.RT79?.open?.();return}if(e.target.closest('[data-rt80-center-map]')){centerMap();return}if(e.target.closest('[data-rt80-toggle-map-rail]')){document.body.classList.toggle('rt80-map-wide');return}},true);
   document.addEventListener('mouseover',e=>showBuildingInspector(e.target,e.clientX,e.clientY),true);document.addEventListener('mousemove',e=>moveInspector(e.clientX,e.clientY),true);document.addEventListener('mouseout',e=>{if(buildingTarget(e.target))hideInspector()},true);
   document.addEventListener('keydown',e=>{const cell=e.target.closest?.('.map-cell.village');if(cell&&(e.key==='Enter'||e.key===' ')){e.preventDefault();cell.click()}},true);
-  new MutationObserver(schedule).observe(document.body||document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','data-view']});window.addEventListener('resize',schedule,{passive:true});setInterval(schedule,2500);schedule();window.RT80Visual={version:'80.3',refresh:ensure,setVillageCategory,centerMap};
+  new MutationObserver(schedule).observe(document.body||document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','data-view']});window.addEventListener('resize',schedule,{passive:true});setInterval(schedule,2500);schedule();window.RT80Visual={version:'80.4',refresh:ensure,setVillageCategory,centerMap};
 })();
