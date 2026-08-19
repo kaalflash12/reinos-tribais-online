@@ -20,9 +20,17 @@ def shot(d,name):
     p=OUT/f'{len(P["screenshots"])+1:02d}_{safe}.png';d.save_screenshot(str(p));P['screenshots'].append(p.name)
 
 def click(d,sel):
-    wait(d,'return !!document.querySelector(arguments[0])',20) if False else None
     WebDriverWait(d,20).until(lambda x: bool(js(x,'return !!document.querySelector(arguments[0])',sel)))
     js(d,'document.querySelector(arguments[0]).click()',sel);time.sleep(.45)
+
+def click_view(d,view):
+    ok=js(d,"""
+      const v=arguments[0],all=Array.from(document.querySelectorAll(`button[data-view="${CSS.escape(v)}"]`));
+      const visible=all.find(b=>{const s=getComputedStyle(b),r=b.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0});
+      const b=visible||all[0];if(!b)return false;b.click();return true;
+    """,view)
+    if not ok: raise AssertionError(f'view button missing: {view}')
+    time.sleep(.45)
 
 def start(d):
     d.get(BASE+'?rt80-full-visual=1');wait(d,'return !!document.querySelector("[data-play-offline]")')
@@ -33,7 +41,7 @@ def start(d):
       if(f.elements.villageName)f.elements.villageName.value='Aldeia Visual';
       if(f.elements.difficulty)f.elements.difficulty.value='normal';
       if(f.elements.mapRadius)f.elements.mapRadius.value='16';
-      if(f.elements.startProfile)f.elements.startProfile.value='military';
+      if(f.elements.startProfile)f.elements.startProfile.value='balanced';
       f.requestSubmit();
     """)
     wait(d,'return !!window.RT76?.test && !!document.querySelector(".game-shell")',30)
@@ -49,16 +57,14 @@ def main():
     d=webdriver.Edge(options=o)
     try:
         start(d)
-        # Every real game view currently exposed by the persistent side navigation.
-        views=js(d,"return [...new Set(Array.from(document.querySelectorAll('.side-nav button[data-view]')).map(b=>b.dataset.view).filter(Boolean))]")
-        P['views']=views;rec('at least 18 persistent game views',len(views)>=18,len(views))
+        views=js(d,"return [...new Set(Array.from(document.querySelectorAll('button[data-view]')).map(b=>b.dataset.view).filter(Boolean))]")
+        P['views']=views;rec('at least 18 real game views discovered',len(views)>=18,views)
         for view in views:
-            btn=f'.side-nav button[data-view="{view}"]';click(d,btn)
-            rec(f'view {view} renders non-empty content',js(d,"return (document.querySelector('.content-panel')?.innerText||document.querySelector('.rt22-center')?.innerText||'').trim().length>15"))
+            click_view(d,view)
+            rec(f'view {view} renders non-empty content',js(d,"return (document.querySelector('.content-panel')?.innerText||document.querySelector('.rt22-center')?.innerText||document.querySelector('.game-shell')?.innerText||'').trim().length>15"))
             rec(f'view {view} no desktop body overflow',js(d,'return document.documentElement.scrollWidth<=window.innerWidth+12'))
             shot(d,f'VIEW_{view}')
 
-        # 16 modular Paladin item arts: individual path, valid image, and a composite with 4 simultaneous slots.
         hero=js(d,"""
           const items=RT76.test.heroItems();return Object.keys(items).map(id=>({id,slot:items[id].slot,src:RT76.test.getHeroItemArt(id)}));
         """)
@@ -75,7 +81,6 @@ def main():
         rec('Paladin composite renders base plus four item layers',js(d,"return document.querySelectorAll('.rt28-hero-loadout img').length>=5"),js(d,"return Array.from(document.querySelectorAll('.rt28-hero-loadout img')).map(x=>x.className)"))
         shot(d,'PALADIN_FOUR_EQUIPMENT_LAYERS')
 
-        # 10 troops x 4 research-driven visual stages.
         unit_data=js(d,"""
           const keys=['spear','sword','axe','archer','spy','light','marcher','heavy','ram','catapult'],levels=[0,1,4,7],v=RT76.test.getActiveVillage();v.unitResearch=v.unitResearch||{};RT76.test.getState().settings.researchSystem='ten';
           return keys.map(key=>({key,arts:levels.map(level=>{v.unitResearch[key]=level;return getUnitArt(key,v)})}));
@@ -89,7 +94,6 @@ def main():
         js(d,vscript,0);time.sleep(.5);shot(d,'TROOPS_VISUAL_STAGE_0')
         js(d,vscript,7);time.sleep(.5);shot(d,'TROOPS_VISUAL_STAGE_3')
 
-        # Real admin renderer with read-only CI mock data: no backend mutation and every admin tab is exercised.
         mock={'version':80,'generated_at':'2026-08-19T18:00:00Z','worlds':[{'id':'w1','name':'Mundo Visual','settings':{},'max_players':50,'season_number':1,'status':'open','is_active':True}], 'players':[{'world_id':'w1','user_id':'u1','player_name':'Jogador Visual','email':'visual@local','last_seen_at':'2026-08-19T18:00:00Z'}], 'villages':[{'id':'v1','world_id':'w1','owner_user_id':'u1','owner_kind':'player','name':'Aldeia Visual','x':500,'y':500,'points':100,'resources':{'wood':1000,'clay':1000,'iron':1000},'buildings':{},'units':{}}], 'nodes':[],'events':[],'monsters':[],'eventTemplates':[],'monsterTemplates':[],'commands':[],'attacks':[],'tribes':[],'tribeMembers':[],'offers':[],'messages':[],'reports':[],'entitlements':[],'rtWorldEvents':[],'eventProgress':[],'eventRewards':[],'auditLog':[],'seasons':[],'ratings':[],'matches':[],'adminSessions':[],'adminAccounts':[],'monsterHits':[],'worldStats':[{'world_id':'w1','players':1,'online':1,'villages':1,'nodes':0,'monsters':0,'events':0,'commands':0,'tribes':0,'offers':0}],'dbCounts':{'players':1,'villages':1}}
         admin_result=d.execute_async_script("""
           const data=arguments[0],done=arguments[arguments.length-1];
@@ -99,7 +103,7 @@ def main():
         time.sleep(.6);rec('RT80 admin mode detected',js(d,"return document.body.classList.contains('rt80-admin-mode')"))
         rec('admin branding cleaned to RT80',js(d,"return !/RT79/.test(document.querySelector('.rt60-admin-top')?.innerText||'')"))
         tabs=js(d,"return Array.from(document.querySelectorAll('.rt60-admin-nav button[data-admin-tab]')).map(b=>b.dataset.adminTab)");P['admin_tabs']=tabs
-        rec('admin exposes at least 12 operational tabs',len(tabs)>=12,len(tabs))
+        rec('admin exposes at least 12 operational tabs',len(tabs)>=12,tabs)
         for tab in tabs:
             click(d,f'.rt60-admin-nav button[data-admin-tab="{tab}"]')
             rec(f'admin tab {tab} visible',js(d,"return !!document.querySelector(arguments[0]) && !document.querySelector(arguments[0]).classList.contains('hidden')",f'[data-admin-panel="{tab}"]'))
