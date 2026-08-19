@@ -1,0 +1,127 @@
+/* Reinos Tribais RT80 — Visual System
+   Scene-first game UI inspired by browser strategy ergonomics.
+   Uses only existing project assets; no fake road/wall overlays. */
+:root{
+  --rt80-ink:#1b130d;
+  --rt80-ink-soft:#36281d;
+  --rt80-parchment:#ead8aa;
+  --rt80-parchment-hi:#f5e8c6;
+  --rt80-parchment-lo:#c9aa72;
+  --rt80-wood:#4a2d17;
+  --rt80-wood-hi:#79512b;
+  --rt80-wood-deep:#21140c;
+  --rt80-gold:#d6aa49;
+  --rt80-gold-hi:#f1d77d;
+  --rt80-moss:#596a36;
+  --rt80-moss-hi:#80904b;
+  --rt80-red:#8a3d2d;
+  --rt80-blue:#426681;
+  --rt80-line:rgba(62,38,19,.55);
+  --rt80-glass:rgba(23,19,13,.84);
+  --rt80-shadow:0 18px 50px rgba(17,10,4,.42);
+  --rt80-soft-shadow:0 6px 18px rgba(22,13,7,.22);
+  --rt80-radius:7px;
+}
+html{background:#2d2117}
+body.rt80-visual-ready{background:linear-gradient(rgba(31,24,17,.2),rgba(31,24,17,.2)),#4b321d url('assets/ui/bg-tile.jpg') repeat fixed!important;color:var(--rt80-ink)}
+body.rt80-visual-ready *{scrollbar-color:#76542c #24190f}
+body.rt80-visual-ready *::selection{background:#b98b3c;color:#fff6d8}
+body.rt80-visual-ready .start-screen{min-height:100svh!important;place-items:stretch!important;padding:0!important;background:linear-gradient(90deg,rgba(13,12,8,.78) 0%,rgba(13,12,8,.54) 36%,rgba(13,12,8,.12) 68%,rgba(13,12,8,.25) 100%),url('assets/custom/start_screen_v2.png') center/cover no-repeat fixed!important}
+body.rt80-visual-ready .start-card{width:min(560px,calc(100% - 28px))!important;min-height:100svh!important;margin:0!important;padding:clamp(28px,5vw,64px)!important;display:flex!important;flex-direction:column!important;justify-content:center!important;text-align:left!important;border:0!important;border-right:1px solid rgba(225,185,101,.5)!important;border-radius:0!important;background:linear-gradient(90deg,rgba(24,19,13,.96),rgba(35,26,17,.92) 75%,rgba(35,26,17,.76))!important;box-shadow:26px 0 70px rgba(0,0,0,.45)!important;color:#eee1bf!important;backdrop-filter:blur(4px)}
+body.rt80-visual-ready .start-card::before{content:'REINOS TRIBAIS'!important;position:static!important;font:700 11px/1.2 system-ui,sans-serif!important;letter-spacing:.34em!important;color:var(--rt80-gold)!important;opacity:1!important;transform:none!important;margin-bottom:10px!important}
+body.rt80-visual-ready .start-card h1{color:var(--rt80-gold-hi)!important;font:700 clamp(2.25rem,6vw,4.4rem)/.92 Georgia,serif!important;letter-spacing:-.045em!important;text-shadow:0 3px 20px #000!important;max-width:9ch}
+body.rt80-visual-ready .start-card .subtitle{margin:12px 0 24px!important;max-width:44ch!important;color:#cfc0a0!important;font:500 15px/1.55 system-ui,sans-serif!important}
+body.rt80-visual-ready .start-form{margin:8px 0 0!important;max-width:430px!important;gap:10px!important}
+body.rt80-visual-ready .start-form label{color:#d8c69d!important;font:700 11px/1.2 system-ui,sans-serif!important;text-transform:uppercase;letter-spacing:.08em}
+body.rt80-visual-ready .start-form input,body.rt80-visual-ready .start-form select{color:#f7ecd2!important;background:rgba(4,4,3,.48)!important;border:1px solid #6e5733!important;border-radius:4px!important;padding:11px 12px!important;outline:none!important}
+body.rt80-visual-ready .start-form input:focus,body.rt80-visual-ready .start-form select:focus{border-color:var(--rt80-gold)!important;box-shadow:0 0 0 2px rgba(214,170,73,.16)!important}
+body.rt80-visual-ready .start-card .btn{min-height:43px!important;text-transform:uppercase;letter-spacing:.06em}
+body.rt80-visual-ready .disclaimer{color:#9f9279!important;border-color:#5d4c31!important;font:12px/1.5 system-ui,sans-serif!important}
+body.rt80-visual-ready .game-shell{min-height:100svh;background:linear-gradient(rgba(61,45,28,.16),rgba(42,31,20,.08))}
+body.rt80-visual-ready .topbar{position:sticky!important;top:0!important;z-index:250!important;background:linear-gradient(180deg,rgba(39,31,20,.97),rgba(28,21,14,.98)),url('assets/ui/header.png') center/auto 100% repeat-x!important;border:0!important;border-bottom:1px solid rgba(226,184,96,.38)!important;box-shadow:0 7px 24px rgba(0,0,0,.38)!important}
+body.rt80-visual-ready .topbar-inner{max-width:1600px!important;min-height:58px!important;padding:7px 14px!important;gap:9px!important}
+body.rt80-visual-ready .brand{color:var(--rt80-gold-hi)!important;font:800 17px/1 Georgia,serif!important;letter-spacing:.02em!important;text-shadow:0 2px 9px #000}
+body.rt80-visual-ready .village-select{min-width:190px!important;max-width:260px!important;height:36px!important;background:#17130e!important;color:#e9dab8!important;border:1px solid #755d34!important;border-radius:4px!important}
+body.rt80-visual-ready .resources{gap:4px!important;margin-left:auto!important}
+body.rt80-visual-ready .resource-pill{min-width:82px!important;padding:5px 7px!important;background:rgba(8,7,5,.52)!important;border:1px solid rgba(210,175,94,.25)!important;border-radius:4px!important;color:#e8d9b4!important;font:700 12px/1.2 system-ui,sans-serif!important}
+body.rt80-visual-ready .resource-pill.full{outline:1px solid #d88942!important;background:rgba(97,50,18,.5)!important}
+body.rt80-visual-ready .server-clock{color:#a99877!important;font:600 11px/1 system-ui,sans-serif!important}
+body.rt80-visual-ready .main-layout{max-width:1600px!important;margin:0 auto!important;padding:10px!important;grid-template-columns:178px minmax(0,1fr) 248px!important;gap:9px!important;align-items:start!important}
+body.rt80-visual-ready .side-nav,body.rt80-visual-ready .right-rail,body.rt80-visual-ready .content-panel{border:1px solid #563d22!important;border-radius:var(--rt80-radius)!important;box-shadow:var(--rt80-soft-shadow)!important}
+body.rt80-visual-ready .side-nav,body.rt80-visual-ready .right-rail{background:linear-gradient(180deg,rgba(34,28,19,.97),rgba(24,19,13,.98))!important;color:#dbcaa4!important}
+body.rt80-visual-ready .side-nav{top:70px!important;overflow:hidden!important}
+body.rt80-visual-ready .side-nav .nav-section{background:linear-gradient(90deg,#523519,#302014)!important;color:#dbb867!important;font:800 9px/1 system-ui,sans-serif!important;letter-spacing:.16em!important;padding:9px 10px!important;border-top:1px solid #6f4b25!important}
+body.rt80-visual-ready .side-nav button{min-height:37px!important;padding:8px 10px!important;border-bottom:1px solid rgba(136,101,52,.25)!important;color:#cfc09e!important;background:transparent!important;font:650 12px/1.25 system-ui,sans-serif!important;transition:background .14s,color .14s,transform .14s!important}
+body.rt80-visual-ready .side-nav button:hover{background:rgba(198,154,85,.12)!important;color:#f0d99e!important;transform:translateX(2px)}
+body.rt80-visual-ready .side-nav button.active{background:linear-gradient(90deg,rgba(177,128,55,.35),rgba(115,76,30,.14))!important;color:#ffe39d!important;box-shadow:inset 3px 0 0 var(--rt80-gold)!important}
+body.rt80-visual-ready .right-rail{top:70px!important;padding:10px!important;max-height:calc(100svh - 82px)!important;overflow:auto!important}
+body.rt80-visual-ready .content-panel{min-height:calc(100svh - 90px)!important;padding:18px!important;background:linear-gradient(rgba(240,224,185,.97),rgba(223,198,145,.98)),url('assets/ui/bg-tile.jpg') repeat!important;position:relative!important;overflow:hidden!important}
+body.rt80-visual-ready .content-panel::after{content:'';position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 60px rgba(72,45,16,.11)}
+body.rt80-visual-ready .panel-title{margin:-18px -18px 18px!important;padding:13px 17px!important;background:linear-gradient(90deg,#3c2918,#5a3d1f 58%,#3c2918)!important;color:#f1d889!important;border:0!important;border-bottom:1px solid #1f140b!important;font:700 20px/1.05 Georgia,serif!important;letter-spacing:.01em!important;text-shadow:0 2px 6px #000!important}
+body.rt80-visual-ready .section-title{margin:18px 0 10px!important;padding:0 0 6px!important;border-bottom:1px solid #967241!important;color:#3b2818!important;font:700 16px/1.1 Georgia,serif!important}
+body.rt80-visual-ready .card-grid{gap:8px!important;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))!important}
+body.rt80-visual-ready .game-card,body.rt80-visual-ready .stat-card{border:0!important;border-left:3px solid #97713b!important;border-radius:2px!important;background:linear-gradient(90deg,rgba(255,249,228,.68),rgba(255,249,228,.28))!important;box-shadow:none!important;padding:10px 11px!important}
+body.rt80-visual-ready .game-card:hover{background:linear-gradient(90deg,rgba(255,250,232,.9),rgba(255,250,232,.42))!important}
+body.rt80-visual-ready .game-card h3{font:700 14px/1.15 Georgia,serif!important;color:#3b2716!important}
+body.rt80-visual-ready .stat-grid{gap:7px!important}
+body.rt80-visual-ready .stat-card .value{font:800 18px/1.1 system-ui,sans-serif!important;color:#4b321a!important}
+body.rt80-visual-ready .btn,body.rt80-visual-ready button.rt80-control{border:1px solid #3e2917!important;border-radius:4px!important;padding:7px 11px!important;color:#f9ebc7!important;background:linear-gradient(#72502a,#4d321b)!important;box-shadow:inset 0 1px rgba(255,255,255,.12),0 1px 2px #0005!important;font:700 12px/1.2 system-ui,sans-serif!important}
+body.rt80-visual-ready .btn.primary{background:linear-gradient(#6e823c,#465b29)!important;border-color:#35441f!important}
+body.rt80-visual-ready .btn.danger{background:linear-gradient(#98503d,#6f3228)!important;border-color:#4d211b!important}
+body.rt80-visual-ready .btn.secondary{background:linear-gradient(#c6a86b,#927143)!important;color:#23170e!important}
+body.rt80-visual-ready .btn:hover:not(:disabled),body.rt80-visual-ready button.rt80-control:hover{filter:brightness(1.12)!important;transform:translateY(-1px)}
+body.rt80-visual-ready .data-table{background:rgba(250,239,211,.48)!important;border-collapse:separate!important;border-spacing:0!important;border:1px solid #9b7545!important;border-radius:5px!important;overflow:hidden!important}
+body.rt80-visual-ready .data-table th{background:#4b321c!important;color:#f3ddb0!important;border-color:#674725!important;font:800 11px/1.2 system-ui,sans-serif!important;text-transform:uppercase;letter-spacing:.04em}
+body.rt80-visual-ready .data-table td{border-color:rgba(122,87,46,.34)!important;background:rgba(255,250,232,.32)!important;font:500 12px/1.35 system-ui,sans-serif!important}
+body.rt80-visual-ready .data-table tr:hover td{background:rgba(255,248,219,.7)!important}
+body.rt80-visual-ready input,body.rt80-visual-ready select,body.rt80-visual-ready textarea,body.rt80-visual-ready .number-input,body.rt80-visual-ready .text-input,body.rt80-visual-ready .select-input{border:1px solid #8f6d3f!important;border-radius:4px!important;background:#fff7df!important;color:#2a1b10!important;outline:none!important}
+body.rt80-visual-ready input:focus,body.rt80-visual-ready select:focus,body.rt80-visual-ready textarea:focus{border-color:#5d7337!important;box-shadow:0 0 0 2px rgba(93,115,55,.16)!important}
+body.rt80-village-mode .main-layout{display:block!important;max-width:1640px!important;padding:8px 10px 12px!important}
+body.rt80-village-mode .side-nav,body.rt80-village-mode .right-rail{display:none!important}
+body.rt80-village-mode .content-panel{min-height:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+body.rt80-village-mode .content-panel::after{display:none!important}
+body.rt80-village-mode .panel-title{display:none!important}
+body.rt80-village-mode .rt22-dashboard{display:block!important;max-width:none!important;margin:0!important}
+body.rt80-village-mode .rt22-left,body.rt80-village-mode .rt22-right,body.rt80-village-mode .rt22-map-box,body.rt80-village-mode .rt22-bottom{display:none!important}
+body.rt80-village-mode .rt22-center{width:100%!important;max-width:none!important;overflow:visible!important}
+body.rt80-village-mode .rt22-village-head{margin:0 0 6px!important;padding:7px 11px!important;min-height:38px!important;border:1px solid #5e4828!important;border-radius:5px!important;background:linear-gradient(90deg,#2c2419,#45351f,#2b2318)!important;color:#ead8aa!important;box-shadow:var(--rt80-soft-shadow)!important}
+body.rt80-village-mode .village-scene{width:100%!important;max-width:none!important;aspect-ratio:1671/941!important;height:auto!important;border:1px solid #302115!important;border-radius:7px!important;background:#1d2d1b!important;box-shadow:0 20px 54px rgba(0,0,0,.48),inset 0 0 0 1px rgba(255,236,178,.14)!important;overflow:hidden!important;isolation:isolate}
+body.rt80-village-mode .village-scene::after{content:'';position:absolute;inset:0;z-index:760;pointer-events:none;background:radial-gradient(circle at 50% 46%,transparent 48%,rgba(8,11,7,.18) 100%);box-shadow:inset 0 0 50px rgba(10,8,4,.25)}
+body.rt80-village-mode .village-scene [data-village-building]{transform-origin:50% 93%!important;filter:drop-shadow(0 8px 7px rgba(24,15,7,.52)) saturate(.98)!important;transition:filter .15s ease,transform .15s ease,opacity .15s ease!important;image-rendering:auto}
+body.rt80-village-mode .village-scene [data-village-building]:hover,body.rt80-village-mode .village-scene [data-village-building].rt79-focus{filter:drop-shadow(0 10px 10px rgba(21,12,5,.65)) drop-shadow(0 0 5px rgba(241,204,100,.55)) saturate(1.08)!important;transform:translateY(-2px) scale(1.018)!important;z-index:620!important}
+body.rt80-village-mode .village-scene [data-village-building].rt79-dim{opacity:.2!important;filter:grayscale(.6) brightness(.55)!important}
+body.rt80-village-mode .rt60-village-hitbox{border:0!important;background:transparent!important;outline:0!important;border-radius:18%!important}
+body.rt80-village-mode .rt60-village-hitbox:hover{background:radial-gradient(circle,rgba(237,199,103,.09),transparent 68%)!important;outline:1px solid rgba(238,200,102,.3)!important}
+body.rt80-village-mode .rt79-village-toolbar,body.rt80-village-mode .rt80-village-toolbar{position:absolute!important;left:14px!important;right:14px!important;bottom:14px!important;z-index:900!important;margin:0!important;padding:7px!important;display:grid!important;grid-template-columns:auto 1fr auto!important;gap:8px!important;align-items:center!important;border:1px solid rgba(204,166,86,.5)!important;border-radius:6px!important;background:linear-gradient(180deg,rgba(28,24,17,.93),rgba(17,14,10,.95))!important;color:#e6d4ab!important;box-shadow:0 9px 28px rgba(0,0,0,.48)!important;backdrop-filter:blur(5px)!important}
+body.rt80-village-mode .rt79-vtitle b{color:var(--rt80-gold-hi)!important}
+body.rt80-village-mode .rt79-vtitle span{color:#9c9075!important}
+body.rt80-village-mode .rt79-village-toolbar button{min-height:30px!important;border:1px solid #5d492a!important;background:#252018!important;color:#cfc09c!important;border-radius:4px!important;font:700 11px/1 system-ui,sans-serif!important}
+body.rt80-village-mode .rt79-village-toolbar button.active{background:#6e572a!important;color:#fff0b3!important;border-color:#a9843f!important}
+body.rt80-village-mode .rt24-village-hud{position:absolute!important;right:14px!important;top:14px!important;z-index:880!important;width:min(340px,31vw)!important;background:var(--rt80-glass)!important;color:#ead9b6!important;border:1px solid rgba(201,166,88,.45)!important;border-radius:6px!important;box-shadow:0 8px 28px rgba(0,0,0,.42)!important;backdrop-filter:blur(5px)!important}
+body.rt80-village-mode .rt25-building-index{display:none!important;position:absolute!important;left:14px!important;top:14px!important;z-index:875!important;width:min(560px,58vw)!important;max-height:52%!important;overflow:auto!important;padding:8px!important;grid-template-columns:repeat(auto-fit,minmax(155px,1fr))!important;background:rgba(27,22,15,.94)!important;border:1px solid rgba(203,166,86,.5)!important;border-radius:6px!important;color:#e8d8b6!important;box-shadow:var(--rt80-shadow)!important}
+body.rt80-village-mode.rt79-show-index .rt25-building-index{display:grid!important}
+body.rt80-village-mode .rt79-scene-badge{display:none!important}
+.rt80-building-inspector{position:fixed;z-index:1000015;display:none;min-width:190px;max-width:260px;padding:9px 10px;background:rgba(22,18,12,.96);color:#e8dab9;border:1px solid #836a38;border-radius:6px;box-shadow:0 12px 30px #0009;font:12px/1.35 system-ui,sans-serif;pointer-events:none;backdrop-filter:blur(5px)}
+.rt80-building-inspector.show{display:grid;gap:3px}.rt80-building-inspector strong{color:#f1ce70;font:700 14px/1.15 Georgia,serif}.rt80-building-inspector small{color:#9f9277}.rt80-building-inspector .tier{display:inline-flex;align-items:center;gap:5px;color:#d5c49e}.rt80-building-inspector .tier::before{content:'';width:7px;height:7px;border-radius:50%;background:#c8a348;box-shadow:0 0 8px #c8a34888}
+body.rt80-map-mode .main-layout{grid-template-columns:164px minmax(0,1fr) 224px!important;max-width:1720px!important}
+body.rt80-map-mode .content-panel{padding:10px!important;background:#2e281c!important;border-color:#4b3821!important}
+body.rt80-map-mode .panel-title{margin:-10px -10px 8px!important}
+body.rt80-map-mode .map-wrap{position:relative!important;min-height:calc(100svh - 150px)!important;max-height:calc(100svh - 132px)!important;overflow:auto!important;padding:12px!important;border:1px solid #4e3b23!important;border-radius:6px!important;background:linear-gradient(rgba(25,36,20,.16),rgba(25,36,20,.16)),url('assets/custom/map_story_bg.png') center/cover!important;box-shadow:inset 0 0 45px rgba(10,12,7,.25),0 8px 22px #0005!important}
+body.rt80-map-mode .world-map{gap:1px!important}
+body.rt80-map-mode .map-cell{border:1px solid rgba(39,31,18,.24)!important;border-radius:2px!important;transition:transform .12s,filter .12s,box-shadow .12s!important}
+body.rt80-map-mode .map-cell:hover{transform:scale(1.08)!important;z-index:12!important;filter:saturate(1.15) brightness(1.08)!important;box-shadow:0 5px 16px rgba(0,0,0,.4)!important}
+body.rt80-map-mode .map-cell.active{outline:2px solid var(--rt80-gold-hi)!important;outline-offset:-2px!important}
+body.rt80-map-mode .map-coord{font-size:9px!important;background:rgba(10,8,5,.72)!important;color:#f3e5c5!important;border-radius:2px!important}
+body.rt80-map-mode .map-points{font-size:9px!important;background:rgba(241,225,183,.86)!important;color:#28190c!important;border-radius:2px!important}
+body.rt80-map-mode .map-legend{padding:6px 8px!important;margin:6px 0!important;background:rgba(23,19,13,.88)!important;color:#d9caab!important;border:1px solid #5f4a29!important;border-radius:4px!important;font:11px/1.2 system-ui,sans-serif!important}
+.rt80-map-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 7px;padding:6px 7px;background:#211c15;border:1px solid #544126;border-radius:5px;color:#c9b895;font:11px/1 system-ui,sans-serif}.rt80-map-toolbar strong{color:#ebc96e;margin-right:auto;font:700 13px Georgia,serif}
+body.rt80-visual-ready .right-rail .game-card,body.rt80-visual-ready .right-rail .stat-card{background:transparent!important;color:#d6c7a6!important;border-left-color:#775d34!important}
+body.rt80-visual-ready .right-rail h3,body.rt80-visual-ready .right-rail h4{color:#ebc96d!important}
+body.rt80-visual-ready .right-rail .muted{color:#9e9072!important}
+body.rt80-visual-ready .modal-backdrop{background:rgba(8,7,5,.78)!important;backdrop-filter:blur(4px)}
+body.rt80-visual-ready .modal{background:linear-gradient(#efe0b8,#d8bd84)!important;border:1px solid #3c2817!important;border-radius:8px!important;box-shadow:0 24px 70px #000b!important}
+body.rt80-visual-ready .toast{background:#211a12!important;border:1px solid #8e713b!important;border-radius:5px!important;box-shadow:0 10px 28px #0008!important}
+body.rt80-visual-ready .toast.success{background:#2f4b27!important;border-color:#6d8b4b!important}body.rt80-visual-ready .toast.error{background:#5f2f26!important;border-color:#9f594a!important}
+@media(max-width:1180px){body.rt80-visual-ready .main-layout{grid-template-columns:156px minmax(0,1fr)!important}body.rt80-visual-ready .right-rail{display:none!important}body.rt80-visual-ready .resources{order:3;width:100%;margin:0!important;overflow-x:auto;flex-wrap:nowrap!important;padding-bottom:2px}body.rt80-visual-ready .resource-pill{flex:0 0 auto}body.rt80-village-mode .rt24-village-hud{width:300px!important}}
+@media(max-width:820px){body.rt80-visual-ready .topbar-inner{padding:6px 8px!important}body.rt80-visual-ready .brand{font-size:14px!important}body.rt80-visual-ready .village-select{min-width:150px!important;flex:1}body.rt80-visual-ready .main-layout{display:block!important;padding:6px!important}body.rt80-visual-ready .side-nav{position:relative!important;top:auto!important;display:flex!important;overflow-x:auto!important;margin-bottom:6px!important;border-radius:5px!important}body.rt80-visual-ready .side-nav .nav-section{display:none!important}body.rt80-visual-ready .side-nav button{flex:0 0 auto!important;width:auto!important;min-width:90px!important;border-right:1px solid rgba(136,101,52,.25)!important;border-bottom:0!important;text-align:center!important}body.rt80-visual-ready .content-panel{min-height:0!important;padding:12px!important}body.rt80-village-mode .side-nav{display:none!important}body.rt80-village-mode .rt24-village-hud{position:relative!important;right:auto!important;top:auto!important;width:100%!important;margin:0 0 5px!important}body.rt80-village-mode .rt79-village-toolbar,body.rt80-village-mode .rt80-village-toolbar{position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;margin:6px 0 0!important;grid-template-columns:1fr!important}body.rt80-village-mode .rt79-vactions{justify-content:flex-start!important}body.rt80-village-mode .rt25-building-index{position:relative!important;left:auto!important;top:auto!important;width:100%!important;max-height:330px!important;margin:6px 0!important}body.rt80-village-mode .village-scene{border-radius:4px!important}body.rt80-map-mode .map-wrap{min-height:64svh!important;max-height:72svh!important}}
+@media(max-width:560px){body.rt80-visual-ready .start-card{width:100%!important;min-height:100svh!important;padding:24px!important;background:rgba(25,20,14,.93)!important;border-right:0!important}body.rt80-visual-ready .stat-grid{grid-template-columns:1fr 1fr!important}body.rt80-visual-ready .card-grid{grid-template-columns:1fr!important}body.rt80-village-mode .rt79-vcats{overflow:auto!important;flex-wrap:nowrap!important}body.rt80-village-mode .rt79-village-toolbar button{flex:0 0 auto!important}}
