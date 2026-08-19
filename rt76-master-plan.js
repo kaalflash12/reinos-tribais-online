@@ -21,20 +21,23 @@
     disconnect(){this.batch.length=0;return this.inner.disconnect()}
     takeRecords(){return [...this.batch.splice(0),...this.inner.takeRecords()]}
   }
-  try{
-    const xhr=new XMLHttpRequest();
-    xhr.open('GET','rt76-master-core.js?v=79.1',false);
-    xhr.send(null);
-    if(xhr.status<200||xhr.status>=300)throw Error('RT76 master core HTTP '+xhr.status);
+  const executeCore=(src)=>{
     window.MutationObserver=RT76DebouncedMutationObserver;
-    const script=document.createElement('script');
-    script.id='rt76-master-core-runtime';
-    script.textContent=xhr.responseText+'\n//# sourceURL=rt76-master-core.js';
-    (document.head||document.documentElement).appendChild(script);
-    script.remove();
-  }catch(e){
-    console.error('RT76 master compat loader',e);
-  }finally{
-    window.MutationObserver=NativeMO;
-  }
+    try{
+      const script=document.createElement('script');
+      script.id='rt76-master-core-runtime';
+      script.textContent=src+'\n//# sourceURL=rt76-master-core.js';
+      (document.head||document.documentElement).appendChild(script);
+      script.remove();
+      if(!window.__RT76_MASTER_PLAN__||!window.RT76?.master)throw Error('RT76 master core não inicializou.');
+      window.__RT76_MASTER_COMPAT_READY__=true;
+      window.dispatchEvent(new CustomEvent('rt76-master-ready'));
+    }finally{
+      window.MutationObserver=NativeMO;
+    }
+  };
+  fetch('rt76-master-core.js?v=79.1',{cache:'no-store'})
+    .then(r=>{if(!r.ok)throw Error('RT76 master core HTTP '+r.status);return r.text()})
+    .then(executeCore)
+    .catch(e=>{window.__RT76_MASTER_COMPAT_ERROR__=String(e?.message||e);console.error('RT76 master compat loader',e)});
 })();
