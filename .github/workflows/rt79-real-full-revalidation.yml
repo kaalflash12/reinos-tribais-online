@@ -30,7 +30,7 @@ jobs:
               raise SystemExit('expected RT75 title assertion not found')
           p.write_text(s.replace(old,new,1),encoding='utf-8')
           PY
-          python -m py_compile tools/rt76_full_regression_current.py tools/rt76_master_contract_e2e.py
+          python -m py_compile tools/rt76_full_regression_current.py tools/rt76_master_contract_e2e.py tools/rt79_individual_button_revalidation.py
       - name: Start current RT79.1 locally
         run: |
           python -m http.server 8765 > /tmp/rt79-http.log 2>&1 &
@@ -41,7 +41,7 @@ jobs:
           done
           cat /tmp/rt79-http.log
           exit 1
-      - name: Run full visual and functional regression plus master contract
+      - name: Run full visual, functional, master contract and individual button matrix
         id: tests
         shell: bash
         run: |
@@ -50,6 +50,8 @@ jobs:
           FULL=${PIPESTATUS[0]}
           python tools/rt76_master_contract_e2e.py | tee RT79_MASTER_CONTRACT.log
           MASTER=${PIPESTATUS[0]}
+          python tools/rt79_individual_button_revalidation.py | tee RT79_BUTTON_REVALIDATION.log
+          BUTTONS=${PIPESTATUS[0]}
           set -e
           python - <<'PY'
           import json, pathlib
@@ -60,11 +62,13 @@ jobs:
           if p.exists():
               d=json.loads(p.read_text(encoding='utf-8'))
               out['master']={'ok':d.get('ok'),'count':d.get('count'),'failures':d.get('failures'),'page_errors':d.get('page_errors'),'console_errors':d.get('console_errors')}
+          p=pathlib.Path('RT79_BUTTON_REVALIDATION/RESUMO.json')
+          if p.exists(): out['buttons']=json.loads(p.read_text(encoding='utf-8'))
           pathlib.Path('RT79_REAL_REVALIDATION_SUMMARY.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
           print(json.dumps(out,ensure_ascii=False,indent=2))
           PY
-          echo "full_exit=$FULL master_exit=$MASTER"
-          if [ "$FULL" -ne 0 ] || [ "$MASTER" -ne 0 ]; then exit 1; fi
+          echo "full_exit=$FULL master_exit=$MASTER buttons_exit=$BUTTONS"
+          if [ "$FULL" -ne 0 ] || [ "$MASTER" -ne 0 ] || [ "$BUTTONS" -ne 0 ]; then exit 1; fi
       - name: Upload complete evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -73,8 +77,10 @@ jobs:
           path: |
             RT76_EVIDENCIAS_ATUAIS/**
             RT76_MASTER_CONTRACT_E2E/**
+            RT79_BUTTON_REVALIDATION/**
             RT79_REAL_REVALIDATION_SUMMARY.json
             RT79_FULL_REVALIDATION.log
             RT79_MASTER_CONTRACT.log
+            RT79_BUTTON_REVALIDATION.log
             /tmp/rt79-http.log
           if-no-files-found: warn
