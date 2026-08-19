@@ -1,8 +1,8 @@
 {
   "pass": false,
   "browser": "edge-public-eager-no-images",
-  "error": "AssertionError('build queue: ')",
-  "tests": 70,
+  "error": "AssertionError('research queue: sawmill')",
+  "tests": 74,
   "manifest": [
     {
       "name": "RT79 suite",
@@ -351,8 +351,28 @@
     },
     {
       "name": "build queue",
-      "pass": false,
+      "pass": true,
+      "detail": "main"
+    },
+    {
+      "name": "click [data-view=\"recruit\"]",
+      "pass": true,
       "detail": ""
+    },
+    {
+      "name": "recruit queue",
+      "pass": true,
+      "detail": "spear"
+    },
+    {
+      "name": "click [data-view=\"research\"]",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "research queue",
+      "pass": false,
+      "detail": "sawmill"
     }
   ],
   "diagnostic": {
@@ -372,17 +392,10 @@
     ],
     "hasPlay": false,
     "hasSuite": true,
-    "console": [
-      {
-        "level": "SEVERE",
-        "message": "https://kaalflash12.github.io/favicon.ico - Failed to load resource: the server responded with a status of 404 ()",
-        "source": "network",
-        "timestamp": 1787100910612
-      }
-    ]
+    "console": []
   },
   "visual_assets_tested_separately": true,
-  "workflow_run_id": "32202996458",
-  "workflow_commit": "3784a13df745da3fb9b6ee51b85a4cbde0c9b04f",
-  "persisted_at": "2026-08-19T00:55:17.6353604Z"
+  "workflow_run_id": "32203055190",
+  "workflow_commit": "3c63e1e123d08f8192f71269848034be4377a0f8",
+  "persisted_at": "2026-08-19T00:56:36.6746631Z"
 }
