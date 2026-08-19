@@ -382,7 +382,7 @@
     {
       "name": "market exchange",
       "pass": true,
-      "detail": "[[5000.012586387747, 1000.0125863877477], [4900.041535079567, 1090.0415350795674]]"
+      "detail": "[[5000.014789005603, 1000.0147890056036], [4900.039647121405, 1090.0396471214053]]"
     },
     {
       "name": "click [data-view=\"map\"]",
@@ -447,12 +447,12 @@
         "level": "SEVERE",
         "message": "https://kaalflash12.github.io/favicon.ico - Failed to load resource: the server responded with a status of 404 ()",
         "source": "network",
-        "timestamp": 1787101323248
+        "timestamp": 1787101613182
       }
     ]
   },
   "visual_assets_tested_separately": true,
-  "workflow_run_id": "32203423673",
-  "workflow_commit": "c383e37ea03ca971cc826261076b1cdb2119a669",
-  "persisted_at": "2026-08-19T01:02:11.2989990Z"
+  "workflow_run_id": "32203715357",
+  "workflow_commit": "1d014f394eae561bf7bfa98faf321b4c414de78f",
+  "persisted_at": "2026-08-19T01:07:01.1374516Z"
 }
