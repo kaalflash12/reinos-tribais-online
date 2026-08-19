@@ -1,8 +1,8 @@
 {
   "pass": false,
   "browser": "edge-public-eager-no-images",
-  "error": "AssertionError('launcher: ')",
-  "tests": 2,
+  "error": "AssertionError('build queue: ')",
+  "tests": 70,
   "manifest": [
     {
       "name": "RT79 suite",
@@ -10,7 +10,347 @@
       "detail": ""
     },
     {
-      "name": "launcher",
+      "name": "click [data-play-offline]",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "game started",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "launcher in game",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view systems",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view buildings",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view recruit",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view research",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view rally",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view academy",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view hero",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view arsenal",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view map",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view commands",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view missions",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view reports",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view messages",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view market",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view inventory",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view premium",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view manager",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view flags",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view ranking",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view tribe",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view help",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view settings",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view events",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "view ranked",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "click [data-view=\"buildings\"]",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "19 buildings",
+      "pass": true,
+      "detail": "19"
+    },
+    {
+      "name": "building main",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail main",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building church",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail church",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building timber",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail timber",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building clay",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail clay",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building iron",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail iron",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building farm",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail farm",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building warehouse",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail warehouse",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building market",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail market",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building hide",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail hide",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building barracks",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail barracks",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building stable",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail stable",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building garage",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail garage",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building smith",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail smith",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building academy",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail academy",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building statue",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail statue",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building rally",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail rally",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building wall",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail wall",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building watchtower",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail watchtower",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "building first_church",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "detail first_church",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "click [data-view=\"buildings\"]",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "build queue",
       "pass": false,
       "detail": ""
     }
@@ -30,12 +370,19 @@
       "https://kaalflash12.github.io/reinos-tribais-online/rt79-admin-suite.js?v=79.1",
       "https://kaalflash12.github.io/reinos-tribais-online/rt79-admin-logistics-addon.js?v=79.1"
     ],
-    "hasPlay": true,
+    "hasPlay": false,
     "hasSuite": true,
-    "console": []
+    "console": [
+      {
+        "level": "SEVERE",
+        "message": "https://kaalflash12.github.io/favicon.ico - Failed to load resource: the server responded with a status of 404 ()",
+        "source": "network",
+        "timestamp": 1787100609604
+      }
+    ]
   },
   "visual_assets_tested_separately": true,
-  "workflow_run_id": "32202607125",
-  "workflow_commit": "b4fa7ecbfced297573d855dc155ba25b8ca3cf17",
-  "persisted_at": "2026-08-19T00:48:55.8966237Z"
+  "workflow_run_id": "32202646252",
+  "workflow_commit": "5a6c6dc4bdd5926f470a9b21a338c52294819200",
+  "persisted_at": "2026-08-19T00:50:27.8183199Z"
 }
