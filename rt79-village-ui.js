@@ -9,6 +9,6 @@
   loadStyle('rt80-compat.css?v=80.5','rt80-compat');
   loadScript('rt80-visual-system.js?v=80.4','rt80-visual','__RT80_VISUAL_SYSTEM__');
   loadScript('rt80-admin-runtime.js?v=80.5','rt80-admin-runtime','__RT80_ADMIN_RUNTIME__');
-  loadScript('rt81-security-runtime.js?v=81.0','rt81-security-runtime','__RT81_SECURITY_RUNTIME__');
-  // RT80.5 + RT81 authoritative/security integration.
+  loadScript('rt81-security-runtime.js?v=81.1','rt81-security-runtime','__RT81_SECURITY_RUNTIME__');
+  // RT80.5 + RT81.1 authoritative/security integration.
 })();
