@@ -19,15 +19,16 @@ html=text('index.html')
 edge=text('backend/rt81-multiplayer-safe.ts')
 router=text('backend/rt81-multiplayer-v60-router.ts')
 lock=text('backend/rt81-lock-raw-gameplay.sql')
+direct_lock=text('backend/rt82-lock-direct-gameplay-mutations.sql')
 indexes=text('backend/rt81-security-and-transfer-indexes.sql')
 strategy=[text(f'backend/rt81/{i:02d}_{name}.sql') for i,name in [
     (1,'incoming_intel'),(2,'process_automations'),(3,'dashboard_watchtower'),(4,'dashboard_logistics_ai'),
     (5,'transfer_tick'),(6,'atomic_batch_planner'),(7,'market_autotrade'),(8,'farm_recommend'),(9,'farm_batch_smart'),
     (10,'incoming_realtime_signal')
 ]]
-strategy_all='\n'.join(strategy)
 signal_norm=re.sub(r'\s+','',strategy[9])
 edge_norm=re.sub(r'\s+','',edge)
+direct_norm=re.sub(r'\s+','',direct_lock.lower())
 
 must('planner atomic RPC wired','rt81_schedule_batch' in suite)
 must('multi-target selector wired','name="batchTargets"' in suite and 'targetGap' in suite)
@@ -60,6 +61,9 @@ must('generic legacy proxy removed','async function proxy(req,body)' not in edge
 must('raw commands select locked to owner','commands_select_own' in lock and 'owner_user_id' in lock)
 must('raw villages select locked to owner','villages_select_own' in lock and 'owner_user_id' in lock)
 must('raw player profile select locked to owner','player_worlds_select_own' in lock and 'user_id' in lock)
+must('direct commands mutations revoked','revokeinsert,update,delete,truncate,references,triggerontablepublic.commandsfromanon,authenticated;' in direct_norm)
+must('direct villages mutations revoked','revokeinsert,update,delete,truncate,references,triggerontablepublic.villagesfromanon,authenticated;' in direct_norm)
+must('authenticated keeps RLS-readable commands/villages','grantselectontablepublic.commandstoauthenticated;' in direct_norm and 'grantselectontablepublic.villagestoauthenticated;' in direct_norm)
 must('transfer source index versioned','rt79_resource_transfers_source_idx' in indexes)
 must('transfer target index versioned','rt79_resource_transfers_target_idx' in indexes)
 must('ten RT81 strategy SQL parts versioned',len(strategy)==10 and all(x.strip() for x in strategy))
@@ -75,7 +79,7 @@ must('incoming signal RLS is owner-only','rt81_incoming_signal_own' in strategy[
 must('incoming signal trigger lifecycle versioned','rt81_commands_incoming_signal_trg' in strategy[9] and "tg_op='DELETE'" in strategy[9] and "not like 'outbound%'" in strategy[9])
 must('incoming signal added to Supabase realtime publication','supabase_realtime add table public.rt81_incoming_signals' in strategy[9])
 
-out={'build':'RT80.5+RT81.4','pass':True,'checks':checks,'count':len(checks)}
+out={'build':'RT80.5+RT82.0','pass':True,'checks':checks,'count':len(checks)}
 proof=ROOT/'RT81_CONTRACT_REGRESSION.json'
 proof.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(out,ensure_ascii=False,indent=2))
