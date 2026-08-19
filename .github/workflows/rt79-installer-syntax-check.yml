@@ -1,0 +1,25 @@
+name: RT79.1 Installer Windows Parser
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse final installer with Windows PowerShell engine
+        shell: powershell
+        run: |
+          $path = Join-Path $PWD 'tools\RT79_1_INSTALAR_E_VALIDAR_FINAL.ps1'
+          $tokens=$null
+          $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count -gt 0){
+            $errors | Format-List *
+            throw "PowerShell parser encontrou $($errors.Count) erro(s)."
+          }
+          $text=Get-Content -LiteralPath $path -Raw
+          if($text -notmatch "\$ExpectedZipHash = '[0-9a-f]{64}'"){throw 'Hash do ZIP final não está embutido.'}
+          $critical=[regex]::Matches($text,"'[^']+'\s*=\s*'[0-9a-f]{64}'").Count
+          if($critical -lt 14){throw "Tabela de hashes críticos incompleta: $critical"}
+          Write-Host "PARSER PASS; hashes críticos=$critical"
