@@ -41,13 +41,15 @@ must('enemy projection disclosure','_publicVisualProjection' in security and 'In
 must('incoming realtime runtime subscription',all(x in security for x in ['rt81_incoming_signals','initIncomingSignalRealtime','scheduleIncomingPoll','rt81IncomingSignalChannel']))
 must('incoming realtime wakes sanitized poll','window.pollMultiplayer(false)' in security)
 must('security runtime cache-buster current','rt81-security-runtime.js?v=81.3' in bootstrap and "version:'81.3'" in security)
-must('edge poll security revision',"security_revision:'rt81.2'" in edge)
+must('edge poll security revision',"security_revision:'rt81.4'" in edge)
 must('edge public villages exclude private columns','select=id,owner_user_id,owner_kind,owner_name,tribe_name,name,x,y,points,updated_at' in edge)
 must('edge public world query does not request private columns',not re.search(r'world=await db\(`villages\?[^`]*select=[^`]*(?:resources|units|build_queue|recruit_queue)',edge))
 must('incoming sanitized below watchtower 15',"payload:lvl>=15?" in edge and "visibility='composition'" in edge)
 must('ensure village implemented directly','async function ensureVillage' in edge and "action==='ensure_village'" in edge and 'await ensureVillage' in edge)
 must('sync village implemented directly','async function syncVillage' in edge and "action==='sync_village'" in edge and 'await syncVillage' in edge)
 must('only attack is proxied to legacy chain','async function proxyAttack' in edge and "action==='send_attack'" in edge and 'proxyAttack(req,body)' in edge)
+must('legacy due pass restored','async function resolveLegacyDue' in edge and 'rt81_due_pass:true' in edge)
+must('legacy due pass is finite',"if(action==='poll'){if(!body.rt81_due_pass)await resolveLegacyDue(req,body);return out(await poll(u,wid))}" in edge)
 must('generic legacy proxy removed','async function proxy(req,body)' not in edge and 'return await proxy(req,body)' not in edge)
 must('raw commands select locked to owner','commands_select_own' in lock and 'owner_user_id' in lock)
 must('raw villages select locked to owner','villages_select_own' in lock and 'owner_user_id' in lock)
@@ -67,7 +69,7 @@ must('incoming signal RLS is owner-only','rt81_incoming_signal_own' in strategy[
 must('incoming signal trigger lifecycle versioned','rt81_commands_incoming_signal_trg' in strategy[9] and "tg_op='DELETE'" in strategy[9] and "not like 'outbound%'" in strategy[9])
 must('incoming signal added to Supabase realtime publication','supabase_realtime add table public.rt81_incoming_signals' in strategy[9])
 
-out={'build':'RT80.5+RT81.3','pass':True,'checks':checks,'count':len(checks)}
+out={'build':'RT80.5+RT81.4','pass':True,'checks':checks,'count':len(checks)}
 proof=ROOT/'RT81_CONTRACT_REGRESSION.json'
 proof.write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps(out,ensure_ascii=False,indent=2))
