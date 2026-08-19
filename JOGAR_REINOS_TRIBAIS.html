@@ -8639,10 +8639,10 @@ function renderMap() {
   const RT76_AI_BASE=processAI;
   processAI=function(ts){
     if(!state)return RT76_AI_BASE(ts);
-    const before={};for(const v of Object.values(state.villages).filter(v=>v.owner==='ai'))before[v.id]=rt76AiSig(v);
+    const before={};for(const v of Object.values(state.villages).filter(v=>v.owner==='ai'||String(v.owner||'').startsWith('ai_')))before[v.id]=rt76AiSig(v);
     const cmdBefore=state.commands.length,out=RT76_AI_BASE(ts),r=rt76w2();
     if(r&&out){
-      for(const v of Object.values(state.villages).filter(v=>v.owner==='ai')){
+      for(const v of Object.values(state.villages).filter(v=>v.owner==='ai'||String(v.owner||'').startsWith('ai_'))){
         const a=before[v.id]||{},b=rt76AiSig(v),changes=[];
         if(b.buildings!==a.buildings)changes.push('BUILD');
         if(b.units!==a.units)changes.push('RECRUIT/LOSS');
