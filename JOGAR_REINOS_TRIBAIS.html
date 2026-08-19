@@ -4458,7 +4458,8 @@ function rt67RenderPageIntro(tab=RTADMIN?.ui?.tab||'overview'){
   const main=document.querySelector('.rt60-admin-main');if(!main)return;
   let el=main.querySelector('.rt67-page-intro');if(!el){el=document.createElement('section');el.className='rt67-page-intro';main.prepend(el)}
   const [title,desc]=RT67_PAGE_HELP[tab]||['Administração','Controle operacional do servidor.'];
-  el.innerHTML=`<div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(desc)}</p></div><span class="rt67-help-pill">Modo guiado • sem códigos de cabeça</span>`;
+  const html=`<div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(desc)}</p></div><span class="rt67-help-pill">Modo guiado • sem códigos de cabeça</span>`;
+  if(el.innerHTML!==html)el.innerHTML=html;
 }
 function rt67GroupAdminNav(){const nav=document.querySelector('.rt60-admin-nav');if(!nav||nav.dataset.rt67Grouped)return;nav.dataset.rt67Grouped='1';const groups=[['overview','OPERAÇÃO'],['events','CONTEÚDO DO MUNDO'],['comms','SUPORTE & SISTEMA']];for(const [id,label] of groups){const btn=nav.querySelector(`[data-admin-tab="${id}"]`);if(btn){const d=document.createElement('div');d.className='rt67-nav-group';d.textContent=label;nav.insertBefore(d,btn)}}}
 function rt67HumanKind(k){return ({item:'Item jogável',boost:'Bônus temporário',cosmetic:'Visual'})[k]||k||'Benefício'}
