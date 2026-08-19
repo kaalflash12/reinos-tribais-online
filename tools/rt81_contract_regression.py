@@ -24,6 +24,7 @@ strategy=[text(f'backend/rt81/{i:02d}_{name}.sql') for i,name in [
     (10,'incoming_realtime_signal')
 ]]
 strategy_all='\n'.join(strategy)
+signal_norm=re.sub(r'\s+','',strategy[9])
 
 must('planner atomic RPC wired','rt81_schedule_batch' in suite)
 must('multi-target selector wired','name="batchTargets"' in suite and 'targetGap' in suite)
@@ -62,7 +63,7 @@ must('per-resource autotrade SQL versioned',all(x in strategy[6] for x in ['min_
 must('farm recommendation SQL versioned',all(x in strategy[7] for x in ['threat_level','cooldown_seconds','confidence','recommended_model']))
 must('smart farm uses unified recommender','rt79_farm_recommend' in strategy[8])
 must('incoming signal table has no private gameplay columns',all(x in strategy[9] for x in ['rt81_incoming_signals','target_user_id','target_village_id','arrives_at']) and all(x not in strategy[9].split('create or replace function private.rt81_sync_incoming_signal')[0] for x in ['troops jsonb','payload jsonb','resources jsonb','buildings jsonb']))
-must('incoming signal RLS is owner-only','rt81_incoming_signal_own' in strategy[9] and '(select auth.uid())=target_user_id' in strategy[9].replace(' ',''))
+must('incoming signal RLS is owner-only','rt81_incoming_signal_own' in strategy[9] and 'using((selectauth.uid())=target_user_id)' in signal_norm)
 must('incoming signal trigger lifecycle versioned','rt81_commands_incoming_signal_trg' in strategy[9] and "tg_op='DELETE'" in strategy[9] and "not like 'outbound%'" in strategy[9])
 must('incoming signal added to Supabase realtime publication','supabase_realtime add table public.rt81_incoming_signals' in strategy[9])
 
