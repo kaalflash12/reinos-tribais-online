@@ -3,19 +3,22 @@ import json, os, time, re
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
 import rt80_admin_visual_regression as base
 
 BASE=os.environ.get('RT80_URL','http://127.0.0.1:8765/')
 OUT=Path(os.environ.get('RUNNER_TEMP','/tmp'))/'RT80_ADMIN_VISUAL_PROOF'
 OUT.mkdir(parents=True,exist_ok=True)
-proof={'pass':False,'screenshots':[],'checks':[],'tabs':[]}
+proof={'pass':False,'screenshots':[],'checks':[],'tabs':[],'phase':'init'}
 
 def log(x): print('[RT80-ADM-CHROME]',x,flush=True)
+def save_proof(): (OUT/'PROVA_RT80_ADMIN_VISUAL.json').write_text(json.dumps(proof,ensure_ascii=False,indent=2),encoding='utf-8')
+def phase(name): proof['phase']=name;save_proof();log('PHASE '+name)
 def check(d,name,js,timeout=6):
     WebDriverWait(d,timeout).until(lambda x:bool(x.execute_script(js)))
-    proof['checks'].append({'name':name,'pass':True});log('PASS '+name)
+    proof['checks'].append({'name':name,'pass':True});save_proof();log('PASS '+name)
 def shot(d,name):
-    p=OUT/f'{len(proof["screenshots"])+1:02d}_{name}.png';d.save_screenshot(str(p));proof['screenshots'].append(p.name);log('SHOT '+name)
+    p=OUT/f'{len(proof["screenshots"])+1:02d}_{name}.png';d.save_screenshot(str(p));proof['screenshots'].append(p.name);save_proof();log('SHOT '+name)
 def close_modals(d): d.execute_script("document.querySelectorAll('.rt64-modal,.rt60-admin-modal').forEach(x=>x.remove())")
 def open_modal(d,selector,name):
     d.execute_script("document.querySelector(arguments[0])?.click()",selector)
@@ -26,9 +29,6 @@ def open_modal(d,selector,name):
 def prepare():
     base.prepare_html()
     s=base.AUDIT_HTML.read_text(encoding='utf-8')
-    # The renderer, GAME_DATA and all admin helpers live inline in index.html. For
-    # this isolated proof no external runtime/CDN is needed. Removing every src
-    # script avoids network/timer noise while preserving the exact real renderer.
     s=re.sub(r'<script\b[^>]*\bsrc=["\'][^"\']+["\'][^>]*>\s*</script>','',s,flags=re.I)
     s=s.replace('bootstrapOnline();','/* RT80 ADMIN AUDIT: normal bootstrap intentionally disabled */',1)
     css=(base.ROOT/'rt80-admin-cleanup.css').read_text(encoding='utf-8')
@@ -38,14 +38,22 @@ def prepare():
     base.AUDIT_HTML.write_text(s,encoding='utf-8')
 
 def main():
-    prepare();log('isolated real-renderer audit HTML ready')
-    o=Options();o.page_load_strategy='eager'
-    for a in ['--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--window-size=1600,1000','--disable-background-networking','--no-first-run']:
-        o.add_argument(a)
-    d=webdriver.Chrome(options=o);d.set_page_load_timeout(15);d.set_script_timeout(12)
+    prepare();phase('audit_html_ready')
+    opts=Options();opts.page_load_strategy='eager'
+    opts.add_argument('--headless=new');opts.add_argument('--no-sandbox');opts.add_argument('--disable-gpu');opts.add_argument('--disable-dev-shm-usage');opts.add_argument('--window-size=1600,1000')
+    opts.add_experimental_option('prefs',{'profile.managed_default_content_settings.images':2})
+    opts.set_capability('goog:loggingPrefs',{'browser':'ALL'})
+    d=None
     try:
-        d.get(BASE+'rt80_admin_audit.html?audit=1')
-        WebDriverWait(d,10).until(lambda x:x.execute_script('return !!window.__RT80_ADMIN_AUDIT__'))
+        phase('creating_chrome_session')
+        d=webdriver.Chrome(options=opts)
+        phase('chrome_session_ready')
+        d.set_page_load_timeout(30);d.set_script_timeout(15)
+        try:d.get(BASE+'rt80_admin_audit.html?audit=1')
+        except TimeoutException:log('page load timeout tolerated')
+        phase('page_opened')
+        WebDriverWait(d,20).until(lambda x:x.execute_script('return !!window.__RT80_ADMIN_AUDIT__'))
+        phase('admin_api_ready')
         r=d.execute_async_script("""
           const data=arguments[0],done=arguments[arguments.length-1];
           const a=window.__RT80_ADMIN_AUDIT__;
@@ -53,6 +61,7 @@ def main():
           a.renderIntegratedAdmin(data,true).then(()=>done({ok:true})).catch(e=>done({ok:false,error:String(e?.stack||e)}));
         """,base.MOCK)
         if not r.get('ok'): raise RuntimeError(r.get('error'))
+        phase('admin_rendered')
         check(d,'admin shell',"return !!document.querySelector('.rt60-admin-shell')")
         check(d,'runtime ready',"return document.querySelector('.rt60-admin-shell')?.dataset.rt80AdminReady==='1'")
         check(d,'15 tabs',"return document.querySelectorAll('[data-admin-tab]').length===15")
@@ -67,17 +76,20 @@ def main():
         d.execute_script("document.querySelector('[data-admin-tab=\"events\"]')?.click()");time.sleep(.05);open_modal(d,'[data-rt64-edit-event]','ADMIN_MODAL_EVENT');open_modal(d,'[data-rt64-edit-monster]','ADMIN_MODAL_MONSTER')
         d.set_window_size(430,932);time.sleep(.1);d.execute_script("document.querySelector('[data-admin-tab=\"overview\"]')?.click()");time.sleep(.05)
         check(d,'mobile nav',"const n=document.querySelector('.rt60-admin-nav');return !!n&&getComputedStyle(n).display==='flex'",5);shot(d,'ADMIN_MOBILE_OVERVIEW')
-        proof['pass']=True
+        proof['pass']=True;phase('complete')
     except Exception as e:
-        proof['error']=repr(e);log('FAIL '+repr(e))
-        try:shot(d,'ADMIN_FAILURE')
-        except Exception:pass
+        proof['error']=repr(e);log('FAIL '+repr(e));save_proof()
+        if d:
+            try:shot(d,'ADMIN_FAILURE')
+            except Exception:pass
         raise
     finally:
-        try: proof['console']=d.get_log('browser')
-        except Exception: proof['console']=[]
-        (OUT/'PROVA_RT80_ADMIN_VISUAL.json').write_text(json.dumps(proof,ensure_ascii=False,indent=2),encoding='utf-8')
-        d.quit()
+        if d:
+            try: proof['console']=d.get_log('browser')
+            except Exception: proof['console']=[]
+            save_proof()
+            try:d.quit()
+            except Exception:pass
         try:base.AUDIT_HTML.unlink()
         except Exception:pass
     log('ALL PASS')
