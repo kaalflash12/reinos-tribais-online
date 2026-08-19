@@ -16,6 +16,10 @@ body.rt80-page-mode .game-card{min-width:0!important}
 body.rt80-page-mode .data-table{width:100%!important}
 body.rt80-page-mode .content-panel>[style*="grid-template-columns"]{gap:8px!important}
 body.rt80-page-mode .content-panel section{max-width:100%!important}
+body.rt80-page-mode .rt64-building-list{align-items:stretch!important}
+body.rt80-page-mode .rt64-building-row:last-child:nth-child(odd){grid-column:1/-1!important;border-right:0!important}
+body.rt80-page-mode .rt64-building-row:last-child:nth-child(odd) .rt64-building-row-main{max-width:420px!important}
+body.rt80-page-mode .rt64-building-row:last-child:nth-child(odd) .rt64-building-row-actions{justify-self:end!important}
 
 /* Village: the scene remains the hero element, not the surrounding chrome. */
 body.rt80-village-mode .rt22-village-head{min-height:34px!important;padding:5px 10px!important;margin-bottom:5px!important}
@@ -63,6 +67,7 @@ body.rt80-map-mode .map-cell.village:focus-visible{outline:3px solid #ffe28b!imp
   body.rt80-visual-ready .side-nav button[data-view="hero"]::after{content:'⚜\A Paladino';white-space:pre;font-size:9px;line-height:1.5}
   body.rt80-visual-ready .content-panel{padding:9px!important;border-radius:5px!important}
   body.rt80-page-mode .panel-title{margin:-9px -9px 9px!important;padding:9px 11px!important;font-size:17px!important}
+  body.rt80-page-mode .rt64-building-row:last-child:nth-child(odd){grid-column:auto!important}
   body.rt80-village-mode .side-nav{display:none!important}
   body.rt80-village-mode .rt24-village-hud{display:none!important}
   body.rt80-village-mode .rt79-village-toolbar{position:relative!important;left:auto!important;right:auto!important;transform:none!important;width:100%!important;margin:5px 0 0!important;padding:5px!important}
