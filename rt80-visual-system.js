@@ -32,15 +32,16 @@
   function ensureAriaAndLabels(){$$('.side-nav button[data-view]').forEach(btn=>{if(!btn.getAttribute('aria-label'))btn.setAttribute('aria-label',(btn.textContent||btn.dataset.view||'').trim())});$$('.map-cell.village').forEach(cell=>{if(!cell.getAttribute('tabindex'))cell.setAttribute('tabindex','0')});$$('[data-village-building]').forEach(el=>{const key=el.dataset.villageBuilding;if(key&&!el.getAttribute('aria-label'))el.setAttribute('aria-label',BUILDINGS[key]||key)})}
   function normalizeLegacyText(){
     const root=$('.game-shell');if(!root)return;
-    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){const p=node.parentElement;if(!p||['SCRIPT','STYLE','TEXTAREA','OPTION'].includes(p.tagName))return NodeFilter.FILTER_REJECT;const t=node.nodeValue||'';return /(RT79(?:\.1)?|RT76|Versão\s+79)/.test(t)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}});
+    const legacy=/\bRT(?:[1-7]\d)(?:\.\d+)?\b/i;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){const p=node.parentElement;if(!p||['SCRIPT','STYLE','TEXTAREA','OPTION'].includes(p.tagName))return NodeFilter.FILTER_REJECT;const t=node.nodeValue||'';return legacy.test(t)||/Versão\s+79\b/i.test(t)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}});
     const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
-    nodes.forEach(node=>{let t=node.nodeValue||'';t=t.replace(/Versão\s+79\b/g,'Versão RT80').replace(/\bRT79\.1\b/g,'RT80').replace(/\bRT79\b/g,'RT80').replace(/\bRT76\b/g,'RT80');node.nodeValue=t});
+    nodes.forEach(node=>{let t=node.nodeValue||'';t=t.replace(/Versão\s+79\b/gi,'Versão RT80').replace(/\bRT(?:[1-7]\d)(?:\.\d+)?\b/gi,'RT80');node.nodeValue=t});
   }
   function cleanLegacyVisuals(){
     $$('.rt17-nav-main,.rt17-nav').forEach(n=>n.classList.add('rt80-legacy-nav'));
     $$('.village-scene *').forEach(n=>{if(n.children.length===0&&/RT79(?:\.1)?\s*•\s*aldeia ativa/i.test((n.textContent||'').trim()))n.remove()});
     normalizeLegacyText();
-    const title=document.title.replace(/RT79(?:\.1)?/g,'RT80').replace(/RT76/g,'RT80');if(title!==document.title)document.title=title;
+    const title=document.title.replace(/\bRT(?:[1-7]\d)(?:\.\d+)?\b/gi,'RT80');if(title!==document.title)document.title=title;
     if(!document.querySelector('link[data-rt80-favicon]')){const l=document.createElement('link');l.rel='icon';l.href='assets/icons/reinos_tribais_icon.png';l.dataset.rt80Favicon='1';document.head.appendChild(l)}
   }
   function ensure(){applyMode();ensureVillageToolbar();ensureMapToolbar();ensureAriaAndLabels();cleanLegacyVisuals()}
