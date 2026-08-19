@@ -2,10 +2,10 @@
   "pass": false,
   "browser": "edge",
   "error": "browser proof not produced; inspect workflow step conclusions",
-  "run_id": "32286775670",
-  "commit": "64455109a7cc6d81c173e038daad8aa45d6482d3",
-  "generated_at": "2026-08-19T18:25:43.311949Z",
-  "workflow_run_id": "32286775670",
-  "workflow_commit": "64455109a7cc6d81c173e038daad8aa45d6482d3",
-  "persisted_at": "2026-08-19T18:25:43.3526292Z"
+  "run_id": "32286739036",
+  "commit": "4809c15c91c5a5c2dd9113224e2c12f869b2a113",
+  "generated_at": "2026-08-19T18:26:01.1297254Z",
+  "workflow_run_id": "32286739036",
+  "workflow_commit": "4809c15c91c5a5c2dd9113224e2c12f869b2a113",
+  "persisted_at": "2026-08-19T18:26:01.1714827Z"
 }
