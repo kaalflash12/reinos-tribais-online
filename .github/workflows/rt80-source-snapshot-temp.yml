@@ -34,4 +34,5 @@ jobs:
         with:
           name: RT80_SOURCE_SNAPSHOT
           path: ${{ runner.temp }}/RT80_SOURCE_SNAPSHOT
+          include-hidden-files: true
           if-no-files-found: error
