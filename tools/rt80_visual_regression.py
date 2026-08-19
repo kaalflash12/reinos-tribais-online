@@ -67,10 +67,18 @@ def main():
                 check(d,'map toolbar','return !!document.querySelector(".rt80-map-toolbar")')
             else:
                 check(d,f'{view} content visible','return !!document.querySelector(".content-panel")')
+            if view=='buildings':
+                check(d,'single building category spans full row','''
+                  const list=document.querySelector('[data-building-category="admin"] .rt64-building-list');
+                  const row=list?.querySelector('.rt64-building-row:only-child');
+                  return !!row && getComputedStyle(row).gridColumnEnd==='-1';
+                ''')
             shot(d,name)
         d.set_window_size(430,932);time.sleep(.8)
         click(d,'[data-view="overview"]');time.sleep(.5)
         check(d,'mobile no horizontal body overflow','return document.documentElement.scrollWidth <= window.innerWidth + 8')
+        check(d,'legacy RT68 mobile nav hidden','return !document.querySelector(".rt68-game-nav") || getComputedStyle(document.querySelector(".rt68-game-nav")).display==="none"')
+        check(d,'RT22 mobile nav is grid','return !!document.querySelector(".rt22-navicons") && getComputedStyle(document.querySelector(".rt22-navicons")).display==="grid"')
         proof['mobile_navs']=d.execute_script("""
           return Array.from(document.querySelectorAll('nav,[class*="nav"],[class*="menu"],[class*="toolbar"]')).map((n,i)=>{
             const r=n.getBoundingClientRect(),s=getComputedStyle(n);
