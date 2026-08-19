@@ -3,6 +3,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'index.html'
       - 'rt79-suite.js'
       - 'rt79-village-ui.js'
       - 'rt81-security-runtime.js'
@@ -27,6 +28,7 @@ jobs:
           node --check rt79-village-ui.js
           node --check rt81-security-runtime.js
           node --check < backend/rt81-multiplayer-safe.ts
+          node --check < backend/rt81-multiplayer-v60-router.ts
       - name: Master-spec contract regression
         run: python tools/rt81_contract_regression.py
       - name: Upload proof
