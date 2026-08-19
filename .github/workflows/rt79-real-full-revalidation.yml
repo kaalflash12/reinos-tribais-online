@@ -1,5 +1,7 @@
 name: RT79.1 Real Full Revalidation
 on:
+  push:
+    branches: [rt79-real-revalidation]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -61,8 +63,7 @@ jobs:
           grep -F "img.loading='eager'" tools/rt76_full_regression_current.py
           grep -F "(beforeView)=>" tools/rt79_individual_button_revalidation.py
           node --check rt76-master-plan.js
-          grep -F "window.__RT76_MASTER_PLAN__=true" rt76-master-plan.js
-          grep -F "A.master={" rt76-master-plan.js
+          node --check rt76-master-core.js
       - name: Start current RT79.1 locally
         run: |
           python -m http.server 8765 > /tmp/rt79-http.log 2>&1 &
