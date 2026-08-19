@@ -7,6 +7,7 @@ on:
       - 'rt80-visual-polish.css'
       - 'rt80-mobile-cleanup.css'
       - 'rt80-page-cleanup.css'
+      - 'rt80-secondary-cleanup.css'
       - 'rt80-compat.css'
       - 'rt80-visual-system.js'
       - 'tools/rt80_visual_regression.py'
