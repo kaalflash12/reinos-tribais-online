@@ -1,0 +1,35 @@
+name: RT79.1 Legacy Startup Direct Patch
+on:
+  push:
+    branches: [rt79-legacy-startup-direct]
+    paths:
+      - 'RT79_LEGACY_DIRECT_TRIGGER.txt'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rt79-legacy-startup-direct
+      - name: Patch and validate
+        run: |
+          python tools/rt79_fix_legacy_startup_loops.py
+          node --check rt76-master-plan.js
+          node --check rt76-runtime.js
+          node --check rt76-map-ai.js
+          grep -F "if(legacyTitle!==document.title) document.title=legacyTitle;" rt76-master-plan.js
+          grep -F "__RT78_ADMIN_LOADER_DISABLED_BY_RT79__" rt76-master-plan.js
+          grep -F "new MutationObserver(scheduleEnsure)" rt76-master-plan.js
+          grep -F "new MutationObserver(scheduleInject)" rt76-runtime.js
+          grep -F "new MutationObserver(scheduleInject)" rt76-map-ai.js
+      - name: Commit runtime patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add rt76-master-plan.js rt76-runtime.js rt76-map-ai.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'RT79.1: fix legacy startup observer loops'
+            git push origin HEAD:rt79-legacy-startup-direct
+          fi
