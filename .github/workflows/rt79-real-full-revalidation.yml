@@ -1,0 +1,80 @@
+name: RT79.1 Real Full Revalidation
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-revalidation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright Chromium
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+      - name: Adapt historical full gate to RT79.1 title only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/rt76_full_regression_current.py')
+          s=p.read_text(encoding='utf-8')
+          old="check(f'{prefix}.title_rt75','RT75' in base['title'],base['title'])"
+          new="check(f'{prefix}.title_rt79_1','RT79' in base['title'],base['title'])"
+          if old not in s:
+              raise SystemExit('expected RT75 title assertion not found')
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+          python -m py_compile tools/rt76_full_regression_current.py tools/rt76_master_contract_e2e.py
+      - name: Start current RT79.1 locally
+        run: |
+          python -m http.server 8765 > /tmp/rt79-http.log 2>&1 &
+          echo $! > /tmp/rt79-http.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/rt79-http.log
+          exit 1
+      - name: Run full visual and functional regression plus master contract
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          python tools/rt76_full_regression_current.py | tee RT79_FULL_REVALIDATION.log
+          FULL=${PIPESTATUS[0]}
+          python tools/rt76_master_contract_e2e.py | tee RT79_MASTER_CONTRACT.log
+          MASTER=${PIPESTATUS[0]}
+          set -e
+          python - <<'PY'
+          import json, pathlib
+          out={}
+          p=pathlib.Path('RT76_EVIDENCIAS_ATUAIS/RESUMO.json')
+          if p.exists(): out['full']=json.loads(p.read_text(encoding='utf-8'))
+          p=pathlib.Path('RT76_MASTER_CONTRACT_E2E/result.json')
+          if p.exists():
+              d=json.loads(p.read_text(encoding='utf-8'))
+              out['master']={'ok':d.get('ok'),'count':d.get('count'),'failures':d.get('failures'),'page_errors':d.get('page_errors'),'console_errors':d.get('console_errors')}
+          pathlib.Path('RT79_REAL_REVALIDATION_SUMMARY.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+          PY
+          echo "full_exit=$FULL master_exit=$MASTER"
+          if [ "$FULL" -ne 0 ] || [ "$MASTER" -ne 0 ]; then exit 1; fi
+      - name: Upload complete evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT79_1_REAL_FULL_REVALIDATION
+          path: |
+            RT76_EVIDENCIAS_ATUAIS/**
+            RT76_MASTER_CONTRACT_E2E/**
+            RT79_REAL_REVALIDATION_SUMMARY.json
+            RT79_FULL_REVALIDATION.log
+            RT79_MASTER_CONTRACT.log
+            /tmp/rt79-http.log
+          if-no-files-found: warn
