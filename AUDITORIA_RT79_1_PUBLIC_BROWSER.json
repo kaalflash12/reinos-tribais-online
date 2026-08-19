@@ -372,17 +372,10 @@
     ],
     "hasPlay": false,
     "hasSuite": true,
-    "console": [
-      {
-        "level": "SEVERE",
-        "message": "https://kaalflash12.github.io/favicon.ico - Failed to load resource: the server responded with a status of 404 ()",
-        "source": "network",
-        "timestamp": 1787100641276
-      }
-    ]
+    "console": []
   },
   "visual_assets_tested_separately": true,
-  "workflow_run_id": "32202724488",
-  "workflow_commit": "fb926fa2ca78b90e6235d32ad0cc18f22c4e8c4c",
-  "persisted_at": "2026-08-19T00:50:48.7763632Z"
+  "workflow_run_id": "32202768604",
+  "workflow_commit": "27ae372fc618bcf366055b190c7adca0cd9c0ffb",
+  "persisted_at": "2026-08-19T00:51:34.4205090Z"
 }
