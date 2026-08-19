@@ -4,6 +4,7 @@ on:
     paths:
       - 'rt79-village-ui.js'
       - 'rt80-visual-system.css'
+      - 'rt80-compat.css'
       - 'rt80-visual-system.js'
       - 'tools/rt80_visual_regression.py'
       - '.github/workflows/rt80-visual-regression.yml'
