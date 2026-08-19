@@ -9,5 +9,5 @@
   loadStyle('rt80-compat.css?v=80.5','rt80-compat');
   loadScript('rt80-visual-system.js?v=80.4','rt80-visual','__RT80_VISUAL_SYSTEM__');
   loadScript('rt80-admin-runtime.js?v=80.5','rt80-admin-runtime','__RT80_ADMIN_RUNTIME__');
-  // RT80.5 final validation marker after admin idempotence fixes; no behavior change.
+  // RT80.5 final validation marker after all observer idempotence fixes; no behavior change.
 })();
