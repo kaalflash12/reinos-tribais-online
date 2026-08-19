@@ -65,6 +65,12 @@ def main():
             if view=='map':
                 check(d,'map mode','return document.body.classList.contains("rt80-map-mode")')
                 check(d,'map toolbar','return !!document.querySelector(".rt80-map-toolbar")')
+                check(d,'map toolbar is controls only','''
+                  const bar=document.querySelector('.rt80-map-toolbar');
+                  const title=bar?.querySelector('strong');
+                  const hint=bar?.querySelector(':scope > span');
+                  return !!bar && (!title || getComputedStyle(title).display==='none') && (!hint || getComputedStyle(hint).display==='none');
+                ''')
             else:
                 check(d,f'{view} content visible','return !!document.querySelector(".content-panel")')
             if view=='buildings':
@@ -72,6 +78,24 @@ def main():
                   const list=document.querySelector('[data-building-category="admin"] .rt64-building-list');
                   const row=list?.querySelector('.rt64-building-row:only-child');
                   return !!row && getComputedStyle(row).gridColumnEnd==='-1';
+                ''')
+                check(d,'buildings duplicate inner title hidden','''
+                  const t=document.querySelector('.rt64-building-overview-head .panel-title');
+                  return !!t && getComputedStyle(t).display==='none';
+                ''')
+                check(d,'buildings quick nav no longer sticky','''
+                  const q=document.querySelector('.rt64-building-overview-head ~ .rt64-building-quicknav');
+                  return !!q && getComputedStyle(q).position!=='sticky';
+                ''')
+            if view=='hero':
+                check(d,'paladin duplicate inner title hidden','''
+                  const t=document.querySelector('.content-panel > h1.panel-title');
+                  return !!t && getComputedStyle(t).display==='none';
+                ''')
+                check(d,'paladin hero banner visible','''
+                  const h=document.querySelector('.rt19-paladin-hero');
+                  const r=h?.getBoundingClientRect();
+                  return !!h && getComputedStyle(h).display!=='none' && r.width>500 && r.height>180;
                 ''')
             shot(d,name)
         d.set_window_size(430,932);time.sleep(.8)
