@@ -4,6 +4,8 @@ on:
     branches: [rt79-legacy-startup-direct]
     paths:
       - 'RT79_LEGACY_DIRECT_TRIGGER.txt'
+  pull_request:
+    branches: [main]
 permissions:
   contents: write
 jobs:
