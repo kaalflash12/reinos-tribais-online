@@ -1,8 +1,8 @@
 {
   "pass": false,
   "browser": "edge-public-eager-no-images",
-  "error": "AssertionError('research queue: sawmill')",
-  "tests": 74,
+  "error": "AssertionError('AI village exists: None')",
+  "tests": 84,
   "manifest": [
     {
       "name": "RT79 suite",
@@ -371,8 +371,58 @@
     },
     {
       "name": "research queue",
-      "pass": false,
+      "pass": true,
       "detail": "sawmill"
+    },
+    {
+      "name": "click [data-view=\"market\"]",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "market exchange",
+      "pass": true,
+      "detail": "[[5000.007237172955, 1000.007237172955], [4900.043108378036, 1090.043108378036]]"
+    },
+    {
+      "name": "click [data-view=\"map\"]",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "attack target",
+      "pass": true,
+      "detail": "v_484_491"
+    },
+    {
+      "name": "click [data-view=\"map\"]",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "target rendered",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "attack command",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "click [data-view=\"arsenal\"]",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "paladin equip",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "AI village exists",
+      "pass": false,
+      "detail": "None"
     }
   ],
   "diagnostic": {
@@ -395,7 +445,7 @@
     "console": []
   },
   "visual_assets_tested_separately": true,
-  "workflow_run_id": "32203275401",
-  "workflow_commit": "da5fd90af8e6adad5199773cb9210b249122fe30",
-  "persisted_at": "2026-08-19T00:59:49.0729786Z"
+  "workflow_run_id": "32203381605",
+  "workflow_commit": "e495f07133b2e3636cf93138a932fdd1cecbbe55",
+  "persisted_at": "2026-08-19T01:01:27.1933002Z"
 }
