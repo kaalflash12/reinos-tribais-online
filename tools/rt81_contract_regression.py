@@ -1,5 +1,5 @@
 from pathlib import Path
-import json,re,sys
+import json,re
 
 ROOT=Path(__file__).resolve().parents[1]
 checks=[]
@@ -17,6 +17,11 @@ security=text('rt81-security-runtime.js')
 edge=text('backend/rt81-multiplayer-safe.ts')
 lock=text('backend/rt81-lock-raw-gameplay.sql')
 indexes=text('backend/rt81-security-and-transfer-indexes.sql')
+strategy=[text(f'backend/rt81/{i:02d}_{name}.sql') for i,name in [
+    (1,'incoming_intel'),(2,'process_automations'),(3,'dashboard_watchtower'),(4,'dashboard_logistics_ai'),
+    (5,'transfer_tick'),(6,'atomic_batch_planner'),(7,'market_autotrade'),(8,'farm_recommend'),(9,'farm_batch_smart')
+]]
+strategy_all='\n'.join(strategy)
 
 must('planner atomic RPC wired','rt81_schedule_batch' in suite)
 must('multi-target selector wired','name="batchTargets"' in suite and 'targetGap' in suite)
@@ -39,6 +44,14 @@ must('raw villages select locked to owner','villages_select_own' in lock and 'ow
 must('raw player profile select locked to owner','player_worlds_select_own' in lock and 'user_id' in lock)
 must('transfer source index versioned','rt79_resource_transfers_source_idx' in indexes)
 must('transfer target index versioned','rt79_resource_transfers_target_idx' in indexes)
+must('nine RT81 strategy SQL parts versioned',len(strategy)==9 and all(x.strip() for x in strategy))
+must('route automation uses in-transit transfer','rt79_enqueue_transfer_internal' in strategy[1] and 'routes_dispatched' in strategy[1])
+must('farm generic intel exclusion versioned',"<> 'farm'" in strategy[1])
+must('watchtower helper versioned','private.rt81_incoming_intel' in strategy[0] and "lvl>=15" in strategy[0])
+must('atomic batch SQL versioned','public.rt81_schedule_batch' in strategy[5] and 'n>50' in strategy[5])
+must('per-resource autotrade SQL versioned',all(x in strategy[6] for x in ['min_cfg','target_cfg','ratio_cfg']))
+must('farm recommendation SQL versioned',all(x in strategy[7] for x in ['threat_level','cooldown_seconds','confidence','recommended_model']))
+must('smart farm uses unified recommender','rt79_farm_recommend' in strategy[8])
 
 out={'build':'RT80.5+RT81','pass':True,'checks':checks,'count':len(checks)}
 proof=ROOT/'RT81_CONTRACT_REGRESSION.json'
