@@ -75,10 +75,20 @@ def main():
                 ''')
             shot(d,name)
         d.set_window_size(430,932);time.sleep(.8)
-        click(d,'[data-view="overview"]');time.sleep(.5)
+        click(d,'[data-view="overview"]');time.sleep(.7)
         check(d,'mobile no horizontal body overflow','return document.documentElement.scrollWidth <= window.innerWidth + 8')
-        check(d,'legacy RT68 mobile nav hidden','return !document.querySelector(".rt68-game-nav") || getComputedStyle(document.querySelector(".rt68-game-nav")).display==="none"')
+        check(d,'legacy RT68 mobile nav hidden','''
+          const a=document.querySelector('.rt68-game-nav');
+          const b=document.querySelector('.rt68-game-nav-scroll');
+          return (!a || getComputedStyle(a).display==='none') && (!b || getComputedStyle(b).display==='none');
+        ''')
         check(d,'RT22 mobile nav is grid','return !!document.querySelector(".rt22-navicons") && getComputedStyle(document.querySelector(".rt22-navicons")).display==="grid"')
+        check(d,'RT22 mobile nav has five visible actions','''
+          const buttons=Array.from(document.querySelectorAll('.rt22-navicons button'));
+          const visible=buttons.filter(b=>getComputedStyle(b).display!=='none' && b.getBoundingClientRect().width>0);
+          const views=visible.map(b=>b.dataset.view).sort();
+          return visible.length===5 && ['buildings','commands','hero','map','market'].every(v=>views.includes(v));
+        ''')
         proof['mobile_navs']=d.execute_script("""
           return Array.from(document.querySelectorAll('nav,[class*="nav"],[class*="menu"],[class*="toolbar"]')).map((n,i)=>{
             const r=n.getBoundingClientRect(),s=getComputedStyle(n);
