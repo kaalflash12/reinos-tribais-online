@@ -1,0 +1,74 @@
+/* RT80.3 — page composition cleanup after screenshot review. */
+
+/* Buildings: remove the duplicate inner title and make overview controls part of the page, not a second page shell. */
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-overview-head{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  gap:12px!important;
+  align-items:end!important;
+  margin:0 0 8px!important;
+  padding:0 0 8px!important;
+  border-bottom:1px solid rgba(126,91,45,.38)!important;
+}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-overview-head .panel-title{display:none!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-overview-head p{margin:0!important;color:#745c38!important;line-height:1.35!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-overview-actions{display:flex!important;gap:6px!important;align-items:center!important;justify-content:flex-end!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-overview-actions .btn{min-height:34px!important;padding:6px 10px!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-quicknav{
+  position:relative!important;
+  top:auto!important;
+  z-index:8!important;
+  margin:0 0 8px!important;
+  padding:6px!important;
+  border:1px solid #4f4328!important;
+  border-radius:5px!important;
+  background:#11140ff2!important;
+  box-shadow:0 5px 14px rgba(0,0,0,.18)!important;
+}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-quickbar{padding:5px!important;border:0!important;background:transparent!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-groups{padding:5px 0 0!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-category{margin:8px 0!important;border:1px solid #6b5635!important;background:#10130e!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-category>header{min-height:38px!important;padding:8px 10px!important;background:linear-gradient(90deg,#1e2118,#14170f)!important;border-bottom:1px solid #504125!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-category>header h2{margin:0!important;font-size:16px!important;color:#e1bb5c!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-category>header small{color:#ad9c78!important}
+body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-row{min-height:98px!important}
+
+/* Paladin: the page shell already names the view; the inner title becomes redundant. */
+body.rt80-visual-ready[data-rt80-view="hero"] .content-panel>h1.panel-title{display:none!important}
+body.rt80-visual-ready[data-rt80-view="hero"] .rt19-paladin-hero{
+  margin-top:0!important;
+  border:1px solid #5b482a!important;
+  border-radius:5px!important;
+  background:linear-gradient(110deg,#0e110d 0%,#151911 55%,#10130e 100%)!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.25)!important;
+  padding:16px!important;
+  grid-template-columns:minmax(260px,320px) minmax(0,1fr)!important;
+  gap:20px!important;
+  align-items:center!important;
+}
+body.rt80-visual-ready[data-rt80-view="hero"] .rt19-paladin-hero h2{font-size:30px!important;line-height:1!important;color:#efc866!important;margin-bottom:12px!important}
+body.rt80-visual-ready[data-rt80-view="hero"] .rt19-paladin-hero .summary-grid{grid-template-columns:repeat(5,minmax(100px,1fr))!important;gap:7px!important}
+body.rt80-visual-ready[data-rt80-view="hero"] .rt19-paladin-hero .summary-card,
+body.rt80-visual-ready[data-rt80-view="hero"] .rt19-paladin-hero .summary-chip{min-height:70px!important}
+body.rt80-visual-ready[data-rt80-view="hero"] .rt56-hero-name-form{display:grid!important;grid-template-columns:minmax(0,340px) auto!important;gap:7px!important;max-width:470px!important}
+
+/* Map: page header already says where we are; toolbar should be controls, not a third title. */
+body.rt80-map-mode .rt80-map-toolbar{
+  min-height:34px!important;
+  justify-content:flex-end!important;
+  padding:4px 6px!important;
+  margin-bottom:4px!important;
+  border-color:#4a3922!important;
+  background:#18150f!important;
+}
+body.rt80-map-mode .rt80-map-toolbar strong,
+body.rt80-map-mode .rt80-map-toolbar>span{display:none!important}
+body.rt80-map-mode .rt80-map-toolbar button{min-height:28px!important;padding:5px 9px!important;font-size:10px!important}
+body.rt80-map-mode .map-wrap{min-height:calc(100svh - 130px)!important;max-height:calc(100svh - 118px)!important}
+
+@media(max-width:900px){
+  body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-overview-head{grid-template-columns:1fr!important;align-items:start!important}
+  body.rt80-visual-ready[data-rt80-view="buildings"] .rt64-building-overview-actions{justify-content:flex-start!important}
+  body.rt80-visual-ready[data-rt80-view="hero"] .rt19-paladin-hero{grid-template-columns:1fr!important;padding:12px!important}
+  body.rt80-visual-ready[data-rt80-view="hero"] .rt19-paladin-hero .summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
