@@ -1,8 +1,8 @@
 {
   "pass": false,
   "browser": "edge-public-eager-no-images",
-  "error": "AssertionError('AI village exists: None')",
-  "tests": 84,
+  "error": "AssertionError('AI research: {\"activity\": [], \"after\": {\"cmd\": 1, \"q\": {}, \"r\": {\"clay\": 98427, \"iron\": 98184, \"lastUpdate\": 1787101715741, \"wood\": 97513}}, \"before\": {\"cmd\": 1, \"q\": {}, \"r\": {\"clay\": 99999, \"iron\": 99999, \"lastUpdate\": 1787101711730, \"wood\": 99999}}, \"researched\": false}')",
+  "tests": 85,
   "manifest": [
     {
       "name": "RT79 suite",
@@ -382,7 +382,7 @@
     {
       "name": "market exchange",
       "pass": true,
-      "detail": "[[5000.014789005603, 1000.0147890056036], [4900.039647121405, 1090.0396471214053]]"
+      "detail": "[[5000.006607853567, 1000.0066078535675], [4900.0365005244685, 1090.0365005244685]]"
     },
     {
       "name": "click [data-view=\"map\"]",
@@ -421,8 +421,13 @@
     },
     {
       "name": "AI village exists",
+      "pass": true,
+      "detail": "{'activity': [], 'after': {'cmd': 1, 'q': {}, 'r': {'clay': 98427, 'iron': 98184, 'lastUpdate': 1787101715741, 'wood': 97513}}, 'before': {'cmd': 1, 'q': {}, 'r': {'clay': 99999, 'iron': 99999, 'lastUpdate': 1787101711730, 'wood': 99999}}, 'researched': False}"
+    },
+    {
+      "name": "AI research",
       "pass": false,
-      "detail": "None"
+      "detail": "{\"activity\": [], \"after\": {\"cmd\": 1, \"q\": {}, \"r\": {\"clay\": 98427, \"iron\": 98184, \"lastUpdate\": 1787101715741, \"wood\": 97513}}, \"before\": {\"cmd\": 1, \"q\": {}, \"r\": {\"clay\": 99999, \"iron\": 99999, \"lastUpdate\": 1787101711730, \"wood\": 99999}}, \"researched\": false}"
     }
   ],
   "diagnostic": {
@@ -447,12 +452,12 @@
         "level": "SEVERE",
         "message": "https://kaalflash12.github.io/favicon.ico - Failed to load resource: the server responded with a status of 404 ()",
         "source": "network",
-        "timestamp": 1787101613182
+        "timestamp": 1787101711700
       }
     ]
   },
   "visual_assets_tested_separately": true,
-  "workflow_run_id": "32203715357",
-  "workflow_commit": "1d014f394eae561bf7bfa98faf321b4c414de78f",
-  "persisted_at": "2026-08-19T01:07:01.1374516Z"
+  "workflow_run_id": "32203822495",
+  "workflow_commit": "61562ffcb964d3f2128aba5cd31ebeb3722979db",
+  "persisted_at": "2026-08-19T01:08:38.4581390Z"
 }
