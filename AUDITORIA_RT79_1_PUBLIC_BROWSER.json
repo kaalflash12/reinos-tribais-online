@@ -1,19 +1,11 @@
 {
   "pass": false,
-  "browser": "chrome",
-  "error": "WebDriverException()",
-  "tests": 0,
-  "manifest": [],
-  "diagnostic": {
-    "title": "127.0.0.1",
-    "url": "http://127.0.0.1:8765/?fast=1",
-    "readyState": "complete",
-    "scripts": [],
-    "hasPlay": false,
-    "hasSuite": false,
-    "console": []
-  },
-  "workflow_run_id": "32242262602",
-  "workflow_commit": "a0308ce7355ed74e2c76518409997842aff28bf0",
-  "persisted_at": "2026-08-19T10:22:13.6410131Z"
+  "browser": "edge",
+  "error": "browser proof not produced; inspect workflow step conclusions",
+  "run_id": "32242420113",
+  "commit": "3452e24949b5a79e2503d6f4870e285fe2919d95",
+  "generated_at": "2026-08-19T10:29:02.7065938Z",
+  "workflow_run_id": "32242420113",
+  "workflow_commit": "3452e24949b5a79e2503d6f4870e285fe2919d95",
+  "persisted_at": "2026-08-19T10:29:02.7356148Z"
 }
