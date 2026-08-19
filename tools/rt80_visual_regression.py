@@ -71,6 +71,12 @@ def main():
         d.set_window_size(430,932);time.sleep(.8)
         click(d,'[data-view="overview"]');time.sleep(.5)
         check(d,'mobile no horizontal body overflow','return document.documentElement.scrollWidth <= window.innerWidth + 8')
+        proof['mobile_navs']=d.execute_script("""
+          return Array.from(document.querySelectorAll('nav,[class*="nav"],[class*="menu"],[class*="toolbar"]')).map((n,i)=>{
+            const r=n.getBoundingClientRect(),s=getComputedStyle(n);
+            return {i,tag:n.tagName,cls:n.className||'',id:n.id||'',display:s.display,position:s.position,x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height),text:(n.innerText||'').replace(/\s+/g,' ').trim().slice(0,180)};
+          }).filter(x=>x.display!=='none'&&x.w>200&&x.h>20);
+        """)
         shot(d,'MOBILE_RT80')
         proof['pass']=True
     except Exception as e:
