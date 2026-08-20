@@ -1,0 +1,40 @@
+name: RT81 Master Spec Regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'rt79-suite.js'
+      - 'rt79-village-ui.js'
+      - 'rt81-security-runtime.js'
+      - 'backend/rt81-**'
+      - 'backend/rt81/**'
+      - 'backend/rt82-**'
+      - 'tools/rt81_contract_regression.py'
+      - '.github/workflows/rt81-contract-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          node --check rt79-suite.js
+          node --check rt79-village-ui.js
+          node --check rt81-security-runtime.js
+          node --check < backend/rt81-multiplayer-safe.ts
+          node --check < backend/rt81-multiplayer-v60-router.ts
+      - name: Master-spec contract regression
+        run: python tools/rt81_contract_regression.py
+      - name: Upload proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT81_CONTRACT_REGRESSION
+          path: RT81_CONTRACT_REGRESSION.json
+          if-no-files-found: error

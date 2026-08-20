@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#5d3a1a">
 <meta name="description" content="Jogo de estratégia medieval independente em português, com conta e save online via Supabase.">
-<title>Reinos Tribais — RT79.1 Revisado</title>
+<title>Reinos Tribais — RT80.5</title>
 <style>
 :root {
   --ink: #2a1a0f;
@@ -3198,7 +3198,7 @@ window.GAME_DATA = (() => {
   let SAVE_KEY = 'reinos_tribais_ptbr_save_v60_local';
   const LEGACY_SAVE_KEYS = ['reinos_tribais_ptbr_save_v59_local','reinos_tribais_ptbr_save_v58_local','reinos_tribais_ptbr_save_v57_local','reinos_tribais_ptbr_save_v56_local','reinos_tribais_ptbr_save_v55_local','reinos_tribais_ptbr_save_v40','reinos_tribais_ptbr_save_v38','reinos_tribais_ptbr_save_v37','reinos_tribais_ptbr_save_v36','reinos_tribais_ptbr_save_v35','reinos_tribais_ptbr_save_v34','reinos_tribais_ptbr_save_v33','reinos_tribais_ptbr_save_v32','reinos_tribais_ptbr_save_v31','reinos_tribais_ptbr_save_v30','reinos_tribais_ptbr_save_v29','reinos_tribais_ptbr_save_v28','reinos_tribais_ptbr_save_v27','reinos_tribais_ptbr_save_v26','reinos_tribais_ptbr_save_v25','reinos_tribais_ptbr_save_v24','reinos_tribais_ptbr_save_v23','reinos_tribais_ptbr_save_v22','reinos_tribais_ptbr_save_v21','reinos_tribais_ptbr_save_v20','reinos_tribais_ptbr_save_v19','reinos_tribais_ptbr_save_v18','reinos_tribais_ptbr_save_v17'];
   const VERSION = 79;
-  const RT_BUILD = "79.1";
+  const RT_BUILD = "80.5";
   const RT77_FULL_FUNCTIONAL_PATCH = true;
   const RT78_STRATEGY_ENGINE = true;
   const RT76_PLAN = true;
@@ -3478,7 +3478,7 @@ const HERO_SET_BONUSES = {
     sharedSyncTimer: null,
     lastSharedSyncAt: 0,
     lastError: '',
-    edgePath: '/functions/v1/rt-multiplayer-v60',
+    edgePath: '/functions/v1/rt-multiplayer-v82',
     pollTimer: null,
     polling: false,
     lastPollAt: 0,
@@ -3537,13 +3537,36 @@ const HERO_SET_BONUSES = {
     return cloudRequest(CLOUD.edgePath, { method:'POST', timeoutMs, body:{ action, world_id:CLOUD.worldId, ...payload } });
   }
 
+  async function rt82Rpc(name, payload = {}) {
+    if (!CLOUD.ready || !CLOUD.session?.access_token || !CLOUD.worldId) throw new Error('Entre no mundo ONLINE para usar esta ação.');
+    return cloudRequest(`/rest/v1/rpc/${name}`, { method:'POST', timeoutMs:12000, body:{ p_world_id:CLOUD.worldId, ...payload } });
+  }
+
+  async function rt82VillageRpc(name, village, payload = {}, success = 'Ação concluída no servidor.') {
+    try {
+      if (!village?._cloudVillageId) await ensureAllMultiplayerVillages();
+      const villageId=village?._cloudVillageId;
+      if (!villageId) throw new Error('Aldeia online ainda não sincronizada.');
+      await rt82Rpc(name, { p_village_id:villageId, ...payload });
+      await pollMultiplayer(false);
+      dirty=true;
+      renderAll();
+      if (success) toast(success,'success');
+      return true;
+    } catch (error) {
+      CLOUD.lastError=String(error?.message||error);
+      toast(CLOUD.lastError,'error');
+      return false;
+    }
+  }
+
   function cloudVillagePayload(v) {
     return {
-      name:v.name, clientKey:v._cloudClientKey||v.id, ownerName:state?.player?.name || CLOUD.user?.email || 'Governante', tribe:state?.player?.tribe || null,
-      points:v.points, loyalty:v.loyalty, buildings:v.buildings || {}, units:v.units || {}, resources:v.resources || {},
-      buildQueue:v.buildQueue || [], recruitQueue:v.recruitQueue || [], supports:v.supports || [],
-      unitResearch:v.unitResearch || {}, unitResearchQueue:v.unitResearchQueue || [], scavenging:v.scavenging || {},
-      flag:v.flag ?? null, militiaCalled:Boolean(v.militiaCalled)
+      name:v.name,
+      clientKey:v._cloudClientKey||v.id,
+      ownerName:state?.player?.name || CLOUD.user?.email || 'Governante',
+      tribe:state?.player?.tribe || null,
+      startProfile: state?.settings?.startProfile || null
     };
   }
 
@@ -3937,63 +3960,21 @@ const HERO_SET_BONUSES = {
     if (!CLOUD.ready || !CLOUD.user?.id || !state) return;
     const p = state.player || {};
     const body = {
-      world_id: CLOUD.worldId,
-      user_id: CLOUD.user.id,
       player_name: String(p.name || CLOUD.user.email || 'Governante').slice(0, 64),
-      points: Math.max(0, Math.floor(Number(p.points) || 0)),
       crowns: Math.max(0, Math.floor(Number(p.premium?.crowns) || 0)),
-      academy_coins: Math.max(0, Math.floor(Number(p.academyCoins) || 0)),
       hero: p.hero || {},
       inventory: p.inventory || {},
       flags_inventory: p.flagsInventory || {},
       premium: p.premium || {},
-      research: p.research || {},
       last_seen_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
-    await cloudRequest('/rest/v1/player_worlds?on_conflict=world_id,user_id', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    const world=encodeURIComponent(CLOUD.worldId), user=encodeURIComponent(CLOUD.user.id);
+    await cloudRequest(`/rest/v1/player_worlds?world_id=eq.${world}&user_id=eq.${user}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
       body
     });
-  }
-
-  async function saveCloudNow(showToast = false) {
-    if (!CLOUD.ready || !CLOUD.user?.id || !state) return false;
-    if (CLOUD.saving) {
-      CLOUD.pending = true;
-      return false;
-    }
-    CLOUD.saving = true;
-    CLOUD.lastError = '';
-    updateCloudButtons();
-    try {
-      const savedAt = new Date().toISOString();
-      await cloudRequest('/rest/v1/game_saves?on_conflict=user_id,world_id', {
-        method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: { user_id: CLOUD.user.id, world_id: CLOUD.worldId, state: stateForSave(), updated_at: savedAt }
-      });
-      await upsertPlayerSummary();
-      try { await syncMultiplayerVillage(); } catch (mpError) { console.error('Falha ao sincronizar aldeia multiplayer:', mpError); }
-      CLOUD.lastSaveAt = Date.now();
-      setLocalSavedAt(CLOUD.lastSaveAt);
-      if (showToast) toast('Reino sincronizado com a nuvem.', 'success');
-      return true;
-    } catch (error) {
-      CLOUD.lastError = error.message || String(error);
-      CLOUD.ready = false;
-      console.error('Falha no save em nuvem:', error);
-      if (showToast) toast(`Falha ao sincronizar: ${CLOUD.lastError}`, 'error');
-      return false;
-    } finally {
-      CLOUD.saving = false;
-      updateCloudButtons();
-      if (CLOUD.pending) {
-        CLOUD.pending = false;
-        scheduleCloudSave(2200);
-      }
-    }
   }
 
   function scheduleCloudSave(delay = 8000) {
@@ -4458,16 +4439,17 @@ function rt67RenderPageIntro(tab=RTADMIN?.ui?.tab||'overview'){
   const main=document.querySelector('.rt60-admin-main');if(!main)return;
   let el=main.querySelector('.rt67-page-intro');if(!el){el=document.createElement('section');el.className='rt67-page-intro';main.prepend(el)}
   const [title,desc]=RT67_PAGE_HELP[tab]||['Administração','Controle operacional do servidor.'];
-  el.innerHTML=`<div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(desc)}</p></div><span class="rt67-help-pill">Modo guiado • sem códigos de cabeça</span>`;
+  const html=`<div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(desc)}</p></div><span class="rt67-help-pill">Modo guiado • sem códigos de cabeça</span>`;
+  if(el.innerHTML!==html)el.innerHTML=html;
 }
 function rt67GroupAdminNav(){const nav=document.querySelector('.rt60-admin-nav');if(!nav||nav.dataset.rt67Grouped)return;nav.dataset.rt67Grouped='1';const groups=[['overview','OPERAÇÃO'],['events','CONTEÚDO DO MUNDO'],['comms','SUPORTE & SISTEMA']];for(const [id,label] of groups){const btn=nav.querySelector(`[data-admin-tab="${id}"]`);if(btn){const d=document.createElement('div');d.className='rt67-nav-group';d.textContent=label;nav.insertBefore(d,btn)}}}
 function rt67HumanKind(k){return ({item:'Item jogável',boost:'Bônus temporário',cosmetic:'Visual'})[k]||k||'Benefício'}
 function rt67RewardCatalog(){const rows=[];for(const [id,d] of Object.entries(INVENTORY_ITEMS||{}))rows.push({id:`item:${id}`,label:`${d.icon||'📦'} ${d.name}`,desc:d.desc||'Item utilizável no inventário.',kind:'item'});rows.push({id:'boost:production',label:'⚙️ Produção +50%',desc:'Ativa o bônus real de produção Premium pelo período escolhido.',kind:'boost'});rows.push({id:'boost:war',label:'⚔️ Guerra +10%',desc:'Ativa o bônus real de guerra Premium pelo período escolhido.',kind:'boost'});rows.push({id:'cosmetic:gilded',label:'✨ Tema Dourado Real',desc:'Muda visualmente bordas e cabeçalhos do cliente do jogador. Não dá vantagem.',kind:'cosmetic'});rows.push({id:'cosmetic:crimson',label:'🩸 Tema Escarlate de Guerra',desc:'Muda visualmente bordas e cabeçalhos do cliente do jogador. Não dá vantagem.',kind:'cosmetic'});return rows}
 function rt67RewardFormHtml(worldOptions,playerOptions){const c=rt67RewardCatalog();return `<form id="rt67-reward-form" class="rt67-reward-steps"><section class="rt67-step-card"><span class="rt67-step-number">1</span><div><h3>Quem vai receber?</h3><div class="rt66-grid"><label>Mundo<select name="world_id">${worldOptions}</select></label><label>Jogador<select name="user_id">${playerOptions}</select></label></div></div></section><section class="rt67-step-card"><span class="rt67-step-number">2</span><div><h3>O que deseja conceder?</h3><label>Recompensa<select name="preset" data-rt67-reward-preset>${c.map(x=>`<option value="${x.id}">${escapeHtml(x.label)}</option>`).join('')}</select></label><div class="rt67-reward-preview" data-rt67-reward-preview></div></div></section><section class="rt67-step-card"><span class="rt67-step-number">3</span><div><h3>Quantidade / duração</h3><div class="rt66-grid"><label data-rt67-qty-wrap>Quantidade<input name="quantity" type="number" min="1" value="1"><small class="rt67-field-help">Usado somente para itens.</small></label><label data-rt67-days-wrap>Duração em dias<input name="days" type="number" min="0" value="1"><small class="rt67-field-help">0 = permanente para tema visual; bônus usa no mínimo 1 dia.</small></label></div></div></section><div class="rt67-form-actions"><button type="submit">✓ Conceder e aplicar agora</button></div></form>`}
-function rt67UpdateRewardForm(){const f=document.querySelector('#rt67-reward-form');if(!f)return;const preset=f.elements.preset?.value||'',row=rt67RewardCatalog().find(x=>x.id===preset)||rt67RewardCatalog()[0];const qty=f.querySelector('[data-rt67-qty-wrap]'),days=f.querySelector('[data-rt67-days-wrap]');if(qty)qty.style.display=row.kind==='item'?'grid':'none';if(days)days.style.display=row.kind==='item'?'none':'grid';const p=f.querySelector('[data-rt67-reward-preview]');if(p)p.innerHTML=`<span class="rt67-reward-type">${escapeHtml(rt67HumanKind(row.kind))}</span><strong>${escapeHtml(row.label.replace(/^[^\s]+\s/,''))}</strong><span>${escapeHtml(row.desc)}</span><small>${row.kind==='cosmetic'?'Efeito visual real no cliente; sem bônus de combate.':row.kind==='item'?'Vai direto para o inventário utilizável.':'Altera o temporizador Premium real do jogador.'}</small>`}
+function rt67UpdateRewardForm(){const f=document.querySelector('#rt67-reward-form');if(!f)return;const preset=f.elements.preset?.value||'',row=rt67RewardCatalog().find(x=>x.id===preset)||rt67RewardCatalog()[0];const qty=f.querySelector('[data-rt67-qty-wrap]'),days=f.querySelector('[data-rt67-days-wrap]');if(qty)qty.style.display=row.kind==='item'?'grid':'none';if(days)days.style.display=row.kind==='item'?'none':'grid';const p=f.querySelector('[data-rt67-reward-preview]');const html=`<span class="rt67-reward-type">${escapeHtml(rt67HumanKind(row.kind))}</span><strong>${escapeHtml(row.label.replace(/^[^\s]+\s/,''))}</strong><span>${escapeHtml(row.desc)}</span><small>${row.kind==='cosmetic'?'Efeito visual real no cliente; sem bônus de combate.':row.kind==='item'?'Vai direto para o inventário utilizável.':'Altera o temporizador Premium real do jogador.'}</small>`;if(p&&p.innerHTML!==html)p.innerHTML=html}
 async function adminRewardRequest(payload={}){const headers={};if(RTADMIN.token)headers['x-admin-token']=RTADMIN.token;return cloudRequest('/functions/v1/rt-admin-reward-v67',{method:'POST',auth:false,headers,timeoutMs:18000,body:{action:'grant_reward',...payload}})}
 function rt67ApplyCosmetics(){const ent=CLOUD?.eventData?.entitlements||[];document.body.classList.remove('rt67-cosmetic-gilded','rt67-cosmetic-crimson');if(ent.some(x=>x.active!==false&&x.code==='ui_gilded'))document.body.classList.add('rt67-cosmetic-gilded');else if(ent.some(x=>x.active!==false&&x.code==='ui_crimson'))document.body.classList.add('rt67-cosmetic-crimson')}
-function rt67EnhanceAdminChrome(){if(!document.querySelector('.rt60-admin-shell'))return;rt67GroupAdminNav();rt67RenderPageIntro();const out=document.querySelector('[data-admin-logout]');if(out){out.textContent='Sair do admin';out.classList.add('rt67-admin-logout');out.title='Encerra esta sessão administrativa neste navegador e no servidor.'}}
+function rt67EnhanceAdminChrome(){if(!document.querySelector('.rt60-admin-shell'))return;rt67GroupAdminNav();rt67RenderPageIntro();const out=document.querySelector('[data-admin-logout]');if(out){if(out.textContent!=='Sair do admin')out.textContent='Sair do admin';if(!out.classList.contains('rt67-admin-logout'))out.classList.add('rt67-admin-logout');const title='Encerra esta sessão administrativa neste navegador e no servidor.';if(out.title!==title)out.title=title}}
 const RT67_OBSERVER=new MutationObserver(()=>queueMicrotask(rt67EnhanceAdminChrome));RT67_OBSERVER.observe(document.documentElement,{childList:true,subtree:true});window.addEventListener('DOMContentLoaded',rt67EnhanceAdminChrome);setTimeout(rt67EnhanceAdminChrome,0);
 
 
@@ -4557,7 +4539,7 @@ if(!window.RT72_MODAL_EVENTS_BOUND){window.RT72_MODAL_EVENTS_BOUND=true;document
     const dbCards=Object.entries(dbCounts).map(([k,v])=>`<article><b>${nfmt(v)}</b><span>${escapeHtml(k)}</span></article>`).join('');
     const adminAccountRows=adminAccounts.map(a=>`<tr><td><b>${escapeHtml(a.username)}</b><small>${escapeHtml(a.display_name||'')}</small></td><td><select data-rt64-admin-role="${a.id}">${['superadmin','admin','moderator'].map(r=>`<option ${a.role===r?'selected':''}>${r}</option>`).join('')}</select></td><td>${a.active?'<span class="rt64-badge good">ativo</span>':'<span class="rt64-badge bad">inativo</span>'}</td><td>${rt64FmtDate(a.last_login_at)}</td><td><button data-rt64-admin-active="${a.id}:${a.active?'0':'1'}">${a.active?'Desativar':'Ativar'}</button></td></tr>`).join('');
     const adminSessionRows=adminSessions.map(s=>`<tr><td class="rt64-mono">${escapeHtml(s.id)}</td><td>${escapeHtml(adminAccounts.find(a=>a.id===s.admin_id)?.username||s.admin_id)}</td><td>${rt64FmtDate(s.created_at)}</td><td>${rt64FmtDate(s.last_seen_at)}</td><td>${rt64FmtDate(s.expires_at)}</td><td><button class="danger" data-rt64-revoke-admin-session="${s.id}">Revogar</button></td></tr>`).join('');
-    $('#app').innerHTML=`<main class="rt60-admin-shell"><header class="rt60-admin-top"><div><h1>REINOS TRIBAIS • CENTRAL OPERACIONAL RT79.1</h1><p>${escapeHtml(RTADMIN.info?.username||RTADMIN.username)} • backend v${data.version||64} • interface guiada RT79.1 • ${rt64FmtDate(data.generated_at)}</p></div><span></span><label>Mundo <select data-admin-map-world>${worldOptions}</select></label><button data-admin-refresh>↻ Atualizar</button><button data-admin-logout class="rt67-admin-logout">Sair do admin</button></header><div class="rt60-admin-layout"><nav class="rt60-admin-nav">${nav.map(([id,ico,label])=>`<button class="${current===id?'active':''}" data-admin-tab="${id}"><b>${ico}</b>${label}</button>`).join('')}</nav><section class="rt60-admin-main">
+    $('#app').innerHTML=`<main class="rt60-admin-shell"><header class="rt60-admin-top"><div><h1>REINOS TRIBAIS • CENTRAL OPERACIONAL RT80.5</h1><p>${escapeHtml(RTADMIN.info?.username||RTADMIN.username)} • backend v${data.version||64} • interface guiada RT80.5 • ${rt64FmtDate(data.generated_at)}</p></div><span></span><label>Mundo <select data-admin-map-world>${worldOptions}</select></label><button data-admin-refresh>↻ Atualizar</button><button data-admin-logout class="rt67-admin-logout">Sair do admin</button></header><div class="rt60-admin-layout"><nav class="rt60-admin-nav">${nav.map(([id,ico,label])=>`<button class="${current===id?'active':''}" data-admin-tab="${id}"><b>${ico}</b>${label}</button>`).join('')}</nav><section class="rt60-admin-main">
       <div class="rt64-kpis"><article><b>${worlds.length}</b><span>Mundos</span></article><article><b>${players.length}</b><span>Jogadores</span></article><article><b>${online}</b><span>Online 15m</span></article><article><b>${villages.length}</b><span>Aldeias</span></article><article><b>${activeCommands.length}</b><span>Comandos</span></article><article><b>${activeMonsters.length}</b><span>Bosses</span></article><article><b>${activeEvents.length}</b><span>Eventos</span></article><article><b>${openOffers.length}</b><span>Ofertas</span></article></div>
       <section data-admin-panel="overview" class="${current==='overview'?'':'hidden'}"><div class="rt64-grid2"><article class="rt64-panel"><h2>Saúde operacional</h2><div class="rt64-health">${stats.map(s=>`<article><b>${escapeHtml(rt64WorldLabel(s.world_id))}</b><small>${s.players} jogadores • ${s.online} online • ${s.villages} aldeias</small><small>${s.nodes} pontos • ${s.monsters} bosses • ${s.events} eventos</small><small>${s.commands} comandos • ${s.tribes} tribos • ${s.offers||0} ofertas</small></article>`).join('')}</div></article><article class="rt64-panel"><h2>Comunicado rápido</h2><form id="rt64-message-quick-form"><div class="rt64-form-grid"><label>Mundo<select name="world_id">${worldOptions}</select></label><label>Destino<select name="user_id"><option value="">Todos no mundo</option>${pWorld.map(p=>`<option value="${p.user_id}">${escapeHtml(p.player_name)} • ${escapeHtml(p.email||'')}</option>`).join('')}</select></label><label>Assunto<input name="subject" value="Comunicado do servidor"></label></div><label>Mensagem<textarea name="body" rows="5"></textarea></label><button>Enviar</button></form></article></div><article class="rt64-panel"><h2>Cobertura do painel</h2><div class="rt64-health">${[['Mundos','criar/editar/ativar/resetar'],['Contas','Auth, save, recursos, premium, herói, pesquisa'],['Aldeias','19 prédios, tropas, filas, apoios, coleta'],['Mapa','pontos, aldeias, bosses'],['Eventos','templates, edição, progresso, recompensas'],['Ranked','temporadas, ratings, partidas'],['Combate','comandos + apoios online + ataques'],['Mercado','ofertas + cancelamento com devolução'],['Tribos','dados + membros + cargos'],['Comunicação','mensagens + relatórios'],['Recompensas','entitlements + progresso'],['Segurança','admins + sessões + senhas'],['Banco','contagem de domínios'],['Auditoria','ações administrativas']].map(x=>`<article><b>✓ ${x[0]}</b><small>${x[1]}</small></article>`).join('')}</div></article></section>
       <section data-admin-panel="worlds" class="${current==='worlds'?'':'hidden'}"><div class="rt64-split"><article class="rt64-panel"><h2>Mundos existentes</h2>${worlds.map(w=>`<form class="rt64-world-form" data-world-id="${w.id}"><div class="rt64-form-grid"><label>Nome<input value="${escapeHtml(w.name)}" disabled></label><label>Velocidade mundo<input name="worldSpeed" type="number" value="${Number(w.settings?.worldSpeed)||8}"></label><label>Velocidade unidades<input name="unitSpeed" type="number" value="${Number(w.settings?.unitSpeed)||3}"></label><label>Raio mapa<input name="mapRadius" type="number" value="${Number(w.settings?.mapRadius)||35}"></label><label>Multip. recursos<input name="resourceMultiplier" type="number" step=".1" value="${Number(w.settings?.resourceMultiplier)||1}"></label><label>Multip. mercado<input name="marketMultiplier" type="number" step=".1" value="${Number(w.settings?.marketMultiplier)||1}"></label><label>Máx jogadores<input name="max_players" type="number" value="${Number(w.max_players)||50}"></label><label>Temporada<input name="season_number" type="number" value="${Number(w.season_number)||1}"></label><label>Status<select name="status">${['open','closed','maintenance'].map(s=>`<option ${w.status===s?'selected':''}>${s}</option>`).join('')}</select></label>${['archers','militia','church','watchtower','flags','scavenging','eventSystem','monstersEnabled'].map(k=>`<label>${k}<select name="${k}"><option value="1" ${w.settings?.[k]!==false?'selected':''}>ON</option><option value="0" ${w.settings?.[k]===false?'selected':''}>OFF</option></select></label>`).join('')}</div><div class="rt64-actions"><button>Salvar configurações</button><button type="button" data-admin-world-toggle="${w.id}" data-active="${w.is_active?'1':'0'}">${w.is_active?'Desativar':'Ativar'}</button><button type="button" class="danger" data-admin-world-reset="${w.id}" data-name="${escapeHtml(w.name)}">Resetar mundo</button></div></form>`).join('<hr>')}</article><aside class="rt64-panel"><h2>Criar mundo</h2><form id="rt64-create-world"><label>Nome<input name="name" value="Novo Mundo"></label><label>Velocidade<input name="speed" type="number" value="8"></label><label>Raio mapa<input name="mapRadius" type="number" value="35"></label><button>Criar mundo</button></form></aside></div></section>
@@ -4996,6 +4978,7 @@ async function activateLoadedState(loaded) {
   }
   function queueUnitResearch(unitKey) {
     const v=getActiveVillage(); const current=getUnitResearchLevel(v,unitKey); const target=current+1;
+    if(CLOUD.ready)return rt82VillageRpc('rt82_queue_unit_research',v,{p_unit:unitKey},'Pesquisa militar enfileirada no servidor.');
     if (!RESEARCHABLE_UNITS.includes(unitKey)) return;
     if (v.unitResearchQueue.length) return toast('O Ferreiro já está pesquisando outra tecnologia.', 'error');
     if (!canResearchUnit(v,unitKey,target)) return toast('Requisitos, limite de pesquisa ou nível máximo não atendidos.', 'error');
@@ -5010,8 +4993,10 @@ async function activateLoadedState(loaded) {
     });
     return changed;
   }
-  function activatePremiumService(serviceId) {
-    const def=PREMIUM_SERVICES[serviceId]; if(!def) return; const p=premiumState(); if(p.crowns<def.price7) return toast('Pontos Premium insuficientes.', 'error');
+  async function activatePremiumService(serviceId) {
+    const def=PREMIUM_SERVICES[serviceId]; if(!def) return;
+    if(CLOUD.ready){try{const r=await rt82Rpc('rt82_activate_premium_service',{p_service:serviceId});const p=premiumState();if(r?.premium&&typeof r.premium==='object')state.player.premium={...p,...r.premium};if(r?.crowns!==undefined)state.player.premium.crowns=Math.max(0,Number(r.crowns)||0);if(r?.inventory&&typeof r.inventory==='object')state.player.inventory={...r.inventory};dirty=true;toast(`${def.name} ativado pelo servidor.`,'success');renderAll();return;}catch(e){toast(e.message||String(e),'error');return;}}
+    const p=premiumState(); if(p.crowns<def.price7) return toast('Pontos Premium insuficientes.', 'error');
     if(serviceId==='manager' && Object.values(state.villages).filter(v=>v.owner==='player').length<5) return toast('O Gerente de Conta exige pelo menos 5 aldeias.', 'error');
     if(serviceId==='manager' && !isPremiumActive()) return toast('Ative primeiro a Conta Premium.', 'error');
     p.crowns-=def.price7; const add=7*24*3600000;
@@ -5054,7 +5039,8 @@ async function activateLoadedState(loaded) {
     return [28000,30000,25000].map(x=>Math.ceil(x*discount));
   }
   function mintCoin(quantity=1) {
-    const v=getActiveVillage(); const qty=clamp(Math.floor(Number(quantity)||1),1,100); if((v.buildings.academy||0)<1)return toast('Construa a Academia primeiro.','error');
+    const v=getActiveVillage(); const qty=clamp(Math.floor(Number(quantity)||1),1,100);
+    if(CLOUD.ready)return rt82VillageRpc('rt82_mint_academy_coins',v,{p_quantity:qty},'Moedas cunhadas pelo servidor.'); if((v.buildings.academy||0)<1)return toast('Construa a Academia primeiro.','error');
     updateResources(v); const base=coinCost(v), costs=base.map(x=>x*qty); if(!canAfford(v,costs))return toast('Recursos insuficientes para cunhar as moedas.','error');
     payCosts(v,costs); state.player.academyCoins=(state.player.academyCoins||0)+qty; dirty=true; toast(`${qty} moeda(s) cunhada(s) para o reino.`,'success'); renderAll();
   }
@@ -5148,7 +5134,8 @@ return changed;
     else addInventory(itemId, 1);
     dirty = true; saveState(true); toast(`${product.name} adquirido.`, 'success'); renderAll();
   }
-  function claimPremiumDaily() {
+  async function claimPremiumDaily() {
+    if(CLOUD.ready){try{const r=await rt82Rpc('rt82_claim_daily_reward');const p=premiumState();if(r?.premium&&typeof r.premium==='object')state.player.premium={...p,...r.premium};if(r?.crowns!==undefined)state.player.premium.crowns=Math.max(0,Number(r.crowns)||0);if(r?.inventory&&typeof r.inventory==='object')state.player.inventory={...r.inventory};dirty=true;toast('Recompensa diária recebida do servidor.','success');renderAll();return;}catch(e){toast(e.message||String(e),'error');return;}}
     const p = premiumState(); const cooldown = 20 * 3600000;
     if (now() - (p.lastDailyClaim || 0) < cooldown) return toast('A recompensa diária ainda não está disponível.', 'error');
     p.lastDailyClaim = now(); p.crowns += 75; addInventory('resource_chest', 1); dirty = true;
@@ -5344,7 +5331,8 @@ ${reportBody}` });
     const v=getActiveVillage(), name=String(formData.get('villageName')||'').trim().slice(0,32); if(!name)return toast('Informe um nome para a aldeia.','error'); v.name=name; dirty=true; toast('Aldeia renomeada.','success'); renderAll();
   }
   function demolishBuilding(buildingKey) {
-    const v=getActiveVillage(), def=D.buildings[buildingKey]; if(!def)return; if((v.buildings.main||0)<15)return toast('O Edifício Principal precisa estar no nível 15 para demolir.','error'); const minLevel=Math.max(0,Number(def.min)||0); if((v.buildings[buildingKey]||0)<=minLevel)return toast(`${def.name} não pode ficar abaixo do nível ${minLevel}.`,'error'); if(v.buildQueue.some(q=>q.building===buildingKey))return toast('Cancele a melhoria desse edifício primeiro.','error'); v.buildings[buildingKey]-=1; dirty=true; addReport({category:'Construção',title:`${def.name} demolido`,icon:'🧨',body:`${v.name}: ${def.name} foi reduzido para o nível ${v.buildings[buildingKey]}.`}); renderAll();
+    const v=getActiveVillage(), def=D.buildings[buildingKey];
+    if(CLOUD.ready)return rt82VillageRpc('rt82_demolish_building',v,{p_building:buildingKey},'Demolição aplicada pelo servidor.'); if(!def)return; if((v.buildings.main||0)<15)return toast('O Edifício Principal precisa estar no nível 15 para demolir.','error'); const minLevel=Math.max(0,Number(def.min)||0); if((v.buildings[buildingKey]||0)<=minLevel)return toast(`${def.name} não pode ficar abaixo do nível ${minLevel}.`,'error'); if(v.buildQueue.some(q=>q.building===buildingKey))return toast('Cancele a melhoria desse edifício primeiro.','error'); v.buildings[buildingKey]-=1; dirty=true; addReport({category:'Construção',title:`${def.name} demolido`,icon:'🧨',body:`${v.name}: ${def.name} foi reduzido para o nível ${v.buildings[buildingKey]}.`}); renderAll();
   }
   function massMintCoins(formData) {
     const qty=clamp(Math.floor(Number(formData.get('quantity'))||1),1,50); const villages=Object.values(state.villages).filter(v=>v.owner==='player'&&(v.buildings.academy||0)>0); if(!villages.length)return toast('Nenhuma aldeia com Academia.','error'); let minted=0;
@@ -5901,6 +5889,7 @@ function getHeroEquipmentBonuses() {
   function researchRequirementsMet(village, req) { return requirementsMet(village, req); }
   function queueResearch(researchId) {
     const v = getActiveVillage();
+    if(CLOUD.ready)return rt82VillageRpc('rt82_queue_global_research',v,{p_research:researchId},'Pesquisa global enfileirada no servidor.');
     const def = RESEARCH_DEFS[researchId];
     if (!def) return;
     updateResources(v);
@@ -6262,7 +6251,7 @@ function loadState() {
     }
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || ![17,18,19,20,21,22,23,24,25,49,50,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78].includes(Number(parsed.version)) || !parsed.villages) return null;
+    if (!parsed || ![17,18,19,20,21,22,23,24,25,49,50,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79].includes(Number(parsed.version)) || !parsed.villages) return null;
     migrateState(parsed);
     return parsed;
   } catch (error) {
@@ -6431,6 +6420,7 @@ function loadState() {
 
 
 function updateResources(village, timestamp = now()) {
+  if(CLOUD.ready)return false; /* RT82 server progresses online queues */
   if (!village?.resources) return false;
   const safeTimestamp = Number.isFinite(Number(timestamp)) ? Number(timestamp) : now();
   let last = Number(village.resources.lastUpdate);
@@ -6529,6 +6519,7 @@ function updateResources(village, timestamp = now()) {
 
   function queueBuilding(buildingKey) {
     const village = getActiveVillage();
+    if(CLOUD.ready)return rt82VillageRpc('rt82_queue_building',village,{p_building:buildingKey},'Construção enfileirada no servidor.');
     updateResources(village);
     const def = D.buildings[buildingKey];
     if (!def) return;
@@ -6552,6 +6543,7 @@ function updateResources(village, timestamp = now()) {
 
   function cancelBuilding(index) {
     const village = getActiveVillage();
+    if(CLOUD.ready)return rt82VillageRpc('rt82_cancel_building',village,{p_index:Number(index)},'Construção cancelada no servidor.');
     const item = village.buildQueue[index];
     if (!item) return;
     refundCosts(village, item.costs, .9);
@@ -6587,6 +6579,7 @@ function updateResources(village, timestamp = now()) {
   }
   function queueRecruit(unitKey, quantity) {
     const v = getActiveVillage(); const def = D.units[unitKey]; const qty = Math.floor(Number(quantity));
+    if(CLOUD.ready)return rt82VillageRpc('rt82_queue_recruit',v,{p_unit:unitKey,p_quantity:qty},'Recrutamento enfileirado no servidor.');
     if (!def || !Number.isFinite(qty) || qty <= 0) return toast('Quantidade inválida.', 'error');
     if (def.movable === false || unitKey === 'militia') return toast('A Milícia é convocada pela Fazenda, não recrutada.', 'error');
     if (RESEARCHABLE_UNITS.includes(unitKey) && getUnitResearchLevel(v,unitKey) <= 0) return toast('Pesquise esta unidade no Ferreiro primeiro.', 'error');
@@ -6606,7 +6599,9 @@ function updateResources(village, timestamp = now()) {
   }
 
   function cancelRecruit(index) {
-    const village = getActiveVillage(), item = village.recruitQueue[index];
+    const village = getActiveVillage();
+    if(CLOUD.ready)return rt82VillageRpc('rt82_cancel_recruit',village,{p_index:Number(index)},'Recrutamento cancelado no servidor.');
+    const item = village.recruitQueue[index];
     if (!item) return;
     refundCosts(village, item.costs, .9);
     if(item.nobleCoinsSpent) state.player.academyCoins=(state.player.academyCoins||0)+item.nobleCoinsSpent;
@@ -8077,7 +8072,7 @@ function renderMap() {
   }
 
   function renderSettings() {
-    return `<h1 class="panel-title">Configurações do mundo</h1><form id="settings-form" class="game-card"><div class="card-grid"><label>Velocidade do mundo<select class="select-input" name="worldSpeed" ${CLOUD.ready?'disabled':''}>${[1,4,8,20,50].map(x=>`<option value="${x}" ${state.settings.worldSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Velocidade das unidades<select class="select-input" name="unitSpeed" ${CLOUD.ready?'disabled':''}>${[1,2,3,5,10].map(x=>`<option value="${x}" ${state.settings.unitSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Sistema do Ferreiro<select class="select-input" name="researchSystem" ${CLOUD.ready?'disabled':''}><option value="simple" ${state.settings.researchSystem==='simple'?'selected':''}>Pesquisa simples</option><option value="three" ${state.settings.researchSystem==='three'?'selected':''}>3 níveis</option><option value="ten" ${state.settings.researchSystem==='ten'?'selected':''}>10 níveis</option></select></label></div><h3>Recursos do mundo</h3><div class="card-grid"><label><input type="checkbox" name="archers" ${state.settings.archers?'checked':''}> Arqueiros</label><label><input type="checkbox" name="militia" ${state.settings.militia?'checked':''}> Milícia</label><label><input type="checkbox" name="church" ${state.settings.church?'checked':''}> Igreja</label><label><input type="checkbox" name="watchtower" ${state.settings.watchtower?'checked':''}> Torre de Vigia</label><label><input type="checkbox" name="flags" ${state.settings.flags?'checked':''}> Bandeiras</label><label><input type="checkbox" name="scavenging" ${state.settings.scavenging?'checked':''}> Coleta</label><label><input type="checkbox" name="sound" ${state.settings.sound?'checked':''}> Sons da interface</label></div><button class="btn primary" type="submit">Salvar configurações</button></form><h2 class="section-title">Salvamento</h2><div class="btn-row"><button class="btn" data-export-save>Exportar salvamento</button><label class="btn secondary">Importar salvamento<input id="import-save" type="file" accept="application/json" hidden></label><button class="btn danger" data-reset-game>Apagar mundo e recomeçar</button></div><h2 class="section-title">Informações</h2><div class="notice">Versão ${VERSION}. Aldeia integrada e jogável: a arte é a própria cena clicável, sem colagens sobrepostas. Sistema de pesquisa: ${state.settings.researchSystem}. Mundo ${state.world.radius*2+1}×${state.world.radius*2+1}. RT79.1 com os 19 edifícios ancorados pelos lotes, função própria por edifício, Central de Sistemas, ataques/saques separados, alvos de catapulta por nível e Mercadores NPC no mapa vivo.</div>`;
+    return `<h1 class="panel-title">Configurações do mundo</h1><form id="settings-form" class="game-card"><div class="card-grid"><label>Velocidade do mundo<select class="select-input" name="worldSpeed" ${CLOUD.ready?'disabled':''}>${[1,4,8,20,50].map(x=>`<option value="${x}" ${state.settings.worldSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Velocidade das unidades<select class="select-input" name="unitSpeed" ${CLOUD.ready?'disabled':''}>${[1,2,3,5,10].map(x=>`<option value="${x}" ${state.settings.unitSpeed===x?'selected':''}>${x}×</option>`).join('')}</select></label><label>Sistema do Ferreiro<select class="select-input" name="researchSystem" ${CLOUD.ready?'disabled':''}><option value="simple" ${state.settings.researchSystem==='simple'?'selected':''}>Pesquisa simples</option><option value="three" ${state.settings.researchSystem==='three'?'selected':''}>3 níveis</option><option value="ten" ${state.settings.researchSystem==='ten'?'selected':''}>10 níveis</option></select></label></div><h3>Recursos do mundo</h3><div class="card-grid"><label><input type="checkbox" name="archers" ${state.settings.archers?'checked':''}> Arqueiros</label><label><input type="checkbox" name="militia" ${state.settings.militia?'checked':''}> Milícia</label><label><input type="checkbox" name="church" ${state.settings.church?'checked':''}> Igreja</label><label><input type="checkbox" name="watchtower" ${state.settings.watchtower?'checked':''}> Torre de Vigia</label><label><input type="checkbox" name="flags" ${state.settings.flags?'checked':''}> Bandeiras</label><label><input type="checkbox" name="scavenging" ${state.settings.scavenging?'checked':''}> Coleta</label><label><input type="checkbox" name="sound" ${state.settings.sound?'checked':''}> Sons da interface</label></div><button class="btn primary" type="submit">Salvar configurações</button></form><h2 class="section-title">Salvamento</h2><div class="btn-row"><button class="btn" data-export-save>Exportar salvamento</button><label class="btn secondary">Importar salvamento<input id="import-save" type="file" accept="application/json" hidden></label><button class="btn danger" data-reset-game>Apagar mundo e recomeçar</button></div><h2 class="section-title">Informações</h2><div class="notice">Versão ${VERSION}. Aldeia integrada e jogável: a arte é a própria cena clicável, sem colagens sobrepostas. Sistema de pesquisa: ${state.settings.researchSystem}. Mundo ${state.world.radius*2+1}×${state.world.radius*2+1}. RT80.5 com os 19 edifícios ancorados pelos lotes, função própria por edifício, Central de Sistemas, ataques/saques separados, alvos de catapulta por nível e Mercadores NPC no mapa vivo.</div>`;
   }
 
 
@@ -8140,7 +8135,7 @@ function renderMap() {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      if (!parsed || ![17,18,19,20,21,22,23,24,25,49,50,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78].includes(Number(parsed.version)) || !parsed.villages || !parsed.player) throw new Error('Arquivo incompatível');
+      if (!parsed || ![17,18,19,20,21,22,23,24,25,49,50,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79].includes(Number(parsed.version)) || !parsed.villages || !parsed.player) throw new Error('Arquivo incompatível');
       migrateState(parsed);
       state = parsed;
       dirty = true;

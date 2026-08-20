@@ -1,4 +1,4 @@
-name: RT79 Browser Regression
+name: RT80 Functional Browser Regression
 on:
   push:
     branches: [main]
@@ -6,17 +6,17 @@ on:
     branches: [main]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   chromium-regression:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - name: Install Selenium
         shell: pwsh
         run: python -m pip install --disable-pip-version-check --quiet selenium
-      - name: Syntax checks
+      - name: Syntax and build checks
         shell: pwsh
         run: |
           node --check rt79-suite.js
@@ -27,69 +27,30 @@ jobs:
           node --check rt79-admin-logistics-addon.js
           node --check rt78-manager-suite.js
           node --check rt76-map-ai.js
-          python -m py_compile tools/rt79_chrome_fast_regression.py tools/promote_rt79_1.py
-      - name: Promote working copy to physical RT79.1
-        shell: pwsh
-        run: |
-          python tools/promote_rt79_1.py
+          node --check rt80-visual-system.js
+          node --check rt80-admin-runtime.js
+          python -m py_compile tools/rt79_chrome_fast_regression.py
           $html = Get-Content index.html -Raw
-          if ($html -notmatch 'const VERSION = 79;' -or $html -notmatch 'const RT_BUILD = "79.1";' -or $html -notmatch 'rt79-suite\.js\?v=79\.1') { throw 'HTML físico RT79.1 incompleto.' }
+          if ($html -notmatch 'const VERSION = 79;') { throw 'Schema de save esperado = 79.' }
+          if ($html -notmatch 'const RT_BUILD = "80.5";') { throw 'Build físico esperado = RT80.5.' }
+          if ($html -notmatch 'rt79-suite\.js\?v=79\.1') { throw 'Núcleo estratégico RT79 não está carregado no build RT80.5.' }
+          if ($html -notmatch '77,78,79\]\.includes\(Number\(parsed\.version\)\)') { throw 'Loader não aceita o schema 79 atual.' }
       - name: Start local game server
         shell: pwsh
         run: |
           $p = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1' -PassThru -WindowStyle Hidden
-          $p.Id | Set-Content "$env:RUNNER_TEMP\rt79_http_pid.txt"
+          $p.Id | Set-Content "$env:RUNNER_TEMP\rt80_http_pid.txt"
           Start-Sleep -Seconds 2
           Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/index.html | Out-Null
-      - name: Expose branch through temporary HTTPS tunnel
-        shell: pwsh
-        run: |
-          $cf = "$env:RUNNER_TEMP\cloudflared.exe"
-          Invoke-WebRequest -UseBasicParsing "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile $cf
-          $out = "$env:RUNNER_TEMP\cloudflared.out.log"
-          $err = "$env:RUNNER_TEMP\cloudflared.err.log"
-          $proc = Start-Process $cf -ArgumentList 'tunnel','--url','http://127.0.0.1:8765','--no-autoupdate' -PassThru -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err
-          $proc.Id | Set-Content "$env:RUNNER_TEMP\rt79_cloudflared_pid.txt"
-          $url = $null
-          for ($i=0; $i -lt 75 -and -not $url; $i++) {
-            Start-Sleep -Seconds 1
-            $txt = ((Get-Content $out,$err -ErrorAction SilentlyContinue) -join "`n")
-            $m = [regex]::Match($txt, 'https://[a-z0-9-]+\.trycloudflare\.com')
-            if ($m.Success) { $url = $m.Value }
-          }
-          if (-not $url) { Get-Content $out,$err -ErrorAction SilentlyContinue; throw 'Quick Tunnel não forneceu URL HTTPS.' }
-          $ok = $false
-          for ($i=0; $i -lt 45 -and -not $ok; $i++) {
-            try { Invoke-WebRequest -UseBasicParsing "$url/index.html?ci=1" -TimeoutSec 10 | Out-Null; $ok=$true } catch { Start-Sleep -Seconds 1 }
-          }
-          if (-not $ok) { throw "Tunnel criado mas index não respondeu: $url" }
-          $suite = (Invoke-WebRequest -UseBasicParsing "$url/rt79-suite.js?v=79.1" -TimeoutSec 15).Content
-          if ($suite -notmatch '__RT79_STRATEGY_SUITE__') { throw 'rt79-suite.js não chegou corretamente pelo HTTPS.' }
-          $ai = (Invoke-WebRequest -UseBasicParsing "$url/rt76-map-ai.js?v=79.1" -TimeoutSec 15).Content
-          if ($ai -notmatch '__RT79_AI_RESEARCH__') { throw 'rt76-map-ai.js RT79.1 não chegou corretamente pelo HTTPS.' }
-          "RT79_TEST_URL=$url/" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host "Browser test URL: $url/"
       - name: Run Windows Chrome functional regression
         shell: pwsh
+        env:
+          RT79_TEST_URL: http://127.0.0.1:8765/
         run: python tools/rt79_chrome_fast_regression.py
-      - name: Commit promoted RT79.1 HTML to review branch
-        if: github.event_name == 'pull_request' && github.head_ref == 'rt79-1-full-review'
-        shell: pwsh
-        run: |
-          $changes = git status --porcelain -- index.html JOGAR_REINOS_TRIBAIS.html
-          if ($changes) {
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add index.html JOGAR_REINOS_TRIBAIS.html
-            git commit -m "RT79.1: promote physical game HTML after Chrome gate"
-            git push origin "HEAD:${{ github.head_ref }}"
-          } else {
-            Write-Host "RT79.1 physical HTML already promoted."
-          }
-      - name: Upload RT79 browser proof
+      - name: Upload browser proof
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: RT79_BROWSER_REGRESSION
+          name: RT80_FUNCTIONAL_BROWSER_REGRESSION
           path: ${{ runner.temp }}\RT79_BROWSER_REGRESSION\*
           if-no-files-found: warn

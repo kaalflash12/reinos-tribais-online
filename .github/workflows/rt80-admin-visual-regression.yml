@@ -1,0 +1,46 @@
+name: RT80 Admin Visual Regression
+on:
+  pull_request:
+    paths:
+      - 'rt79-village-ui.js'
+      - 'rt80-admin-cleanup.css'
+      - 'rt80-admin-runtime.js'
+      - 'rt80-compat.css'
+      - 'tools/rt80_admin_visual_regression.py'
+      - 'tools/rt80_admin_visual_regression_chrome.py'
+      - '.github/workflows/rt80-admin-visual-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  admin-visual:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Selenium
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check --quiet selenium
+      - name: Static runtime syntax
+        shell: pwsh
+        run: |
+          node --check rt79-village-ui.js
+          node --check rt80-admin-runtime.js
+          python -m py_compile tools/rt80_admin_visual_regression.py tools/rt80_admin_visual_regression_chrome.py
+      - name: Start local site
+        shell: pwsh
+        run: |
+          $p = Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1' -PassThru -WindowStyle Hidden
+          $p.Id | Set-Content "$env:RUNNER_TEMP\rt80_admin_server.pid"
+          Start-Sleep -Seconds 2
+          Invoke-WebRequest http://127.0.0.1:8765/ -UseBasicParsing | Select-Object StatusCode
+      - name: Render real admin and capture 20 views
+        env:
+          RT80_URL: http://127.0.0.1:8765/
+        run: python tools/rt80_admin_visual_regression_chrome.py
+      - name: Upload admin visual proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT80_ADMIN_VISUAL_PROOF
+          path: ${{ runner.temp }}/RT80_ADMIN_VISUAL_PROOF
+          if-no-files-found: error
