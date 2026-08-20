@@ -3478,7 +3478,7 @@ const HERO_SET_BONUSES = {
     sharedSyncTimer: null,
     lastSharedSyncAt: 0,
     lastError: '',
-    edgePath: '/functions/v1/rt-multiplayer-v60',
+    edgePath: '/functions/v1/rt-multiplayer-v82',
     pollTimer: null,
     polling: false,
     lastPollAt: 0,
@@ -3537,13 +3537,36 @@ const HERO_SET_BONUSES = {
     return cloudRequest(CLOUD.edgePath, { method:'POST', timeoutMs, body:{ action, world_id:CLOUD.worldId, ...payload } });
   }
 
+  async function rt82Rpc(name, payload = {}) {
+    if (!CLOUD.ready || !CLOUD.session?.access_token || !CLOUD.worldId) throw new Error('Entre no mundo ONLINE para usar esta ação.');
+    return cloudRequest(`/rest/v1/rpc/${name}`, { method:'POST', timeoutMs:12000, body:{ p_world_id:CLOUD.worldId, ...payload } });
+  }
+
+  async function rt82VillageRpc(name, village, payload = {}, success = 'Ação concluída no servidor.') {
+    try {
+      if (!village?._cloudVillageId) await ensureAllMultiplayerVillages();
+      const villageId=village?._cloudVillageId;
+      if (!villageId) throw new Error('Aldeia online ainda não sincronizada.');
+      await rt82Rpc(name, { p_village_id:villageId, ...payload });
+      await pollMultiplayer(false);
+      dirty=true;
+      renderAll();
+      if (success) toast(success,'success');
+      return true;
+    } catch (error) {
+      CLOUD.lastError=String(error?.message||error);
+      toast(CLOUD.lastError,'error');
+      return false;
+    }
+  }
+
   function cloudVillagePayload(v) {
     return {
-      name:v.name, clientKey:v._cloudClientKey||v.id, ownerName:state?.player?.name || CLOUD.user?.email || 'Governante', tribe:state?.player?.tribe || null,
-      points:v.points, loyalty:v.loyalty, buildings:v.buildings || {}, units:v.units || {}, resources:v.resources || {},
-      buildQueue:v.buildQueue || [], recruitQueue:v.recruitQueue || [], supports:v.supports || [],
-      unitResearch:v.unitResearch || {}, unitResearchQueue:v.unitResearchQueue || [], scavenging:v.scavenging || {},
-      flag:v.flag ?? null, militiaCalled:Boolean(v.militiaCalled)
+      name:v.name,
+      clientKey:v._cloudClientKey||v.id,
+      ownerName:state?.player?.name || CLOUD.user?.email || 'Governante',
+      tribe:state?.player?.tribe || null,
+      startProfile: state?.settings?.startProfile || null
     };
   }
 
@@ -4997,6 +5020,7 @@ async function activateLoadedState(loaded) {
   }
   function queueUnitResearch(unitKey) {
     const v=getActiveVillage(); const current=getUnitResearchLevel(v,unitKey); const target=current+1;
+    if(CLOUD.ready)return rt82VillageRpc('rt82_queue_unit_research',v,{p_unit:unitKey},'Pesquisa militar enfileirada no servidor.');
     if (!RESEARCHABLE_UNITS.includes(unitKey)) return;
     if (v.unitResearchQueue.length) return toast('O Ferreiro já está pesquisando outra tecnologia.', 'error');
     if (!canResearchUnit(v,unitKey,target)) return toast('Requisitos, limite de pesquisa ou nível máximo não atendidos.', 'error');
@@ -5055,7 +5079,8 @@ async function activateLoadedState(loaded) {
     return [28000,30000,25000].map(x=>Math.ceil(x*discount));
   }
   function mintCoin(quantity=1) {
-    const v=getActiveVillage(); const qty=clamp(Math.floor(Number(quantity)||1),1,100); if((v.buildings.academy||0)<1)return toast('Construa a Academia primeiro.','error');
+    const v=getActiveVillage(); const qty=clamp(Math.floor(Number(quantity)||1),1,100);
+    if(CLOUD.ready)return rt82VillageRpc('rt82_mint_academy_coins',v,{p_quantity:qty},'Moedas cunhadas pelo servidor.'); if((v.buildings.academy||0)<1)return toast('Construa a Academia primeiro.','error');
     updateResources(v); const base=coinCost(v), costs=base.map(x=>x*qty); if(!canAfford(v,costs))return toast('Recursos insuficientes para cunhar as moedas.','error');
     payCosts(v,costs); state.player.academyCoins=(state.player.academyCoins||0)+qty; dirty=true; toast(`${qty} moeda(s) cunhada(s) para o reino.`,'success'); renderAll();
   }
@@ -5345,7 +5370,8 @@ ${reportBody}` });
     const v=getActiveVillage(), name=String(formData.get('villageName')||'').trim().slice(0,32); if(!name)return toast('Informe um nome para a aldeia.','error'); v.name=name; dirty=true; toast('Aldeia renomeada.','success'); renderAll();
   }
   function demolishBuilding(buildingKey) {
-    const v=getActiveVillage(), def=D.buildings[buildingKey]; if(!def)return; if((v.buildings.main||0)<15)return toast('O Edifício Principal precisa estar no nível 15 para demolir.','error'); const minLevel=Math.max(0,Number(def.min)||0); if((v.buildings[buildingKey]||0)<=minLevel)return toast(`${def.name} não pode ficar abaixo do nível ${minLevel}.`,'error'); if(v.buildQueue.some(q=>q.building===buildingKey))return toast('Cancele a melhoria desse edifício primeiro.','error'); v.buildings[buildingKey]-=1; dirty=true; addReport({category:'Construção',title:`${def.name} demolido`,icon:'🧨',body:`${v.name}: ${def.name} foi reduzido para o nível ${v.buildings[buildingKey]}.`}); renderAll();
+    const v=getActiveVillage(), def=D.buildings[buildingKey];
+    if(CLOUD.ready)return rt82VillageRpc('rt82_demolish_building',v,{p_building:buildingKey},'Demolição aplicada pelo servidor.'); if(!def)return; if((v.buildings.main||0)<15)return toast('O Edifício Principal precisa estar no nível 15 para demolir.','error'); const minLevel=Math.max(0,Number(def.min)||0); if((v.buildings[buildingKey]||0)<=minLevel)return toast(`${def.name} não pode ficar abaixo do nível ${minLevel}.`,'error'); if(v.buildQueue.some(q=>q.building===buildingKey))return toast('Cancele a melhoria desse edifício primeiro.','error'); v.buildings[buildingKey]-=1; dirty=true; addReport({category:'Construção',title:`${def.name} demolido`,icon:'🧨',body:`${v.name}: ${def.name} foi reduzido para o nível ${v.buildings[buildingKey]}.`}); renderAll();
   }
   function massMintCoins(formData) {
     const qty=clamp(Math.floor(Number(formData.get('quantity'))||1),1,50); const villages=Object.values(state.villages).filter(v=>v.owner==='player'&&(v.buildings.academy||0)>0); if(!villages.length)return toast('Nenhuma aldeia com Academia.','error'); let minted=0;
@@ -5902,6 +5928,7 @@ function getHeroEquipmentBonuses() {
   function researchRequirementsMet(village, req) { return requirementsMet(village, req); }
   function queueResearch(researchId) {
     const v = getActiveVillage();
+    if(CLOUD.ready)return rt82VillageRpc('rt82_queue_global_research',v,{p_research:researchId},'Pesquisa global enfileirada no servidor.');
     const def = RESEARCH_DEFS[researchId];
     if (!def) return;
     updateResources(v);
@@ -6432,6 +6459,7 @@ function loadState() {
 
 
 function updateResources(village, timestamp = now()) {
+  if(CLOUD.ready)return false; /* RT82 server progresses online queues */
   if (!village?.resources) return false;
   const safeTimestamp = Number.isFinite(Number(timestamp)) ? Number(timestamp) : now();
   let last = Number(village.resources.lastUpdate);
@@ -6530,6 +6558,7 @@ function updateResources(village, timestamp = now()) {
 
   function queueBuilding(buildingKey) {
     const village = getActiveVillage();
+    if(CLOUD.ready)return rt82VillageRpc('rt82_queue_building',village,{p_building:buildingKey},'Construção enfileirada no servidor.');
     updateResources(village);
     const def = D.buildings[buildingKey];
     if (!def) return;
@@ -6553,6 +6582,7 @@ function updateResources(village, timestamp = now()) {
 
   function cancelBuilding(index) {
     const village = getActiveVillage();
+    if(CLOUD.ready)return rt82VillageRpc('rt82_cancel_building',village,{p_index:Number(index)},'Construção cancelada no servidor.');
     const item = village.buildQueue[index];
     if (!item) return;
     refundCosts(village, item.costs, .9);
@@ -6588,6 +6618,7 @@ function updateResources(village, timestamp = now()) {
   }
   function queueRecruit(unitKey, quantity) {
     const v = getActiveVillage(); const def = D.units[unitKey]; const qty = Math.floor(Number(quantity));
+    if(CLOUD.ready)return rt82VillageRpc('rt82_queue_recruit',v,{p_unit:unitKey,p_quantity:qty},'Recrutamento enfileirado no servidor.');
     if (!def || !Number.isFinite(qty) || qty <= 0) return toast('Quantidade inválida.', 'error');
     if (def.movable === false || unitKey === 'militia') return toast('A Milícia é convocada pela Fazenda, não recrutada.', 'error');
     if (RESEARCHABLE_UNITS.includes(unitKey) && getUnitResearchLevel(v,unitKey) <= 0) return toast('Pesquise esta unidade no Ferreiro primeiro.', 'error');
@@ -6607,7 +6638,9 @@ function updateResources(village, timestamp = now()) {
   }
 
   function cancelRecruit(index) {
-    const village = getActiveVillage(), item = village.recruitQueue[index];
+    const village = getActiveVillage();
+    if(CLOUD.ready)return rt82VillageRpc('rt82_cancel_recruit',village,{p_index:Number(index)},'Recrutamento cancelado no servidor.');
+    const item = village.recruitQueue[index];
     if (!item) return;
     refundCosts(village, item.costs, .9);
     if(item.nobleCoinsSpent) state.player.academyCoins=(state.player.academyCoins||0)+item.nobleCoinsSpent;
