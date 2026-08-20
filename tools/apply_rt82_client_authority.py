@@ -58,6 +58,28 @@ PAYLOAD="""  function cloudVillagePayload(v) {
   }
 """
 
+PLAYER_SUMMARY="""  async function upsertPlayerSummary() {
+    if (!CLOUD.ready || !CLOUD.user?.id || !state) return;
+    const p = state.player || {};
+    const body = {
+      player_name: String(p.name || CLOUD.user.email || 'Governante').slice(0, 64),
+      crowns: Math.max(0, Math.floor(Number(p.premium?.crowns) || 0)),
+      hero: p.hero || {},
+      inventory: p.inventory || {},
+      flags_inventory: p.flagsInventory || {},
+      premium: p.premium || {},
+      last_seen_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    const world=encodeURIComponent(CLOUD.worldId), user=encodeURIComponent(CLOUD.user.id);
+    await cloudRequest(`/rest/v1/player_worlds?world_id=eq.${world}&user_id=eq.${user}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body
+    });
+  }
+"""
+
 for path in HTMLS:
     s=path.read_text(encoding='utf-8')
     s=once(s,"edgePath: '/functions/v1/rt-multiplayer-v60'","edgePath: '/functions/v1/rt-multiplayer-v82'",f'{path.name}: endpoint RT82')
@@ -66,6 +88,7 @@ for path in HTMLS:
         if marker not in s: raise SystemExit(f'{path.name}: cloudVillagePayload ausente')
         s=s.replace(marker,HELPERS+marker,1)
     s=regex_once(s,r"  function cloudVillagePayload\(v\) \{.*?\n  \}\n\n  function ",PAYLOAD+'\n  function ',f'{path.name}: payload metadata-only',re.S)
+    s=regex_once(s,r"  async function upsertPlayerSummary\(\) \{.*?\n  \}\n\n  function ",PLAYER_SUMMARY+'\n  function ',f'{path.name}: player summary restrito',re.S)
     s=once(s,"function updateResources(village, timestamp = now()) {\n  if (!village?.resources) return false;","function updateResources(village, timestamp = now()) {\n  if(CLOUD.ready)return false; /* RT82 server progresses online queues */\n  if (!village?.resources) return false;",f'{path.name}: produção online')
     s=once(s,"  function queueBuilding(buildingKey) {\n    const village = getActiveVillage();\n    updateResources(village);","  function queueBuilding(buildingKey) {\n    const village = getActiveVillage();\n    if(CLOUD.ready)return rt82VillageRpc('rt82_queue_building',village,{p_building:buildingKey},'Construção enfileirada no servidor.');\n    updateResources(village);",f'{path.name}: construção')
     s=once(s,"  function cancelBuilding(index) {\n    const village = getActiveVillage();\n    const item = village.buildQueue[index];","  function cancelBuilding(index) {\n    const village = getActiveVillage();\n    if(CLOUD.ready)return rt82VillageRpc('rt82_cancel_building',village,{p_index:Number(index)},'Construção cancelada no servidor.');\n    const item = village.buildQueue[index];",f'{path.name}: cancelar construção')
