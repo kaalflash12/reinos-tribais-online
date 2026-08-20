@@ -25,25 +25,30 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          s=Path('index.html').read_text(encoding='utf-8')
+          a=Path('index.html').read_text(encoding='utf-8')
+          b=Path('JOGAR_REINOS_TRIBAIS.html').read_text(encoding='utf-8')
+          legacy=Path('backend/rt81-multiplayer-safe.ts').read_text(encoding='utf-8')
           required=[
+            "edgePath: '/functions/v1/rt-multiplayer-v82'",
             'rt82_queue_building','rt82_cancel_building','rt82_queue_recruit','rt82_cancel_recruit',
             'rt82_queue_unit_research','rt82_queue_global_research','rt82_mint_academy_coins','rt82_demolish_building',
             "if(CLOUD.ready)return false; /* RT82 server progresses online queues */",
             "startProfile: state?.settings?.startProfile || null"
           ]
-          missing=[x for x in required if x not in s]
+          missing=[x for x in required if x not in a]
           if missing: raise SystemExit('Missing RT82 markers: '+', '.join(missing))
+          if a!=b: raise SystemExit('index/JOGAR diverged')
+          if 'const b=sane(v,cur.name)' in legacy: raise SystemExit('legacy sync tunnel still copies sensitive state')
           print('RT82 CLIENT PATCH MARKERS OK',len(required))
           PY
       - name: Commit patched client
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- index.html; then
+          if git diff --quiet -- index.html JOGAR_REINOS_TRIBAIS.html backend/rt81-multiplayer-safe.ts; then
             echo "No client changes required"
             exit 0
           fi
-          git add index.html
-          git commit -m "RT82: migrar ações principais para RPCs autoritativas"
+          git add index.html JOGAR_REINOS_TRIBAIS.html backend/rt81-multiplayer-safe.ts
+          git commit -m "RT82: promover cliente para autoridade server-side"
           git push origin HEAD:rt80-admin-overhaul
