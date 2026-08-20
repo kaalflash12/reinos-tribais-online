@@ -60,6 +60,7 @@ def main():
         checks.append({'name':'anti-spam cooldown','pass':spam['blocked'] and 'recarga' in spam['msg'].lower(),'detail':spam['msg']})
         resource=d.execute_script("""
           const s=RT76.state(),v=RT76.test.getActiveVillage();s.rt83.worldActionUntil=0;
+          v.resources={wood:1000,clay:1000,iron:1000,lastUpdate:Date.now()};v.buildings.warehouse=20;
           const node={id:'rt83_forest_test',type:'forest',level:4,x:v.x+1,y:v.y+1,owner:'world',available:true,respawnAt:0,state:{name:'Bosque de Auditoria',rt83GuardHp:1}};s.world.nodes.push(node);
           const before={wood:v.resources.wood,spear:v.units.spear,axe:v.units.axe};
           const r=RT83WorldCombat.offlineBattle(node,{spear:80,axe:80});
