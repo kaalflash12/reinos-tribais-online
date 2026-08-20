@@ -1,0 +1,57 @@
+name: RT80.5 Final Master Snapshot
+on:
+  pull_request:
+    paths:
+      - '.rt80-final-snapshot-trigger'
+      - '.github/workflows/rt80-final-master-snapshot.yml'
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build exact text/code snapshot and manifests
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess, shutil, json, hashlib, mimetypes
+          root=Path('.')
+          out=Path('_rt80_final_snapshot')
+          src=out/'source'
+          src.mkdir(parents=True,exist_ok=True)
+          tracked=subprocess.check_output(['git','ls-files','-z']).decode('utf-8','surrogateescape').split('\0')
+          tracked=[x for x in tracked if x]
+          text_ext={'.html','.htm','.js','.mjs','.cjs','.css','.json','.md','.txt','.ps1','.cmd','.bat','.py','.sql','.ts','.tsx','.jsx','.yml','.yaml','.toml','.ini','.env','.csv','.tsv','.xml','.svg'}
+          textual=[]; assets=[]
+          for rel in tracked:
+              p=root/rel
+              if not p.is_file(): continue
+              entry={'path':rel,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
+              if p.suffix.lower() in text_ext or p.name in {'LICENSE','README','Dockerfile'}:
+                  dst=src/rel; dst.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(p,dst); textual.append(entry)
+              else:
+                  assets.append(entry)
+          sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          tree=subprocess.check_output(['git','rev-parse','HEAD^{tree}'],text=True).strip()
+          (out/'COMMIT_SHA.txt').write_text(sha+'\n',encoding='utf-8')
+          (out/'TREE_SHA.txt').write_text(tree+'\n',encoding='utf-8')
+          (out/'TEXT_FILES.json').write_text(json.dumps(textual,ensure_ascii=False,indent=2),encoding='utf-8')
+          (out/'ASSET_MANIFEST.json').write_text(json.dumps(assets,ensure_ascii=False,indent=2),encoding='utf-8')
+          (out/'SNAPSHOT_META.json').write_text(json.dumps({'commit_sha':sha,'tree_sha':tree,'text_files':len(textual),'assets':len(assets),'tracked_total':len(tracked)},ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'commit':sha,'tree':tree,'text_files':len(textual),'assets':len(assets),'tracked_total':len(tracked)},indent=2))
+          PY
+      - name: Upload exact snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT80_5_FINAL_MASTER_SOURCE_SNAPSHOT
+          path: _rt80_final_snapshot
+          if-no-files-found: error
+          retention-days: 7
