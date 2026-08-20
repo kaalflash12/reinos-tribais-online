@@ -1,6 +1,8 @@
 -- RT82.1 — player_worlds: manter somente campos ainda não migrados para RPC.
 -- Campos competitivos já autoritativos (crowns, premium, flags_inventory)
 -- deixam de aceitar UPDATE direto do cliente autenticado.
+-- [Não verificado como totalmente autoritativo] hero e inventory permanecem
+-- temporariamente graváveis até todas as ações correspondentes migrarem para RPC.
 
 revoke insert, delete, truncate, references, trigger on table public.player_worlds from anon, authenticated;
 revoke update on table public.player_worlds from anon, authenticated;
