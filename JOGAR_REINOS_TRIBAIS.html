@@ -3961,11 +3961,8 @@ const HERO_SET_BONUSES = {
     const p = state.player || {};
     const body = {
       player_name: String(p.name || CLOUD.user.email || 'Governante').slice(0, 64),
-      crowns: Math.max(0, Math.floor(Number(p.premium?.crowns) || 0)),
       hero: p.hero || {},
       inventory: p.inventory || {},
-      flags_inventory: p.flagsInventory || {},
-      premium: p.premium || {},
       last_seen_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
