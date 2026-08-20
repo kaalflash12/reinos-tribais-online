@@ -1,0 +1,148 @@
+name: RT83 Package Delivery
+
+on:
+  push:
+    branches: [rt83-package-delivery]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout merged RT83 main
+        uses: actions/checkout@v4
+        with:
+          ref: ba99885af6482bba68db5abbe4628222b2e6d1d6
+          fetch-depth: 1
+
+      - name: Validate merged game
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if (-not (Test-Path 'index.html')) { throw 'index.html ausente' }
+          if (-not (Test-Path 'JOGAR_REINOS_TRIBAIS.html')) { throw 'JOGAR_REINOS_TRIBAIS.html ausente' }
+          if (-not (Test-Path 'rt83-world-combat.js')) { throw 'rt83-world-combat.js ausente' }
+          if (-not (Select-String -LiteralPath 'rt79-village-ui.js' -SimpleMatch 'rt83-world-combat.js?v=83.0')) { throw 'Loader RT83 ausente' }
+          node --check rt83-world-combat.js
+          node --check rt79-village-ui.js
+          $a=(Get-FileHash index.html -Algorithm SHA256).Hash
+          $b=(Get-FileHash JOGAR_REINOS_TRIBAIS.html -Algorithm SHA256).Hash
+          if ($a -ne $b) { throw 'HTML principal e JOGAR divergentes' }
+          $assets=(Get-ChildItem -Recurse -File | Where-Object { $_.FullName -match '[\\/]assets[\\/]' }).Count
+          if ($assets -lt 1200) { throw "Assets insuficientes: $assets" }
+          "RT83_OK assets=$assets html=$a"
+
+      - name: Build ZIP and installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $stage=Join-Path $env:RUNNER_TEMP 'RT83_GAME'
+          $out=Join-Path $env:RUNNER_TEMP 'RT83_DELIVERY'
+          Remove-Item $stage,$out -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $stage,$out | Out-Null
+
+          Get-ChildItem -Force | Where-Object { $_.Name -ne '.git' } | ForEach-Object {
+            Copy-Item $_.FullName -Destination $stage -Recurse -Force
+          }
+
+          $zip=Join-Path $out 'RT83_JOGO_COMPLETO_ATUALIZADO.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          $zipHash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          $installer=Join-Path $out 'RT83_INSTALAR_E_JOGAR.ps1'
+          $ps=@'
+          [CmdletBinding()]
+          param()
+          $ErrorActionPreference = 'Stop'
+          $ExpectedHash = '__HASH__'
+          $ZipName = 'RT83_JOGO_COMPLETO_ATUALIZADO.zip'
+          $InstallRoot = Join-Path $env:LOCALAPPDATA 'ReinosTribais\RT83'
+
+          function Fail([string]$Text) { throw "RT83: $Text" }
+          Write-Host '============================================================'
+          Write-Host ' REINOS TRIBAIS RT83 - INSTALADOR + VALIDADOR'
+          Write-Host '============================================================'
+
+          $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+          $candidates = @(
+            (Join-Path $here $ZipName),
+            (Join-Path 'A:\Downloads' $ZipName),
+            (Join-Path $env:USERPROFILE ('Downloads\' + $ZipName))
+          ) | Select-Object -Unique
+          $zip = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (-not $zip) { Fail "$ZipName não encontrado. Deixe o ZIP ao lado deste PowerShell ou em A:\Downloads." }
+
+          $actual=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $ExpectedHash) { Fail "SHA-256 inválido. Esperado $ExpectedHash; recebido $actual" }
+          Write-Host '[OK] ZIP validado por SHA-256.'
+
+          $temp=Join-Path $env:TEMP ('RT83_VALIDATE_' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Force -Path $temp | Out-Null
+          try {
+            Expand-Archive -LiteralPath $zip -DestinationPath $temp -Force
+            foreach($f in @('index.html','JOGAR_REINOS_TRIBAIS.html','rt83-world-combat.js','rt79-village-ui.js')) {
+              if(-not (Test-Path -LiteralPath (Join-Path $temp $f))) { Fail "Arquivo obrigatório ausente: $f" }
+            }
+            $loader=Get-Content -LiteralPath (Join-Path $temp 'rt79-village-ui.js') -Raw
+            if($loader -notmatch 'rt83-world-combat\.js\?v=83\.0') { Fail 'Loader RT83 não encontrado.' }
+            $assets=(Get-ChildItem -LiteralPath $temp -Recurse -File | Where-Object { $_.FullName -match '[\\/]assets[\\/]' }).Count
+            if($assets -lt 1200) { Fail "Pacote de assets incompleto: $assets" }
+            $h1=(Get-FileHash (Join-Path $temp 'index.html') -Algorithm SHA256).Hash
+            $h2=(Get-FileHash (Join-Path $temp 'JOGAR_REINOS_TRIBAIS.html') -Algorithm SHA256).Hash
+            if($h1 -ne $h2) { Fail 'Os dois HTMLs principais divergem.' }
+            Write-Host "[OK] Conteúdo RT83 validado. Assets: $assets"
+
+            if(Test-Path -LiteralPath $InstallRoot) {
+              $backup=$InstallRoot + '_BACKUP_' + (Get-Date -Format 'yyyyMMdd_HHmmss')
+              Move-Item -LiteralPath $InstallRoot -Destination $backup -Force
+              Write-Host "[OK] Backup anterior: $backup"
+            }
+            New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
+            Get-ChildItem -LiteralPath $temp -Force | ForEach-Object { Move-Item $_.FullName -Destination $InstallRoot -Force }
+          } finally {
+            Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          $desktop=[Environment]::GetFolderPath('Desktop')
+          $shell=New-Object -ComObject WScript.Shell
+          $localShortcut=$shell.CreateShortcut((Join-Path $desktop 'Reinos Tribais RT83 LOCAL.lnk'))
+          $localShortcut.TargetPath=(Join-Path $InstallRoot 'JOGAR_REINOS_TRIBAIS.html')
+          $localShortcut.WorkingDirectory=$InstallRoot
+          $localShortcut.Save()
+
+          $onlineShortcut=$shell.CreateShortcut((Join-Path $desktop 'Reinos Tribais RT83 ONLINE.lnk'))
+          $onlineShortcut.TargetPath='https://kaalflash12.github.io/reinos-tribais-online/'
+          $onlineShortcut.Save()
+
+          Write-Host '[OK] RT83 instalado.'
+          Write-Host "Pasta: $InstallRoot"
+          Write-Host 'Atalhos LOCAL e ONLINE criados na Área de Trabalho.'
+          Start-Process (Join-Path $InstallRoot 'JOGAR_REINOS_TRIBAIS.html')
+          '@
+          $ps=$ps.Replace('__HASH__',$zipHash)
+          Set-Content -LiteralPath $installer -Value $ps -Encoding UTF8
+
+          $readme=Join-Path $out 'RT83_LEIA_PRIMEIRO.txt'
+          @"
+          REINOS TRIBAIS RT83 - ENTREGA ATUALIZADA
+          Commit do jogo: ba99885af6482bba68db5abbe4628222b2e6d1d6
+          ZIP: RT83_JOGO_COMPLETO_ATUALIZADO.zip
+          SHA256: $zipHash
+          Instalação: coloque ZIP + RT83_INSTALAR_E_JOGAR.ps1 juntos e execute o PowerShell.
+          RT83: combate PvE real com formação, suprimentos, baixas, HP persistente, cooldown e relatórios.
+          "@ | Set-Content -LiteralPath $readme -Encoding UTF8
+
+          $parseErrors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile($installer,[ref]$null,[ref]$parseErrors)
+          if($parseErrors.Count -gt 0) { $parseErrors | Out-String | Write-Error; throw 'PowerShell inválido' }
+          Get-FileHash $zip,$installer -Algorithm SHA256 | Format-Table -AutoSize
+
+      - name: Upload final RT83 delivery
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT83_ENTREGA_FINAL_PRONTA
+          path: ${{ runner.temp }}/RT83_DELIVERY/*
+          if-no-files-found: error
+          compression-level: 0
