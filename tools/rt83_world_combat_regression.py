@@ -18,6 +18,7 @@ def shot(d,name):
     p=OUT/f'{len(list(OUT.glob("*.png")))+1:02d}_{name}.png';d.save_screenshot(str(p));return p.name
 
 def main():
+    global checks
     opt=Options();opt.page_load_strategy='eager';opt.add_argument('--headless=new');opt.add_argument('--disable-gpu');opt.add_argument('--no-sandbox');opt.add_argument('--window-size=1600,1000')
     d=webdriver.Edge(options=opt); proof={'pass':False,'checks':checks,'screenshots':[]}
     try:
