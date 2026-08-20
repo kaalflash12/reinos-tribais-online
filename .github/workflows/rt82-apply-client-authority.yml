@@ -7,6 +7,7 @@ on:
     types: [opened, reopened, synchronize]
     paths:
       - tools/apply_rt82_client_authority.py
+      - backend/rt82-player-worlds-authority.sql
       - .github/workflows/rt82-apply-client-authority.yml
   workflow_dispatch:
 
@@ -28,21 +29,31 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           a=Path('index.html').read_text(encoding='utf-8')
           b=Path('JOGAR_REINOS_TRIBAIS.html').read_text(encoding='utf-8')
           legacy=Path('backend/rt81-multiplayer-safe.ts').read_text(encoding='utf-8')
+          authority=Path('backend/rt82-player-worlds-authority.sql').read_text(encoding='utf-8').lower()
           required=[
             "edgePath: '/functions/v1/rt-multiplayer-v82'",
             'rt82_queue_building','rt82_cancel_building','rt82_queue_recruit','rt82_cancel_recruit',
             'rt82_queue_unit_research','rt82_queue_global_research','rt82_mint_academy_coins','rt82_demolish_building',
             "if(CLOUD.ready)return false; /* RT82 server progresses online queues */",
-            "startProfile: state?.settings?.startProfile || null"
+            "startProfile: state?.settings?.startProfile || null",
+            "method: 'PATCH'"
           ]
           missing=[x for x in required if x not in a]
           if missing: raise SystemExit('Missing RT82 markers: '+', '.join(missing))
           if a!=b: raise SystemExit('index/JOGAR diverged')
           if 'const b=sane(v,cur.name)' in legacy: raise SystemExit('legacy sync tunnel still copies sensitive state')
-          print('RT82 CLIENT PATCH MARKERS OK',len(required))
+          block=re.search(r'async function upsertPlayerSummary\(\).*?\n  \}',a,re.S)
+          if not block: raise SystemExit('upsertPlayerSummary missing')
+          summary=block.group(0)
+          for forbidden in ['points:','academy_coins:','research:']:
+            if forbidden in summary: raise SystemExit('forbidden client summary field: '+forbidden)
+          for marker in ['rt82_village_points_before_trg','rt82_player_points_after_trg','revoke update on table public.player_worlds','grant update (player_name, crowns, hero, inventory, flags_inventory, premium, last_seen_at, updated_at)']:
+            if marker not in authority: raise SystemExit('missing player_worlds authority marker: '+marker)
+          print('RT82 CLIENT/PLAYER AUTHORITY MARKERS OK',len(required))
           PY
       - name: Commit patched client
         run: |
