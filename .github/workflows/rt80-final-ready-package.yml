@@ -26,7 +26,6 @@ jobs:
             test -f "$f"
             node --check "$f"
           done
-          test -d assets
           ASSET_COUNT=$(find assets -type f | wc -l | tr -d ' ')
           echo "ASSET_COUNT=$ASSET_COUNT"
           test "$ASSET_COUNT" -ge 1200
@@ -34,49 +33,44 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf dist
-          mkdir -p dist/game
-          rsync -a --exclude='.git' --exclude='.github' ./ dist/game/
-          find dist/game -maxdepth 1 -type f -iname '*trigger*.txt' -delete || true
-          cat > dist/game/LEIA_PRIMEIRO_RT80_5_JOGO_PRONTO.txt <<'TXT'
+          DIST="$RUNNER_TEMP/rt80dist"
+          GAME="$DIST/game"
+          rm -rf "$DIST"
+          mkdir -p "$GAME"
+          rsync -a --exclude='.git' --exclude='.github' "$GITHUB_WORKSPACE/" "$GAME/"
+          find "$GAME" -maxdepth 1 -type f -iname '*trigger*.txt' -delete || true
+          cat > "$GAME/LEIA_PRIMEIRO_RT80_5_JOGO_PRONTO.txt" <<'TXT'
           REINOS TRIBAIS RT80.5 — JOGO PRONTO APLICADO
           =============================================
           Build visual/produto: RT80.5
           Schema de save: 79
-          Fonte: branch main congelado em 911fe0914ab60437643c69ff55c66058ecd4448b
+          Fonte: main 911fe0914ab60437643c69ff55c66058ecd4448b
           Online: https://kaalflash12.github.io/reinos-tribais-online/
 
           Este pacote contém o jogo completo disponível no repositório, incluindo assets,
           runtimes RT76/79/80/81, backend versionado, launchers e auditorias existentes.
-          O instalador externo valida o SHA-256 do ZIP antes de instalar.
           TXT
-          (cd dist/game && zip -qr -9 ../RT80_5_JOGO_PRONTO_APLICADO.zip .)
-          unzip -tq dist/RT80_5_JOGO_PRONTO_APLICADO.zip
-          sha256sum dist/RT80_5_JOGO_PRONTO_APLICADO.zip | tee dist/RT80_5_JOGO_PRONTO_APLICADO.sha256
+          (cd "$GAME" && zip -qr -9 "$DIST/RT80_5_JOGO_PRONTO_APLICADO.zip" .)
+          unzip -tq "$DIST/RT80_5_JOGO_PRONTO_APLICADO.zip"
+          sha256sum "$DIST/RT80_5_JOGO_PRONTO_APLICADO.zip" | tee "$DIST/RT80_5_JOGO_PRONTO_APLICADO.sha256"
       - name: Create Windows installer
         shell: bash
         run: |
           set -euo pipefail
-          HASH=$(sha256sum dist/RT80_5_JOGO_PRONTO_APLICADO.zip | awk '{print $1}')
-          cat > dist/RT80_5_INSTALAR_E_JOGAR.ps1 <<'PS1'
-          param(
-            [string]$Destino = (Join-Path $env:USERPROFILE 'ReinosTribaisRT80_5')
-          )
+          DIST="$RUNNER_TEMP/rt80dist"
+          HASH=$(sha256sum "$DIST/RT80_5_JOGO_PRONTO_APLICADO.zip" | awk '{print $1}')
+          cat > "$DIST/RT80_5_INSTALAR_E_JOGAR.ps1" <<'PS1'
+          param([string]$Destino = (Join-Path $env:USERPROFILE 'ReinosTribaisRT80_5'))
           $ErrorActionPreference = 'Stop'
           $ExpectedZipHash = '__ZIP_HASH__'
           function Step([string]$t){ Write-Host "[RT80.5] $t" -ForegroundColor Cyan }
           function Fail([string]$t){ throw "RT80.5: $t" }
           $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-          $zipCandidates = @(
-            (Join-Path $ScriptDir 'RT80_5_JOGO_PRONTO_APLICADO.zip'),
-            'A:\Downloads\RT80_5_JOGO_PRONTO_APLICADO.zip'
-          )
+          $zipCandidates = @((Join-Path $ScriptDir 'RT80_5_JOGO_PRONTO_APLICADO.zip'),'A:\Downloads\RT80_5_JOGO_PRONTO_APLICADO.zip')
           $zip = $zipCandidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
           if(-not $zip){
             $fallback = Get-ChildItem -LiteralPath $ScriptDir -Filter 'RT80_5_JOGO_PRONTO_APLICADO*.zip' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-            if(-not $fallback -and (Test-Path 'A:\Downloads')){
-              $fallback = Get-ChildItem -LiteralPath 'A:\Downloads' -Filter 'RT80_5_JOGO_PRONTO_APLICADO*.zip' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-            }
+            if(-not $fallback -and (Test-Path 'A:\Downloads')){ $fallback = Get-ChildItem -LiteralPath 'A:\Downloads' -Filter 'RT80_5_JOGO_PRONTO_APLICADO*.zip' -File -ErrorAction SilentlyContinue | Select-Object -First 1 }
             if($fallback){ $zip = $fallback.FullName }
           }
           if(-not $zip){ Fail 'ZIP RT80_5_JOGO_PRONTO_APLICADO.zip não encontrado. Deixe o ZIP ao lado deste PowerShell ou em A:\Downloads.' }
@@ -88,9 +82,7 @@ jobs:
           try {
             Step 'Extraindo pacote em área temporária'
             Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force
-            foreach($rel in @('index.html','JOGAR_REINOS_TRIBAIS.html','rt80-visual-system.css','rt80-visual-system.js','rt80-admin-runtime.js','assets')){
-              if(-not(Test-Path -LiteralPath (Join-Path $tmp $rel))){ Fail "Arquivo obrigatório ausente: $rel" }
-            }
+            foreach($rel in @('index.html','JOGAR_REINOS_TRIBAIS.html','rt80-visual-system.css','rt80-visual-system.js','rt80-admin-runtime.js','assets')){ if(-not(Test-Path -LiteralPath (Join-Path $tmp $rel))){ Fail "Arquivo obrigatório ausente: $rel" } }
             $html=Get-Content -LiteralPath (Join-Path $tmp 'index.html') -Raw
             if($html -notmatch 'const RT_BUILD = "80\.5";'){ Fail 'index.html não é RT80.5.' }
             if($html -notmatch 'const VERSION = 79;'){ Fail 'Schema de save esperado 79 não encontrado.' }
@@ -105,57 +97,45 @@ jobs:
             New-Item -ItemType Directory -Force -Path $Destino | Out-Null
             Get-ChildItem -LiteralPath $tmp -Force | ForEach-Object { Move-Item -LiteralPath $_.FullName -Destination $Destino -Force }
             $desktop=[Environment]::GetFolderPath('Desktop')
-            $online=Join-Path $desktop 'Reinos Tribais RT80.5 ONLINE.url'
-            @('[InternetShortcut]','URL=https://kaalflash12.github.io/reinos-tribais-online/') | Set-Content -LiteralPath $online -Encoding ASCII
-            $local=Join-Path $desktop 'Reinos Tribais RT80.5 LOCAL.url'
+            @('[InternetShortcut]','URL=https://kaalflash12.github.io/reinos-tribais-online/') | Set-Content -LiteralPath (Join-Path $desktop 'Reinos Tribais RT80.5 ONLINE.url') -Encoding ASCII
             $localUrl=('file:///' + ((Join-Path $Destino 'index.html') -replace '\\','/'))
-            @('[InternetShortcut]',('URL='+$localUrl)) | Set-Content -LiteralPath $local -Encoding ASCII
+            @('[InternetShortcut]',('URL='+$localUrl)) | Set-Content -LiteralPath (Join-Path $desktop 'Reinos Tribais RT80.5 LOCAL.url') -Encoding ASCII
             Step "Instalação concluída. Assets verificados: $assetCount"
             Start-Process -FilePath (Join-Path $Destino 'index.html')
           }
-          finally {
-            if(Test-Path -LiteralPath $tmp){ Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue }
-          }
+          finally { if(Test-Path -LiteralPath $tmp){ Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue } }
           PS1
-          sed -i "s/__ZIP_HASH__/$HASH/g" dist/RT80_5_INSTALAR_E_JOGAR.ps1
-          grep -F "$HASH" dist/RT80_5_INSTALAR_E_JOGAR.ps1
+          sed -i "s/__ZIP_HASH__/$HASH/g" "$DIST/RT80_5_INSTALAR_E_JOGAR.ps1"
+          grep -F "$HASH" "$DIST/RT80_5_INSTALAR_E_JOGAR.ps1"
       - name: Validate PowerShell syntax
         shell: pwsh
         run: |
+          $path=Join-Path $env:RUNNER_TEMP 'rt80dist/RT80_5_INSTALAR_E_JOGAR.ps1'
           $errors=$null; $tokens=$null
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'dist/RT80_5_INSTALAR_E_JOGAR.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
           if($errors.Count -gt 0){ $errors | Format-List | Out-String | Write-Host; exit 1 }
           Write-Host 'PowerShell parser PASS'
       - name: Create delivery manifest
         shell: bash
         run: |
           set -euo pipefail
-          ZIP_HASH=$(sha256sum dist/RT80_5_JOGO_PRONTO_APLICADO.zip | awk '{print $1}')
-          PS_HASH=$(sha256sum dist/RT80_5_INSTALAR_E_JOGAR.ps1 | awk '{print $1}')
-          ZIP_BYTES=$(stat -c %s dist/RT80_5_JOGO_PRONTO_APLICADO.zip)
+          DIST="$RUNNER_TEMP/rt80dist"
+          ZIP_HASH=$(sha256sum "$DIST/RT80_5_JOGO_PRONTO_APLICADO.zip" | awk '{print $1}')
+          PS_HASH=$(sha256sum "$DIST/RT80_5_INSTALAR_E_JOGAR.ps1" | awk '{print $1}')
+          ZIP_BYTES=$(stat -c %s "$DIST/RT80_5_JOGO_PRONTO_APLICADO.zip")
           ASSET_COUNT=$(find assets -type f | wc -l | tr -d ' ')
-          cat > dist/RT80_5_ENTREGA_PRONTA.json <<EOF
-          {
-            "build": "RT80.5",
-            "save_schema": 79,
-            "source_main_sha": "911fe0914ab60437643c69ff55c66058ecd4448b",
-            "zip_sha256": "$ZIP_HASH",
-            "powershell_sha256": "$PS_HASH",
-            "zip_bytes": $ZIP_BYTES,
-            "asset_files": $ASSET_COUNT,
-            "powerShell_parser": "PASS",
-            "zip_integrity": "PASS"
-          }
+          cat > "$DIST/RT80_5_ENTREGA_PRONTA.json" <<EOF
+          {"build":"RT80.5","save_schema":79,"source_main_sha":"911fe0914ab60437643c69ff55c66058ecd4448b","zip_sha256":"$ZIP_HASH","powershell_sha256":"$PS_HASH","zip_bytes":$ZIP_BYTES,"asset_files":$ASSET_COUNT,"powerShell_parser":"PASS","zip_integrity":"PASS"}
           EOF
-          cat dist/RT80_5_ENTREGA_PRONTA.json
+          cat "$DIST/RT80_5_ENTREGA_PRONTA.json"
       - name: Upload ready delivery
         uses: actions/upload-artifact@v4
         with:
           name: RT80_5_ENTREGA_PRONTA
           path: |
-            dist/RT80_5_JOGO_PRONTO_APLICADO.zip
-            dist/RT80_5_INSTALAR_E_JOGAR.ps1
-            dist/RT80_5_JOGO_PRONTO_APLICADO.sha256
-            dist/RT80_5_ENTREGA_PRONTA.json
+            ${{ runner.temp }}/rt80dist/RT80_5_JOGO_PRONTO_APLICADO.zip
+            ${{ runner.temp }}/rt80dist/RT80_5_INSTALAR_E_JOGAR.ps1
+            ${{ runner.temp }}/rt80dist/RT80_5_JOGO_PRONTO_APLICADO.sha256
+            ${{ runner.temp }}/rt80dist/RT80_5_ENTREGA_PRONTA.json
           if-no-files-found: error
           compression-level: 0
