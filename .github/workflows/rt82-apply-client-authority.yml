@@ -1,0 +1,49 @@
+name: RT82 Apply Client Authority
+
+on:
+  push:
+    branches:
+      - rt80-admin-overhaul
+    paths:
+      - tools/apply_rt82_client_authority.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-client-authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rt80-admin-overhaul
+      - name: Apply deterministic RT82 client patch
+        run: python tools/apply_rt82_client_authority.py
+      - name: Validate generated source markers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          required=[
+            'rt82_queue_building','rt82_cancel_building','rt82_queue_recruit','rt82_cancel_recruit',
+            'rt82_queue_unit_research','rt82_queue_global_research','rt82_mint_academy_coins','rt82_demolish_building',
+            "if(CLOUD.ready)return false; /* RT82 server progresses online queues */",
+            "startProfile: state?.settings?.startProfile || null"
+          ]
+          missing=[x for x in required if x not in s]
+          if missing: raise SystemExit('Missing RT82 markers: '+', '.join(missing))
+          print('RT82 CLIENT PATCH MARKERS OK',len(required))
+          PY
+      - name: Commit patched client
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- index.html; then
+            echo "No client changes required"
+            exit 0
+          fi
+          git add index.html
+          git commit -m "RT82: migrar ações principais para RPCs autoritativas"
+          git push origin HEAD:rt80-admin-overhaul
