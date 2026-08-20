@@ -3960,63 +3960,21 @@ const HERO_SET_BONUSES = {
     if (!CLOUD.ready || !CLOUD.user?.id || !state) return;
     const p = state.player || {};
     const body = {
-      world_id: CLOUD.worldId,
-      user_id: CLOUD.user.id,
       player_name: String(p.name || CLOUD.user.email || 'Governante').slice(0, 64),
-      points: Math.max(0, Math.floor(Number(p.points) || 0)),
       crowns: Math.max(0, Math.floor(Number(p.premium?.crowns) || 0)),
-      academy_coins: Math.max(0, Math.floor(Number(p.academyCoins) || 0)),
       hero: p.hero || {},
       inventory: p.inventory || {},
       flags_inventory: p.flagsInventory || {},
       premium: p.premium || {},
-      research: p.research || {},
       last_seen_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
-    await cloudRequest('/rest/v1/player_worlds?on_conflict=world_id,user_id', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    const world=encodeURIComponent(CLOUD.worldId), user=encodeURIComponent(CLOUD.user.id);
+    await cloudRequest(`/rest/v1/player_worlds?world_id=eq.${world}&user_id=eq.${user}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
       body
     });
-  }
-
-  async function saveCloudNow(showToast = false) {
-    if (!CLOUD.ready || !CLOUD.user?.id || !state) return false;
-    if (CLOUD.saving) {
-      CLOUD.pending = true;
-      return false;
-    }
-    CLOUD.saving = true;
-    CLOUD.lastError = '';
-    updateCloudButtons();
-    try {
-      const savedAt = new Date().toISOString();
-      await cloudRequest('/rest/v1/game_saves?on_conflict=user_id,world_id', {
-        method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: { user_id: CLOUD.user.id, world_id: CLOUD.worldId, state: stateForSave(), updated_at: savedAt }
-      });
-      await upsertPlayerSummary();
-      try { await syncMultiplayerVillage(); } catch (mpError) { console.error('Falha ao sincronizar aldeia multiplayer:', mpError); }
-      CLOUD.lastSaveAt = Date.now();
-      setLocalSavedAt(CLOUD.lastSaveAt);
-      if (showToast) toast('Reino sincronizado com a nuvem.', 'success');
-      return true;
-    } catch (error) {
-      CLOUD.lastError = error.message || String(error);
-      CLOUD.ready = false;
-      console.error('Falha no save em nuvem:', error);
-      if (showToast) toast(`Falha ao sincronizar: ${CLOUD.lastError}`, 'error');
-      return false;
-    } finally {
-      CLOUD.saving = false;
-      updateCloudButtons();
-      if (CLOUD.pending) {
-        CLOUD.pending = false;
-        scheduleCloudSave(2200);
-      }
-    }
   }
 
   function scheduleCloudSave(delay = 8000) {
