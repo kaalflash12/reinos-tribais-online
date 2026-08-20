@@ -4993,8 +4993,10 @@ async function activateLoadedState(loaded) {
     });
     return changed;
   }
-  function activatePremiumService(serviceId) {
-    const def=PREMIUM_SERVICES[serviceId]; if(!def) return; const p=premiumState(); if(p.crowns<def.price7) return toast('Pontos Premium insuficientes.', 'error');
+  async function activatePremiumService(serviceId) {
+    const def=PREMIUM_SERVICES[serviceId]; if(!def) return;
+    if(CLOUD.ready){try{const r=await rt82Rpc('rt82_activate_premium_service',{p_service:serviceId});const p=premiumState();if(r?.premium&&typeof r.premium==='object')state.player.premium={...p,...r.premium};if(r?.crowns!==undefined)state.player.premium.crowns=Math.max(0,Number(r.crowns)||0);if(r?.inventory&&typeof r.inventory==='object')state.player.inventory={...r.inventory};dirty=true;toast(`${def.name} ativado pelo servidor.`,'success');renderAll();return;}catch(e){toast(e.message||String(e),'error');return;}}
+    const p=premiumState(); if(p.crowns<def.price7) return toast('Pontos Premium insuficientes.', 'error');
     if(serviceId==='manager' && Object.values(state.villages).filter(v=>v.owner==='player').length<5) return toast('O Gerente de Conta exige pelo menos 5 aldeias.', 'error');
     if(serviceId==='manager' && !isPremiumActive()) return toast('Ative primeiro a Conta Premium.', 'error');
     p.crowns-=def.price7; const add=7*24*3600000;
@@ -5132,7 +5134,8 @@ return changed;
     else addInventory(itemId, 1);
     dirty = true; saveState(true); toast(`${product.name} adquirido.`, 'success'); renderAll();
   }
-  function claimPremiumDaily() {
+  async function claimPremiumDaily() {
+    if(CLOUD.ready){try{const r=await rt82Rpc('rt82_claim_daily_reward');const p=premiumState();if(r?.premium&&typeof r.premium==='object')state.player.premium={...p,...r.premium};if(r?.crowns!==undefined)state.player.premium.crowns=Math.max(0,Number(r.crowns)||0);if(r?.inventory&&typeof r.inventory==='object')state.player.inventory={...r.inventory};dirty=true;toast('Recompensa diária recebida do servidor.','success');renderAll();return;}catch(e){toast(e.message||String(e),'error');return;}}
     const p = premiumState(); const cooldown = 20 * 3600000;
     if (now() - (p.lastDailyClaim || 0) < cooldown) return toast('A recompensa diária ainda não está disponível.', 'error');
     p.lastDailyClaim = now(); p.crowns += 75; addInventory('resource_chest', 1); dirty = true;
