@@ -22,7 +22,7 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import subprocess, shutil, json, hashlib, mimetypes
+          import subprocess, shutil, json, hashlib
           root=Path('.')
           out=Path('_rt80_final_snapshot')
           src=out/'source'
@@ -53,5 +53,6 @@ jobs:
         with:
           name: RT80_5_FINAL_MASTER_SOURCE_SNAPSHOT
           path: _rt80_final_snapshot
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
