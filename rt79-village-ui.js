@@ -10,5 +10,6 @@
   loadScript('rt80-visual-system.js?v=80.4','rt80-visual','__RT80_VISUAL_SYSTEM__');
   loadScript('rt80-admin-runtime.js?v=80.5','rt80-admin-runtime','__RT80_ADMIN_RUNTIME__');
   loadScript('rt81-security-runtime.js?v=81.3','rt81-security-runtime','__RT81_SECURITY_RUNTIME__');
-  // RT80.5 + RT81.3 authoritative/security integration.
+  loadScript('rt83-world-combat.js?v=83.0','rt83-world-combat','__RT83_WORLD_COMBAT__');
+  // RT80.5 + RT81.3 + RT83.0 authoritative/security/world-combat integration.
 })();
