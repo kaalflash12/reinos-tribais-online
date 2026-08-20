@@ -1,11 +1,13 @@
 name: RT82 Apply Client Authority
 
 on:
-  push:
+  pull_request:
     branches:
-      - rt80-admin-overhaul
+      - main
+    types: [opened, reopened, synchronize]
     paths:
       - tools/apply_rt82_client_authority.py
+      - .github/workflows/rt82-apply-client-authority.yml
   workflow_dispatch:
 
 permissions:
@@ -13,6 +15,7 @@ permissions:
 
 jobs:
   apply-client-authority:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'rt80-admin-overhaul'
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
