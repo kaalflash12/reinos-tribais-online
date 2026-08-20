@@ -1,0 +1,63 @@
+name: RT82.1 Player Worlds Hardening
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+    paths:
+      - tools/apply_rt82_1_playerworlds_hardening.py
+      - backend/rt82-1-playerworlds-hardening.sql
+      - index.html
+      - JOGAR_REINOS_TRIBAIS.html
+      - .github/workflows/rt82-1-playerworlds-hardening.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 0
+      - name: Apply deterministic client hardening
+        run: python tools/apply_rt82_1_playerworlds_hardening.py
+      - name: Validate RT82.1 authority contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          a=Path('index.html').read_text(encoding='utf-8')
+          b=Path('JOGAR_REINOS_TRIBAIS.html').read_text(encoding='utf-8')
+          sql=Path('backend/rt82-1-playerworlds-hardening.sql').read_text(encoding='utf-8').lower()
+          if a!=b: raise SystemExit('index/JOGAR diverged')
+          m=re.search(r'async function upsertPlayerSummary\(\).*?\n  \}',a,re.S)
+          if not m: raise SystemExit('upsertPlayerSummary missing')
+          block=m.group(0)
+          forbidden=['crowns:','flags_inventory:','premium:','points:','academy_coins:','research:']
+          bad=[x for x in forbidden if x in block]
+          if bad: raise SystemExit('competitive fields still in REST summary: '+', '.join(bad))
+          required=['revoke update on table public.player_worlds','grant update (player_name, hero, inventory, last_seen_at, updated_at)']
+          missing=[x for x in required if x not in sql]
+          if missing: raise SystemExit('missing SQL hardening markers: '+', '.join(missing))
+          grant=sql.split('grant update (',1)[1].split(')',1)[0]
+          for x in ['crowns','premium','flags_inventory','points','academy_coins','research']:
+              if x in grant: raise SystemExit('forbidden direct-update grant: '+x)
+          print('RT82.1 PLAYER_WORLDS HARDENING PASS')
+          PY
+      - name: Commit generated client changes
+        if: github.event_name == 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- index.html JOGAR_REINOS_TRIBAIS.html; then
+            echo "No generated client changes required"
+            exit 0
+          fi
+          git add index.html JOGAR_REINOS_TRIBAIS.html
+          git commit -m "RT82.1: remover estado competitivo do PATCH do cliente"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
