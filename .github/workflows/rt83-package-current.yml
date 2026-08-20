@@ -1,0 +1,51 @@
+name: RT83 Current Main Package
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  package-current:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 475fcf523cdd14df5be1cbcddc6a940fb7fb5465
+          fetch-depth: 1
+      - name: Validate RT83 current main
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($f in @('index.html','JOGAR_REINOS_TRIBAIS.html','rt83-world-combat.js','rt79-village-ui.js')) { if(-not (Test-Path $f)){throw "missing $f"} }
+          node --check rt83-world-combat.js
+          node --check rt79-village-ui.js
+          if(-not (Select-String -LiteralPath rt79-village-ui.js -SimpleMatch 'rt83-world-combat.js?v=83.0')){throw 'RT83 loader absent'}
+          $h1=(Get-FileHash index.html -Algorithm SHA256).Hash
+          $h2=(Get-FileHash JOGAR_REINOS_TRIBAIS.html -Algorithm SHA256).Hash
+          if($h1 -ne $h2){throw 'HTML mirrors differ'}
+          $assets=(Get-ChildItem -Recurse -File | Where-Object {$_.FullName -match '[\\/]assets[\\/]'}).Count
+          if($assets -lt 1200){throw "assets incomplete: $assets"}
+          Write-Host "RT83 CURRENT MAIN OK assets=$assets html=$h1"
+      - name: Build complete game ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $stage=Join-Path $env:RUNNER_TEMP 'RT83_GAME'
+          $out=Join-Path $env:RUNNER_TEMP 'RT83_OUT'
+          New-Item -ItemType Directory -Force -Path $stage,$out | Out-Null
+          Get-ChildItem -Force | Where-Object {$_.Name -ne '.git'} | ForEach-Object {Copy-Item $_.FullName -Destination $stage -Recurse -Force}
+          $zip=Join-Path $out 'RT83_JOGO_COMPLETO_ATUALIZADO.zip'
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -LiteralPath (Join-Path $out 'RT83_SHA256.txt') -Value $hash -Encoding ascii
+          Add-Content -LiteralPath (Join-Path $out 'RT83_SHA256.txt') -Value 'commit=475fcf523cdd14df5be1cbcddc6a940fb7fb5465'
+          Write-Host "ZIP=$zip SHA256=$hash"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RT83_CURRENT_MAIN_GAME
+          path: ${{ runner.temp }}/RT83_OUT/*
+          if-no-files-found: error
+          compression-level: 0
