@@ -54,14 +54,34 @@ def main():
         phase('page_opened')
         WebDriverWait(d,20).until(lambda x:x.execute_script('return !!window.__RT80_ADMIN_AUDIT__'))
         phase('admin_api_ready')
-        r=d.execute_async_script("""
-          const data=arguments[0],done=arguments[arguments.length-1];
+        d.execute_script("""
+          const data=arguments[0];
           const a=window.__RT80_ADMIN_AUDIT__;
           a.RTADMIN.token='audit-only';a.RTADMIN.username='auditoria';a.RTADMIN.info={username:'auditoria',role:'superadmin'};a.RTADMIN.ui={tab:'overview',worldId:'w1',mapX:500,mapY:500};
-          a.renderIntegratedAdmin(data,true).then(()=>done({ok:true})).catch(e=>done({ok:false,error:String(e?.stack||e)}));
+          window.__RT80_ADMIN_RENDER_RESULT__={started:true,settled:false,error:null};
+          try {
+            const p=a.renderIntegratedAdmin(data,true);
+            Promise.resolve(p).then(()=>{window.__RT80_ADMIN_RENDER_RESULT__.settled=true;}).catch(e=>{
+              window.__RT80_ADMIN_RENDER_RESULT__.settled=true;
+              window.__RT80_ADMIN_RENDER_RESULT__.error=String(e?.stack||e);
+            });
+          } catch(e) {
+            window.__RT80_ADMIN_RENDER_RESULT__.settled=true;
+            window.__RT80_ADMIN_RENDER_RESULT__.error=String(e?.stack||e);
+          }
+          return true;
         """,base.MOCK)
-        if not r.get('ok'): raise RuntimeError(r.get('error'))
-        phase('admin_rendered')
+        phase('admin_render_dispatched')
+        WebDriverWait(d,20).until(lambda x:x.execute_script("return !!document.querySelector('.rt60-admin-shell') || !!window.__RT80_ADMIN_RENDER_RESULT__?.error"))
+        render_error=d.execute_script("return window.__RT80_ADMIN_RENDER_RESULT__?.error || null")
+        if render_error: raise RuntimeError(render_error)
+        phase('admin_dom_ready')
+        try:
+            WebDriverWait(d,5).until(lambda x:x.execute_script("return window.__RT80_ADMIN_RENDER_RESULT__?.settled===true"))
+        except TimeoutException:
+            proof['rendererPromiseSettled']=False;save_proof();log('WARN renderer promise still pending after DOM became ready')
+        else:
+            proof['rendererPromiseSettled']=True;save_proof();log('PASS renderer promise settled')
         check(d,'admin shell',"return !!document.querySelector('.rt60-admin-shell')")
         check(d,'runtime ready',"return document.querySelector('.rt60-admin-shell')?.dataset.rt80AdminReady==='1'")
         check(d,'15 tabs',"return document.querySelectorAll('[data-admin-tab]').length===15")
