@@ -31,7 +31,7 @@ def main():
           if(f){f.elements.playerName.value='Auditoria RT84';f.elements.villageName.value='Aldeia RT84';f.elements.difficulty.value='normal';f.elements.mapRadius.value='16';f.elements.startProfile.value='military';f.requestSubmit();}
         """)
         req(d,'game started','return !!window.RT76?.state?.()')
-        setup=d.execute_script("""
+        d.execute_script("""
           const s=RT76.state(),v=RT76.test.getActiveVillage();
           v.resources={wood:10000,clay:10000,iron:10000,lastUpdate:Date.now()}; v.buildings.warehouse=20;
           v.units.spy=300; v.units.spear=300; s.player.premium={crowns:500,buffs:{}}; s.player.inventory={};
@@ -40,7 +40,6 @@ def main():
           const ruinsFail={id:'rt84_ruins_fail',type:'rare_ruins',level:6,x:v.x+3,y:v.y+2,available:true,respawnAt:0,state:{}};
           const merchant={id:'rt84_merchant',type:'merchant',level:2,x:v.x+1,y:v.y+1,available:true,respawnAt:0,state:{itemId:'spyglass',price:90}};
           s.world.nodes.push(ruins,ruinsFail,merchant); RT76.save();
-          return {wood:v.resources.wood,clay:v.resources.clay,iron:v.resources.iron,crowns:s.player.premium.crowns};
         """)
         success=d.execute_script("""
           const old=Math.random;Math.random=()=>0;const s=RT76.state(),v=RT76.test.getActiveVillage(),node=s.world.nodes.find(x=>x.id==='rt84_ruins_ok');
@@ -71,12 +70,16 @@ def main():
         ]
         merchant=d.execute_script("""
           const s=RT76.state(),v=RT76.test.getActiveVillage(),node=s.world.nodes.find(x=>x.id==='rt84_merchant');s.rt84.actionUntil=0;
-          const before={crowns:s.player.premium.crowns,spyglass:Number(s.player.inventory.spyglass||0),wood:v.resources.wood};
-          const r=RT84World.offline(node,'buy');return {r,before,after:{crowns:s.player.premium.crowns,spyglass:Number(s.player.inventory.spyglass||0),wood:v.resources.wood}};
+          const before={crowns:s.player.premium.crowns,inventory:{...(s.player.inventory||{})},wood:v.resources.wood};
+          const r=RT84World.offline(node,'buy');return {configuredItem:node.state.itemId,r,before,after:{crowns:s.player.premium.crowns,inventory:{...(s.player.inventory||{})},wood:v.resources.wood}};
         """)
+        bought=merchant['r']['reward'].get('item')
+        before_qty=int(merchant['before']['inventory'].get(bought,0)) if bought else 0
+        after_qty=int(merchant['after']['inventory'].get(bought,0)) if bought else 0
         checks += [
           {'name':'merchant charges crowns','pass':merchant['after']['crowns']<merchant['before']['crowns']},
-          {'name':'merchant gives exactly purchased item','pass':merchant['after']['spyglass']==merchant['before']['spyglass']+1},
+          {'name':'merchant honors configured offer','pass':bought==merchant['configuredItem'],'detail':json.dumps({'configured':merchant['configuredItem'],'returned':bought},ensure_ascii=False)},
+          {'name':'merchant gives exactly purchased item','pass':bool(bought) and after_qty==before_qty+1,'detail':json.dumps({'item':bought,'before':merchant['before']['inventory'],'after':merchant['after']['inventory']},ensure_ascii=False)},
           {'name':'merchant also consumes expedition supplies','pass':merchant['after']['wood']<merchant['before']['wood']},
         ]
         daily=d.execute_script("""
@@ -89,7 +92,6 @@ def main():
         """)
         d.execute_script("document.querySelector('[data-view=\"map\"]')?.click()")
         time.sleep(.6)
-        # The runtime annotates any rendered action button for RT84 nodes. If the map modal is not open, title/details are still verified through API.
         checks.append({'name':'map explanation exposes cost/chance/limit','pass':bool(d.execute_script("const s=RT76.state(),n=s.world.nodes.find(x=>x.id==='rt84_ruins_ok'),txt=RT84World.details(n);return /custo/i.test(txt)&&/chance/i.test(txt)&&/30\\/dia/i.test(txt)"))})
         proof['screenshots'].append(shot(d,'RT84_MAPA_INTERACOES'))
         failures=[x for x in checks if not x.get('pass')]
