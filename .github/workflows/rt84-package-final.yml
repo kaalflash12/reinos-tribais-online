@@ -1,0 +1,207 @@
+name: RT84 Final Package
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/rt84-package-final.yml'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout production main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Validate RT84 production source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $sha=(git rev-parse HEAD).Trim()
+          Write-Host "MAIN_SHA=$sha"
+          node --check rt83-world-combat.js
+          node --check rt84-world-actions.js
+          node --check rt84-offer-consistency.js
+          node --check rt79-village-ui.js
+          if (-not (Select-String -LiteralPath rt79-village-ui.js -SimpleMatch "rt84-world-actions.js?v=84.0")) { throw 'RT84 runtime loader missing' }
+          if (-not (Select-String -LiteralPath rt79-village-ui.js -SimpleMatch "rt84-offer-consistency.js?v=84.1")) { throw 'RT84 offer consistency loader missing' }
+          if (-not (Test-Path backend/rt83-real-world-combat.sql)) { throw 'RT83 backend migration missing' }
+          if (-not (Test-Path backend/rt84-world-interactions.sql)) { throw 'RT84 backend migration missing' }
+          $a=(Get-FileHash index.html -Algorithm SHA256).Hash
+          $b=(Get-FileHash JOGAR_REINOS_TRIBAIS.html -Algorithm SHA256).Hash
+          if($a -ne $b){ throw 'index.html and JOGAR_REINOS_TRIBAIS.html diverged' }
+          $assets=(Get-ChildItem assets -Recurse -File | Measure-Object).Count
+          if($assets -lt 1200){ throw "Asset count too low: $assets" }
+          Write-Host "ASSETS=$assets"
+
+      - name: Build clean game ZIP and manifest
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          @'
+          import os, json, shutil, hashlib, zipfile, pathlib, subprocess
+          root=pathlib.Path.cwd()
+          temp=pathlib.Path(os.environ['RUNNER_TEMP'])
+          stage=temp/'RT84_GAME'
+          if stage.exists(): shutil.rmtree(stage)
+          ignore=shutil.ignore_patterns('.git','.git*','__pycache__','*.pyc')
+          shutil.copytree(root,stage,ignore=ignore)
+          sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          files=[]
+          assets=0
+          for p in sorted(stage.rglob('*')):
+              if not p.is_file(): continue
+              rel=p.relative_to(stage).as_posix()
+              if rel.startswith('.github/workflows/rt84-package-final.yml'):
+                  p.unlink(); continue
+              h=hashlib.sha256(p.read_bytes()).hexdigest()
+              files.append({'path':rel,'bytes':p.stat().st_size,'sha256':h})
+              if rel.startswith('assets/'): assets+=1
+          build={
+              'build':'RT84',
+              'git_sha':sha,
+              'asset_files':assets,
+              'file_count':len(files),
+              'database_migrations':['rt83_real_world_combat','rt84_world_interactions_limits_and_logs'],
+              'required_runtime':['rt83-world-combat.js','rt84-world-actions.js','rt84-offer-consistency.js'],
+              'status':'production-main'
+          }
+          (stage/'RT84_BUILD_INFO.json').write_text(json.dumps(build,ensure_ascii=False,indent=2),encoding='utf-8')
+          files2=[]
+          for p in sorted(stage.rglob('*')):
+              if p.is_file():
+                  rel=p.relative_to(stage).as_posix()
+                  files2.append({'path':rel,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()})
+          (stage/'RT84_FILE_HASHES.json').write_text(json.dumps({'build':'RT84','files':files2},ensure_ascii=False,indent=2),encoding='utf-8')
+          out=temp/'RT84_JOGO_COMPLETO_FINAL.zip'
+          if out.exists(): out.unlink()
+          with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
+              for p in sorted(stage.rglob('*')):
+                  if p.is_file(): z.write(p,p.relative_to(stage).as_posix())
+          with zipfile.ZipFile(out) as z:
+              bad=z.testzip()
+              if bad: raise SystemExit(f'Corrupt ZIP member: {bad}')
+              names=set(z.namelist())
+              for req in ['index.html','JOGAR_REINOS_TRIBAIS.html','rt83-world-combat.js','rt84-world-actions.js','rt84-offer-consistency.js','backend/rt83-real-world-combat.sql','backend/rt84-world-interactions.sql','RT84_BUILD_INFO.json','RT84_FILE_HASHES.json']:
+                  if req not in names: raise SystemExit(f'Missing packaged file: {req}')
+          digest=hashlib.sha256(out.read_bytes()).hexdigest()
+          (temp/'RT84_ZIP_SHA256.txt').write_text(digest,encoding='ascii')
+          (temp/'RT84_BUILD_INFO.json').write_text(json.dumps(build,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps({'zip':str(out),'sha256':digest,'asset_files':assets,'file_count':len(files2)},ensure_ascii=False))
+          '@ | python -
+
+      - name: Generate Windows installer with exact ZIP hash
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $hash=(Get-Content "$env:RUNNER_TEMP\RT84_ZIP_SHA256.txt" -Raw).Trim()
+          $ps=@'
+          $ErrorActionPreference = 'Stop'
+          $ExpectedZipHash = '__HASH__'
+          $ZipName = 'RT84_JOGO_COMPLETO_FINAL.zip'
+          function Fail([string]$Text){ throw "RT84: $Text" }
+          Write-Host '============================================================'
+          Write-Host ' REINOS TRIBAIS RT84 - INSTALLER + VALIDATOR'
+          Write-Host '============================================================'
+          $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+          $Candidates = @((Join-Path $ScriptDir $ZipName), (Join-Path 'A:\Downloads' $ZipName)) | Select-Object -Unique
+          $Zip = $Candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+          if(-not $Zip){ Fail "$ZipName not found. Put ZIP next to this PowerShell or in A:\Downloads." }
+          $Got=(Get-FileHash -LiteralPath $Zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($Got -ne $ExpectedZipHash){ Fail "ZIP SHA256 mismatch. Expected $ExpectedZipHash ; got $Got" }
+          $Work=Join-Path $env:TEMP ('RT84_INSTALL_'+[guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Force -Path $Work | Out-Null
+          try {
+            Write-Host '[1/5] Extracting package...'
+            Expand-Archive -LiteralPath $Zip -DestinationPath $Work -Force
+            $InfoPath=Join-Path $Work 'RT84_BUILD_INFO.json'
+            if(-not (Test-Path -LiteralPath $InfoPath)){ Fail 'RT84_BUILD_INFO.json missing after extraction.' }
+            $Info=Get-Content -LiteralPath $InfoPath -Raw | ConvertFrom-Json
+            if($Info.build -ne 'RT84'){ Fail "Unexpected build: $($Info.build)" }
+            if([int]$Info.asset_files -lt 1200){ Fail "Asset count too low: $($Info.asset_files)" }
+            foreach($Rel in @('index.html','JOGAR_REINOS_TRIBAIS.html','rt83-world-combat.js','rt84-world-actions.js','rt84-offer-consistency.js','backend\rt83-real-world-combat.sql','backend\rt84-world-interactions.sql')){
+              if(-not(Test-Path -LiteralPath (Join-Path $Work $Rel) -PathType Leaf)){ Fail "Missing required file: $Rel" }
+            }
+            Write-Host '[2/5] Validating file manifest...'
+            $Manifest=Get-Content -LiteralPath (Join-Path $Work 'RT84_FILE_HASHES.json') -Raw | ConvertFrom-Json
+            if(@($Manifest.files).Count -lt 1200){ Fail 'File manifest is incomplete.' }
+            foreach($Entry in $Manifest.files){
+              $Full=Join-Path $Work (($Entry.path -replace '/','\'))
+              if(-not(Test-Path -LiteralPath $Full -PathType Leaf)){ Fail "Manifest file missing: $($Entry.path)" }
+              $H=(Get-FileHash -LiteralPath $Full -Algorithm SHA256).Hash.ToLowerInvariant()
+              if($H -ne ([string]$Entry.sha256).ToLowerInvariant()){ Fail "Manifest hash mismatch: $($Entry.path)" }
+            }
+            Write-Host '[3/5] Installing...'
+            $Base = if(Test-Path 'A:\'){ 'A:\ReinosTribais' } else { Join-Path $env:LOCALAPPDATA 'ReinosTribais' }
+            New-Item -ItemType Directory -Force -Path $Base | Out-Null
+            $Dest=Join-Path $Base 'RT84'
+            if(Test-Path -LiteralPath $Dest){
+              $Backup=Join-Path $Base ('RT84_backup_'+(Get-Date -Format 'yyyyMMdd_HHmmss'))
+              Move-Item -LiteralPath $Dest -Destination $Backup -Force
+              Write-Host "Backup: $Backup"
+            }
+            Move-Item -LiteralPath $Work -Destination $Dest
+            $Work=$null
+            Write-Host '[4/5] Creating shortcuts...'
+            $Desktop=[Environment]::GetFolderPath('Desktop')
+            $Shell=New-Object -ComObject WScript.Shell
+            $Local=$Shell.CreateShortcut((Join-Path $Desktop 'Reinos Tribais RT84 LOCAL.lnk'))
+            $Local.TargetPath=$env:ComSpec
+            $Local.Arguments='/c ""'+(Join-Path $Dest 'JOGAR.cmd')+'""'
+            $Local.WorkingDirectory=$Dest
+            $Local.IconLocation="$env:SystemRoot\System32\shell32.dll,14"
+            $Local.Save()
+            $OnlinePath=Join-Path $Desktop 'Reinos Tribais RT84 ONLINE.url'
+            @('[InternetShortcut]','URL=https://kaalflash12.github.io/reinos-tribais-online/') | Set-Content -LiteralPath $OnlinePath -Encoding ASCII
+            Write-Host '[5/5] DONE.'
+            Write-Host "Installed at: $Dest"
+            Start-Process -FilePath (Join-Path $Dest 'JOGAR.cmd')
+          } finally {
+            if($Work -and (Test-Path -LiteralPath $Work)){ Remove-Item -LiteralPath $Work -Recurse -Force -ErrorAction SilentlyContinue }
+          }
+          '@
+          $ps=$ps.Replace('__HASH__',$hash)
+          $path="$env:RUNNER_TEMP\RT84_INSTALAR_E_JOGAR.ps1"
+          [IO.File]::WriteAllText($path,$ps,(New-Object Text.UTF8Encoding($false)))
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count){ $errors | Format-List | Out-String | Write-Error; throw 'PowerShell parser failed' }
+          if(-not (Select-String -LiteralPath $path -SimpleMatch $hash)){ throw 'Embedded ZIP hash missing' }
+
+      - name: Build delivery notes and hashes
+        shell: pwsh
+        run: |
+          $zip="$env:RUNNER_TEMP\RT84_JOGO_COMPLETO_FINAL.zip"
+          $ps="$env:RUNNER_TEMP\RT84_INSTALAR_E_JOGAR.ps1"
+          $zh=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $ph=(Get-FileHash $ps -Algorithm SHA256).Hash.ToLowerInvariant()
+          $info=Get-Content "$env:RUNNER_TEMP\RT84_BUILD_INFO.json" -Raw | ConvertFrom-Json
+          @(
+            'REINOS TRIBAIS RT84 - FINAL',
+            "Git main: $($info.git_sha)",
+            "Assets: $($info.asset_files)",
+            "Files: $($info.file_count)",
+            'Database: rt83_real_world_combat + rt84_world_interactions_limits_and_logs',
+            'RT83: explicit troops, supplies, damage, casualties, loot capacity, cooldowns.',
+            'RT84: world interactions with supplies, daily limit, failure without reward, crowns cost, persistent logs.',
+            '',
+            'Put RT84_JOGO_COMPLETO_FINAL.zip and RT84_INSTALAR_E_JOGAR.ps1 together (or in A:\Downloads) and run:',
+            'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "A:\Downloads\RT84_INSTALAR_E_JOGAR.ps1"'
+          ) | Set-Content "$env:RUNNER_TEMP\RT84_LEIA_PRIMEIRO.txt" -Encoding UTF8
+          @("$zh  RT84_JOGO_COMPLETO_FINAL.zip","$ph  RT84_INSTALAR_E_JOGAR.ps1") | Set-Content "$env:RUNNER_TEMP\RT84_SHA256.txt" -Encoding ASCII
+
+      - name: Upload clean final delivery
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT84_FINAL_CLEAN_DELIVERY
+          path: |
+            ${{ runner.temp }}/RT84_JOGO_COMPLETO_FINAL.zip
+            ${{ runner.temp }}/RT84_INSTALAR_E_JOGAR.ps1
+            ${{ runner.temp }}/RT84_LEIA_PRIMEIRO.txt
+            ${{ runner.temp }}/RT84_SHA256.txt
+            ${{ runner.temp }}/RT84_BUILD_INFO.json
+          if-no-files-found: error
+          compression-level: 0
