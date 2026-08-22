@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'rt86-ai-director-ui.js'
+      - 'rt86-ai-admin-nav.js'
       - 'rt79-village-ui.js'
       - 'backend/edge/rt86-ai-admin/**'
       - '.github/workflows/rt86-ai-admin-controls-regression.yml'
@@ -21,7 +22,10 @@ jobs:
       - name: Static source proof
         run: |
           node --check rt86-ai-director-ui.js
+          node --check rt86-ai-admin-nav.js
           grep -q "rt86-ai-director-ui.js?v=86.2" rt79-village-ui.js
+          grep -q "rt86-ai-admin-nav.js?v=86.2" rt79-village-ui.js
+          grep -q "data-admin-tab='ai'\|data-admin-tab=\"ai\"\|dataset.adminTab='ai'" rt86-ai-admin-nav.js
           grep -q "data-rt86-director-tick" rt86-ai-director-ui.js
           grep -q "data-rt86-config-save" rt86-ai-director-ui.js
           grep -q "data-rt86-agent-save" rt86-ai-director-ui.js
@@ -38,7 +42,6 @@ jobs:
           url=re.search(r"url:\s*'([^']+supabase\.co)'",text).group(1)
           key=re.search(r"key:\s*'([^']+)'",text).group(1)
           world=re.search(r"worldId:\s*'([0-9a-f-]{36})'",text).group(1)
-          # Edge administrativa deve existir mas recusar quem nao possui token ADM.
           req=urllib.request.Request(url+'/functions/v1/rt86-ai-admin',data=json.dumps({'action':'status','world_id':world}).encode(),headers={'apikey':key,'Content-Type':'application/json'})
           try:
               urllib.request.urlopen(req,timeout=20)
@@ -47,7 +50,6 @@ jobs:
               assert e.code==401, e.code
               body=json.loads(e.read())
               assert 'administrativa' in body.get('error','').lower(), body
-          # Estado publico precisa continuar provando um agente exclusivo por NPC.
           req=urllib.request.Request(url+'/rest/v1/rpc/rt86_ai_public_status',data=json.dumps({'p_world_id':world}).encode(),headers={'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'})
           data=json.loads(urllib.request.urlopen(req,timeout=20).read())
           agents=data.get('agents') or []
