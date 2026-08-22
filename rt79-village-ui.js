@@ -5,6 +5,7 @@
   window.__RT80_VISUAL_BOOTSTRAP__=true;
   const loadStyle=(href,key)=>{if(document.querySelector(`link[data-${key}]`))return;const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.setAttribute(`data-${key}`,'1');document.head.appendChild(link)};
   const loadScript=(src,key,ready)=>{if(window[ready]||document.querySelector(`script[data-${key}]`))return;const script=document.createElement('script');script.src=src;script.defer=true;script.setAttribute(`data-${key}`,'1');document.head.appendChild(script)};
+  loadScript('reino-tribal-branding.js?v=1.0.0','reino-tribal-branding','__REINO_TRIBAL_BRANDING__');
   loadStyle('rt80-visual-system.css?v=80.0','rt80-visual');
   loadStyle('rt80-compat.css?v=80.5','rt80-compat');
   loadScript('rt80-visual-system.js?v=80.4','rt80-visual','__RT80_VISUAL_SYSTEM__');
@@ -16,5 +17,5 @@
   loadScript('rt85-auth-bridge.js?v=85.0','rt85-auth-bridge','__RT85_AUTH_BRIDGE__');
   loadScript('rt86-ai-director-ui.js?v=86.2','rt86-ai-director-ui','__RT86_AI_DIRECTOR_UI__');
   loadScript('rt86-ai-admin-nav.js?v=86.2','rt86-ai-admin-nav','__RT86_AI_ADMIN_NAV__');
-  // RT80.5 + RT81.3 + RT83.0 + RT84.1 + RT85.0 + RT86.2: interface, autoridade, combate, interações mundiais, autenticação e Diretor IA/NPCs persistentes com seção/controles ADM.
+  // IDs RT antigos abaixo permanecem apenas por compatibilidade técnica. A versão pública começa em Reino Tribal v1.0.0.
 })();
