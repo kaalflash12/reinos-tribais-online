@@ -2,25 +2,27 @@
   "schema": "RT84",
   "database": "Supabase production",
   "repository": "kaalflash12/reinos-tribais-online",
-  "schema_sql_commit": "6ea0abf96fe3c117994d3d3bfa9576541901774a",
+  "schema_sql_commit": "767cc7b858220e455033a6dd1eae38af4685343b",
+  "scope": "Somente migrations e objetos do Reinos Tribais; migrations de MUNDO/Shinobi/outros projetos compartilhados no mesmo Supabase nao entram no hash de migrations.",
   "manifest": {
     "functions_count": 117,
-    "functions_hash": "587ec8c027e43f1c13be023f616f5776",
+    "functions_hash": "cb1bd1e5920cbca0f15d8d11e87dd2e1",
     "tables_count": 38,
     "tables_hash": "1dbdd04cd294bbb05c48e6b0a55f1c48",
     "indexes_count": 102,
     "indexes_hash": "3baa6a1b5273061b4e1ab82be5a518c4",
     "policies_count": 39,
     "policies_hash": "46784c6e567d0edc1b73f0eec6de44f2",
-    "migrations_count": 89,
-    "migrations_hash": "004e24c2878f662d91787d6b8809255c",
-    "latest_migration": "20260822003202",
-    "overall_hash": "de62755f6336729f432d1e874832c48b"
+    "migrations_count": 84,
+    "migrations_hash": "223147e953702e1ea71412f97db5d27f",
+    "latest_migration": "20260822003735",
+    "overall_hash": "4a1ae8a62d96a5f84f345dee0f9914e9"
   },
   "critical_migrations_present": [
     "rt83_real_world_combat",
     "rt84_world_interactions_limits_and_logs",
-    "rt84_git_db_schema_sync_registry"
+    "rt84_git_db_schema_sync_registry",
+    "rt84_git_db_schema_sync_scope_fix"
   ],
   "notes": "Nao contem dados de jogadores, credenciais ou segredos. O hash e recalculavel com public.rt_schema_manifest()."
 }

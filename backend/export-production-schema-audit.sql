@@ -5,9 +5,12 @@
 -- 1) Manifesto agregado para detectar drift.
 select public.rt_schema_manifest() as manifest;
 
--- 2) Historico de migrations aplicado no Supabase.
+-- 2) Historico de migrations do Reinos Tribais aplicado no Supabase.
 select version,name
 from supabase_migrations.schema_migrations
+where name like 'rt%'
+   or name like 'fix_rt%'
+   or name like 'reinos_tribais_%'
 order by version;
 
 -- 3) Funcoes de jogo/backend e hash de cada definicao.
