@@ -1,0 +1,75 @@
+name: Reino Tribal v1 Branding Regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'reino-tribal-branding.js'
+      - 'PRODUCT_RELEASE.json'
+      - 'rt79-village-ui.js'
+      - 'backend/reino-tribal-public-version-1.0.0.sql'
+      - '.github/workflows/reino-tribal-v1-branding-regression.yml'
+
+jobs:
+  branding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static contract
+        run: |
+          node --check reino-tribal-branding.js
+          grep -q "reino-tribal-branding.js?v=1.0.0" rt79-village-ui.js
+          grep -q '"product_name": "Reino Tribal"' PRODUCT_RELEASE.json
+          grep -q '"public_version": "1.0.0"' PRODUCT_RELEASE.json
+          grep -q "'Reino Tribal','1.0.0'" backend/reino-tribal-public-version-1.0.0.sql
+      - name: Install Selenium
+        run: python -m pip install --quiet selenium
+      - name: Start site
+        run: |
+          python -m http.server 8765 >/tmp/reino-tribal-v1-http.log 2>&1 &
+          sleep 2
+      - name: Browser branding proof
+        shell: python
+        run: |
+          import json,re,time
+          from pathlib import Path
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          o=Options()
+          for arg in ['--headless=new','--no-sandbox','--disable-dev-shm-usage','--window-size=1440,1000']:o.add_argument(arg)
+          d=webdriver.Chrome(options=o)
+          out={}
+          try:
+              d.get('http://127.0.0.1:8765/')
+              WebDriverWait(d,8).until(lambda x:x.execute_script('return !!window.__REINO_TRIBAL_BRANDING__'))
+              time.sleep(.5)
+              out['title']=d.title
+              out['product']=d.execute_script('return window.REINO_TRIBAL')
+              body=d.find_element(By.TAG_NAME,'body').get_attribute('innerText')
+              out['visible_revision_tokens']=sorted(set(re.findall(r'\\bRT\\s*\\d+(?:\\.\\d+)*\\b',body,re.I)))
+              out['has_old_brand']='Reinos Tribais' in body
+              out['has_new_brand']='Reino Tribal' in body
+              assert out['title']=='Reino Tribal',out
+              assert out['product']=={'name':'Reino Tribal','version':'1.0.0'},out
+              assert not out['visible_revision_tokens'],out
+              assert not out['has_old_brand'],out
+              assert out['has_new_brand'],out
+              out['pass']=True
+          finally:
+              Path('REINO_TRIBAL_V1_BRANDING_PROOF.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+              d.save_screenshot('REINO_TRIBAL_V1_BRANDING.png')
+              d.quit()
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: REINO_TRIBAL_V1_BRANDING_PROOF
+          path: |
+            REINO_TRIBAL_V1_BRANDING_PROOF.json
+            REINO_TRIBAL_V1_BRANDING.png
