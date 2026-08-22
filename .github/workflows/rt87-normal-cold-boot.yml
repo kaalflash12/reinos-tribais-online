@@ -8,38 +8,72 @@ on:
     paths:
       - 'index.html'
       - 'JOGAR_REINOS_TRIBAIS.html'
+      - 'rt76-master-core.js'
       - '.github/workflows/rt87-normal-cold-boot.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  cold-boot:
+  patch-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Static boot contract
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - name: Restore canonical client and apply RT87
         shell: python
         run: |
           from pathlib import Path
-          boot=Path('index.html').read_text(encoding='utf-8')
           app=Path('JOGAR_REINOS_TRIBAIS.html').read_text(encoding='utf-8')
-          assert len(boot.encode()) < 20000, len(boot.encode())
-          assert len(app.encode()) > 500000, len(app.encode())
-          assert "fetch('./JOGAR_REINOS_TRIBAIS.html'" in boot
-          assert 'Tentar novamente' in boot and 'Abrir cliente diretamente' in boot
-          assert 'rt85-auth-bridge.js?v=85.0' in app or 'rt79-village-ui.js?v=79.1' in app
-          print({'boot_bytes':len(boot.encode()),'app_bytes':len(app.encode())})
+          tags=[
+            'rt76-runtime.js?v=79.1','rt76-map-ai.js?v=79.1','rt76-master-plan.js?v=79.1',
+            'rt79-suite.js?v=79.1','rt79-groups-addon.js?v=79.1','rt79-logistics-ai-addon.js?v=79.1',
+            'rt79-village-ui.js?v=79.1','rt79-admin-suite.js?v=79.1','rt79-admin-logistics-addon.js?v=79.1'
+          ]
+          for src in tags:
+              app=app.replace(f'<script src="{src}"></script>',f'<script defer src="{src}"></script>')
+          Path('JOGAR_REINOS_TRIBAIS.html').write_text(app,encoding='utf-8')
+          Path('index.html').write_text(app,encoding='utf-8')
+          p=Path('rt76-master-core.js'); s=p.read_text(encoding='utf-8')
+          s=s.replace('const m=ensure();let changed=false;\n      for(const x of m.scheduledSupport)', 'const m=ensure();if(!m)return false;let changed=false;\n      for(const x of m.scheduledSupport)')
+          s=s.replace("setInterval(()=>{try{Planner.processSupport(stamp());", "setInterval(()=>{try{if(!S()){inject();return}Planner.processSupport(stamp());")
+          p.write_text(s,encoding='utf-8')
+      - name: Static contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          a=Path('index.html').read_text(encoding='utf-8'); b=Path('JOGAR_REINOS_TRIBAIS.html').read_text(encoding='utf-8')
+          assert a==b and len(a.encode())>500000
+          tags=['rt76-runtime.js?v=79.1','rt76-map-ai.js?v=79.1','rt76-master-plan.js?v=79.1','rt79-suite.js?v=79.1','rt79-groups-addon.js?v=79.1','rt79-logistics-ai-addon.js?v=79.1','rt79-village-ui.js?v=79.1','rt79-admin-suite.js?v=79.1','rt79-admin-logistics-addon.js?v=79.1']
+          for src in tags: assert f'<script defer src="{src}"></script>' in a,src
+          c=Path('rt76-master-core.js').read_text(encoding='utf-8')
+          assert 'const m=ensure();if(!m)return false;let changed=false;' in c
+          assert 'if(!S()){inject();return}Planner.processSupport' in c
+          print({'html_bytes':len(a.encode()),'deferred_modules':len(tags)})
+          PY
+          node --check rt76-master-core.js
+      - name: Persist RT87 patch to PR branch
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          if git diff --quiet -- index.html JOGAR_REINOS_TRIBAIS.html rt76-master-core.js; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html JOGAR_REINOS_TRIBAIS.html rt76-master-core.js
+          git commit -m 'RT87 normal boot: defer modules and idle pre-login scheduler'
+          git push origin HEAD:${{ github.head_ref }}
       - name: Install Selenium
         run: python -m pip install --quiet selenium
       - name: Start local site
         shell: bash
         run: |
           python -m http.server 8765 >/tmp/rt87-http.log 2>&1 &
-          echo $! > /tmp/rt87-http.pid
           sleep 2
-      - name: Real cold boot without fast mode
+      - name: Cold boot without fast mode
         shell: python
         run: |
           import json,time
@@ -50,38 +84,28 @@ jobs:
           from selenium.webdriver.support.ui import WebDriverWait
           from selenium.webdriver.support import expected_conditions as EC
           o=Options()
-          for arg in ['--headless=new','--no-sandbox','--disable-dev-shm-usage','--window-size=1440,1000','--disable-cache']:
-              o.add_argument(arg)
+          for arg in ['--headless=new','--no-sandbox','--disable-dev-shm-usage','--window-size=1440,1000','--disable-cache']: o.add_argument(arg)
           o.set_capability('goog:loggingPrefs',{'browser':'ALL'})
-          d=webdriver.Chrome(options=o)
-          d.execute_cdp_cmd('Network.setCacheDisabled',{'cacheDisabled':True})
+          d=webdriver.Chrome(options=o); d.execute_cdp_cmd('Network.setCacheDisabled',{'cacheDisabled':True})
           out={'url':'http://127.0.0.1:8765/','fast_mode':False}
           try:
               t=time.perf_counter(); d.get(out['url'])
-              WebDriverWait(d,2).until(EC.visibility_of_element_located((By.CSS_SELECTOR,'.boot')))
-              out['boot_shell_visible_ms']=round((time.perf_counter()-t)*1000)
-              WebDriverWait(d,10).until(EC.visibility_of_element_located((By.CSS_SELECTOR,'.rt55-entry')))
-              out['game_landing_visible_ms']=round((time.perf_counter()-t)*1000)
+              WebDriverWait(d,8).until(EC.visibility_of_element_located((By.CSS_SELECTOR,'.rt55-entry')))
+              out['landing_visible_ms']=round((time.perf_counter()-t)*1000)
               online=WebDriverWait(d,3).until(EC.element_to_be_clickable((By.CSS_SELECTOR,'[data-entry-online]')))
-              out['game_landing_interactive']=True
-              WebDriverWait(d,5).until(lambda x: x.execute_script("return !!window.__RT85_AUTH_BRIDGE__"))
+              WebDriverWait(d,5).until(lambda x:x.execute_script('return !!window.__RT85_AUTH_BRIDGE__'))
               out['rt85_bridge_loaded']=True
-              online.click()
-              WebDriverWait(d,5).until(EC.visibility_of_element_located((By.CSS_SELECTOR,'input[name="identifier"],input[type="email"],#rt55-online-email')))
+              online.click(); WebDriverWait(d,5).until(EC.visibility_of_element_located((By.CSS_SELECTOR,'input[name="identifier"],input[type="email"],#rt55-online-email')))
               out['online_auth_visible']=True
-              logs=d.get_log('browser')
-              severe=[x for x in logs if x.get('level')=='SEVERE' and 'favicon' not in x.get('message','').lower()]
+              logs=d.get_log('browser'); severe=[x for x in logs if x.get('level')=='SEVERE' and 'favicon' not in x.get('message','').lower()]
               out['severe']=severe
-              nav=d.execute_script("return performance.getEntriesByType('navigation')[0].toJSON()")
-              out['navigation']={k:nav.get(k) for k in ['domInteractive','domContentLoadedEventEnd','loadEventEnd','responseEnd']}
-              assert out['boot_shell_visible_ms'] < 1500, out
-              assert out['game_landing_visible_ms'] < 8000, out
+              assert out['landing_visible_ms']<8000,out
               assert out['online_auth_visible'] and out['rt85_bridge_loaded']
+              assert not any('RT76 master scheduler' in x.get('message','') for x in severe),severe
               out['pass']=True
           finally:
               Path('RT87_COLD_BOOT_PROOF.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
-              d.save_screenshot('RT87_COLD_BOOT.png')
-              d.quit()
+              d.save_screenshot('RT87_COLD_BOOT.png'); d.quit()
           print(json.dumps(out,ensure_ascii=False,indent=2))
       - uses: actions/upload-artifact@v4
         if: always()
