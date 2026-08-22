@@ -1,0 +1,119 @@
+name: RT79.1 Real Full Revalidation
+on:
+  push:
+    branches: [rt79-real-revalidation]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  full-revalidation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright Chromium
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+      - name: Adapt historical gates to current RT79.1 without weakening product checks
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('tools/rt76_full_regression_current.py')
+          s=p.read_text(encoding='utf-8')
+          old="check(f'{prefix}.title_rt75','RT75' in base['title'],base['title'])"
+          new="check(f'{prefix}.title_rt79_1','RT79' in base['title'],base['title'])"
+          if old not in s: raise SystemExit('expected RT75 title assertion not found')
+          s=s.replace(old,new,1)
+
+          old="""    page.wait_for_timeout(180)
+    d=diag(page)"""
+          new="""    page.wait_for_timeout(180)
+    page.evaluate(\"\"\"async()=>{for(const img of [...document.images]){try{img.loading='eager';img.scrollIntoView({block:'center'});if(!img.complete)await new Promise(r=>{const done=()=>r();img.addEventListener('load',done,{once:true});img.addEventListener('error',done,{once:true});setTimeout(done,1000)})}catch(e){}}window.scrollTo(0,0)}\"\"\")
+    page.wait_for_timeout(120)
+    d=diag(page)"""
+          if old not in s: raise SystemExit('capture diagnostic anchor not found')
+          s=s.replace(old,new,1)
+
+          old="""      const v=getActiveVillage(), keys=payload.keys, tier=payload.tier, chosen={};
+      for(const k of keys){"""
+          new="""      const v=getActiveVillage(), keys=payload.keys, tier=payload.tier, chosen={};
+      v.unitResearch={};v.unitResearchQueue=[];
+      if(state?.player?.research){state.player.research.completed=[];state.player.research.queue=[];}
+      for(const k of keys){"""
+          if old not in s: raise SystemExit('tier setup anchor not found')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+
+          p=Path('tools/rt79_individual_button_revalidation.py')
+          s=p.read_text(encoding='utf-8')
+          old="""after=page.evaluate('''()=>{const st=JSON.stringify(RT76.state()),dom=document.querySelector('#app')?.innerHTML||document.body.innerHTML;const effects=[];if(st!==window.__rt79BeforeState)effects.push('state');if(String(window.currentView||'')!==arguments[0])effects.push('view');if(dom!==window.__rt79BeforeDom)effects.push('dom');return {effects,errors:[...(window.__rt79ButtonErrors||[])]}}''',before['view'])"""
+          new="""after=page.evaluate('''(beforeView)=>{const st=JSON.stringify(RT76.state()),dom=document.querySelector('#app')?.innerHTML||document.body.innerHTML;const effects=[];if(st!==window.__rt79BeforeState)effects.push('state');if(String(window.currentView||'')!==beforeView)effects.push('view');if(dom!==window.__rt79BeforeDom)effects.push('dom');return {effects,errors:[...(window.__rt79ButtonErrors||[])]}''',before['view'])"""
+          if old in s: s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          python -m py_compile tools/rt76_full_regression_current.py tools/rt76_master_contract_e2e.py tools/rt79_individual_button_revalidation.py
+          grep -F "v.unitResearch={};v.unitResearchQueue=[];" tools/rt76_full_regression_current.py
+          grep -F "img.loading='eager'" tools/rt76_full_regression_current.py
+          grep -F "(beforeView)=>" tools/rt79_individual_button_revalidation.py
+          node --check rt76-master-plan.js
+          node --check rt76-master-core.js
+      - name: Start current RT79.1 locally
+        run: |
+          python -m http.server 8765 > /tmp/rt79-http.log 2>&1 &
+          echo $! > /tmp/rt79-http.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/index.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/rt79-http.log
+          exit 1
+      - name: Run full visual, functional, master contract and individual button matrix
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          python tools/rt76_full_regression_current.py | tee RT79_FULL_REVALIDATION.log
+          FULL=${PIPESTATUS[0]}
+          python tools/rt76_master_contract_e2e.py | tee RT79_MASTER_CONTRACT.log
+          MASTER=${PIPESTATUS[0]}
+          python tools/rt79_individual_button_revalidation.py | tee RT79_BUTTON_REVALIDATION.log
+          BUTTONS=${PIPESTATUS[0]}
+          set -e
+          python - <<'PY'
+          import json, pathlib
+          out={}
+          p=pathlib.Path('RT76_EVIDENCIAS_ATUAIS/RESUMO.json')
+          if p.exists(): out['full']=json.loads(p.read_text(encoding='utf-8'))
+          p=pathlib.Path('RT76_MASTER_CONTRACT_E2E/result.json')
+          if p.exists():
+              d=json.loads(p.read_text(encoding='utf-8'))
+              out['master']={'ok':d.get('ok'),'count':d.get('count'),'failures':d.get('failures'),'page_errors':d.get('page_errors'),'console_errors':d.get('console_errors')}
+          p=pathlib.Path('RT79_BUTTON_REVALIDATION/RESUMO.json')
+          if p.exists(): out['buttons']=json.loads(p.read_text(encoding='utf-8'))
+          pathlib.Path('RT79_REAL_REVALIDATION_SUMMARY.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+          PY
+          echo "full_exit=$FULL master_exit=$MASTER buttons_exit=$BUTTONS"
+          if [ "$FULL" -ne 0 ] || [ "$MASTER" -ne 0 ] || [ "$BUTTONS" -ne 0 ]; then exit 1; fi
+      - name: Upload complete evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT79_1_REAL_FULL_REVALIDATION
+          path: |
+            RT76_EVIDENCIAS_ATUAIS/**
+            RT76_MASTER_CONTRACT_E2E/**
+            RT79_BUTTON_REVALIDATION/**
+            RT79_REAL_REVALIDATION_SUMMARY.json
+            RT79_FULL_REVALIDATION.log
+            RT79_MASTER_CONTRACT.log
+            RT79_BUTTON_REVALIDATION.log
+            /tmp/rt79-http.log
+          if-no-files-found: warn

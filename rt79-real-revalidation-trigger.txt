@@ -1,0 +1,1 @@
+RT79.1 real revalidation trigger after restoring the true RT76 master contract.
