@@ -95,7 +95,7 @@
       ensure().scheduledSupport.push(x);ensure().scheduledSupport.sort((a,b)=>a.departAt-b.departAt);save();return clone(x);
     },
     processSupport(ts=stamp()){
-      const m=ensure();let changed=false;
+      const m=ensure();if(!m)return false;let changed=false;
       for(const x of m.scheduledSupport){if(x.status!=='scheduled'||x.departAt>ts)continue;const src=S().villages[x.sourceId],dst=S().villages[x.targetId];if(!src||!dst||!Object.entries(x.troops).every(([k,q])=>n(src.units[k])>=n(q))){x.status='failed';x.error='Tropas/origem/destino indisponíveis';changed=true;continue}
         try{A.withVillage(src.id,()=>{const fd=new FormData();fd.set('targetId',dst.id);for(const [k,q] of Object.entries(x.troops))fd.set(`sup_${k}`,String(q));window.sendSupport(fd)});x.status='sent';x.sentAt=ts}catch(e){x.status='failed';x.error=String(e?.message||e)}changed=true;
       } if(changed)save();return changed;
@@ -216,7 +216,7 @@
   const css=document.createElement('style');css.id='rt76-master-css';css.textContent=`.rt76-master-card{margin-top:18px;border:2px solid #665022;background:linear-gradient(145deg,#fff4cef5,#d8bd7ef0)}.rt76-master-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.rt76-master-grid input,.rt76-master-grid select,.rt76-master-card select{width:100%;padding:7px}.rt76-master-units{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:7px;margin:10px 0}.rt76-master-units label{display:flex;justify-content:space-between;gap:6px;padding:6px;border:1px solid #a4834e;background:#fff8e2}.rt76-master-units input{width:70px}#rt76-map-context{position:fixed;z-index:999999;min-width:200px;padding:8px;background:#17130e;color:#f2e3b8;border:1px solid #c49a49;box-shadow:0 8px 30px #0008;display:grid;gap:5px}#rt76-map-context button{padding:7px;background:#4d3517;color:#fff0c4;border:1px solid #8d6c32}@media(max-width:700px){.rt76-master-grid{grid-template-columns:1fr}.rt76-master-units{grid-template-columns:1fr 1fr}}`;document.head.appendChild(css);
 
   const obs=new MutationObserver(()=>queueMicrotask(inject));obs.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
-  setInterval(()=>{try{Planner.processSupport(stamp());Jobs.process(stamp(),6);Market.runRoutes(stamp());Empire.runLogistics();planAIJobs(stamp());reconcileAIJobs(stamp());inject()}catch(e){console.error('RT76 master scheduler',e)}},5000);
+  setInterval(()=>{try{if(!S()){inject();return}Planner.processSupport(stamp());Jobs.process(stamp(),6);Market.runRoutes(stamp());Empire.runLogistics();planAIJobs(stamp());reconcileAIJobs(stamp());inject()}catch(e){console.error('RT76 master scheduler',e)}},5000);
   /* RT76_MASTER_STATE_WATCH */ setInterval(()=>{try{if(S())ensure()}catch(_){}},200);
   ensure();inject();
 })();
