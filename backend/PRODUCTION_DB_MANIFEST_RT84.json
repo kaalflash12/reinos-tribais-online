@@ -1,0 +1,26 @@
+{
+  "schema": "RT84",
+  "database": "Supabase production",
+  "repository": "kaalflash12/reinos-tribais-online",
+  "schema_sql_commit": "6ea0abf96fe3c117994d3d3bfa9576541901774a",
+  "manifest": {
+    "functions_count": 117,
+    "functions_hash": "587ec8c027e43f1c13be023f616f5776",
+    "tables_count": 38,
+    "tables_hash": "1dbdd04cd294bbb05c48e6b0a55f1c48",
+    "indexes_count": 102,
+    "indexes_hash": "3baa6a1b5273061b4e1ab82be5a518c4",
+    "policies_count": 39,
+    "policies_hash": "46784c6e567d0edc1b73f0eec6de44f2",
+    "migrations_count": 89,
+    "migrations_hash": "004e24c2878f662d91787d6b8809255c",
+    "latest_migration": "20260822003202",
+    "overall_hash": "de62755f6336729f432d1e874832c48b"
+  },
+  "critical_migrations_present": [
+    "rt83_real_world_combat",
+    "rt84_world_interactions_limits_and_logs",
+    "rt84_git_db_schema_sync_registry"
+  ],
+  "notes": "Nao contem dados de jogadores, credenciais ou segredos. O hash e recalculavel com public.rt_schema_manifest()."
+}
