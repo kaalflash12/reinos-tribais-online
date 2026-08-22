@@ -1,0 +1,141 @@
+name: Package Reino Tribal v1.0.0
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/package-reino-tribal-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Validate public release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $release = Get-Content PRODUCT_RELEASE.json -Raw | ConvertFrom-Json
+          if($release.product_name -ne 'Reino Tribal'){ throw 'Nome publico incorreto.' }
+          if($release.public_version -ne '1.0.0'){ throw 'Versao publica incorreta.' }
+          $html = Get-Content index.html -Raw
+          $mirror = Get-Content JOGAR_REINOS_TRIBAIS.html -Raw
+          if($html -ne $mirror){ throw 'HTML principal e espelho divergem.' }
+          if($html -notmatch '<title>Reino Tribal</title>'){ throw 'Titulo publico incorreto.' }
+          if(-not (Test-Path reino-tribal-branding.js)){ throw 'Branding v1 ausente.' }
+          if(-not (Test-Path rt86-ai-director-ui.js)){ throw 'Diretor IA ausente.' }
+          $assets=(Get-ChildItem assets -Recurse -File).Count
+          if($assets -lt 1200){ throw "Assets insuficientes: $assets" }
+          Write-Host "[OK] Reino Tribal v1.0.0 | assets=$assets"
+
+      - name: Build clean game ZIP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $stage=Join-Path $env:RUNNER_TEMP 'reino-tribal-v1'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          robocopy . $stage /E /XD .git .github /XF package-reino-tribal-v1.yml | Out-Null
+          if($LASTEXITCODE -ge 8){ throw "robocopy falhou: $LASTEXITCODE" }
+          $commit=(git rev-parse HEAD).Trim()
+          $assets=(Get-ChildItem (Join-Path $stage 'assets') -Recurse -File).Count
+          $count=(Get-ChildItem $stage -Recurse -File).Count
+          [ordered]@{
+            product='Reino Tribal'
+            version='1.0.0'
+            source_commit=$commit
+            generated_at=(Get-Date).ToUniversalTime().ToString('o')
+            files=$count
+            assets=$assets
+          } | ConvertTo-Json | Set-Content (Join-Path $stage 'REINO_TRIBAL_BUILD_INFO.json') -Encoding UTF8
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath Reino_Tribal_v1.0.0.zip -CompressionLevel Optimal
+          $hash=(Get-FileHash Reino_Tribal_v1.0.0.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $hash | Set-Content Reino_Tribal_v1.0.0_SHA256.txt -Encoding ASCII
+          "SOURCE_COMMIT=$commit`nZIP_SHA256=$hash`nFILES=$count`nASSETS=$assets" | Set-Content Reino_Tribal_v1.0.0_BUILD.txt -Encoding ASCII
+          Write-Host "ZIP_SHA256=$hash"
+
+      - name: Generate installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $hash=(Get-Content Reino_Tribal_v1.0.0_SHA256.txt -Raw).Trim()
+          $script=@'
+          [CmdletBinding()]
+          param()
+          $ErrorActionPreference='Stop'
+          $Product='Reino Tribal'
+          $Version='1.0.0'
+          $ZipName='Reino_Tribal_v1.0.0.zip'
+          $ExpectedHash='__HASH__'
+          $InstallRoot=Join-Path $env:LOCALAPPDATA 'ReinoTribal\v1.0.0'
+          function Fail([string]$Text){ throw "Reino Tribal: $Text" }
+          Write-Host '============================================================'
+          Write-Host ' REINO TRIBAL v1.0.0 - INSTALADOR E VALIDADOR'
+          Write-Host '============================================================'
+          $here=Split-Path -Parent $MyInvocation.MyCommand.Path
+          $candidates=@((Join-Path $here $ZipName),(Join-Path 'A:\Downloads' $ZipName),(Join-Path $env:USERPROFILE ('Downloads\'+$ZipName)))|Select-Object -Unique
+          $zip=$candidates|Where-Object{Test-Path -LiteralPath $_}|Select-Object -First 1
+          if(-not $zip){Fail "$ZipName nao encontrado. Deixe o ZIP ao lado deste PowerShell ou em A:\Downloads."}
+          $actual=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($actual -ne $ExpectedHash){Fail "SHA-256 invalido. Esperado $ExpectedHash; recebido $actual"}
+          Write-Host '[OK] ZIP autenticado por SHA-256.'
+          $temp=Join-Path $env:TEMP ('REINO_TRIBAL_'+[guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Force -Path $temp|Out-Null
+          try{
+            Expand-Archive -LiteralPath $zip -DestinationPath $temp -Force
+            foreach($f in @('index.html','reino-tribal-branding.js','PRODUCT_RELEASE.json','rt86-ai-director-ui.js')){if(-not(Test-Path -LiteralPath(Join-Path $temp $f))){Fail "Arquivo obrigatorio ausente: $f"}}
+            $release=Get-Content (Join-Path $temp 'PRODUCT_RELEASE.json') -Raw|ConvertFrom-Json
+            if($release.product_name -ne $Product -or $release.public_version -ne $Version){Fail 'Identidade/versao publica invalida.'}
+            $html=Get-Content (Join-Path $temp 'index.html') -Raw
+            if($html -notmatch '<title>Reino Tribal</title>'){Fail 'Titulo publico invalido.'}
+            $assets=(Get-ChildItem (Join-Path $temp 'assets') -Recurse -File).Count
+            if($assets -lt 1200){Fail "Pacote de assets incompleto: $assets"}
+            if(Test-Path -LiteralPath $InstallRoot){$backup=$InstallRoot+'_BACKUP_'+(Get-Date -Format 'yyyyMMdd_HHmmss');Move-Item $InstallRoot $backup -Force;Write-Host "[OK] Backup: $backup"}
+            New-Item -ItemType Directory -Force -Path $InstallRoot|Out-Null
+            Get-ChildItem -LiteralPath $temp -Force|ForEach-Object{Move-Item $_.FullName -Destination $InstallRoot -Force}
+          } finally {Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue}
+          $desktop=[Environment]::GetFolderPath('Desktop');$shell=New-Object -ComObject WScript.Shell
+          $shortcut=$shell.CreateShortcut((Join-Path $desktop 'Reino Tribal.lnk'));$shortcut.TargetPath=(Join-Path $InstallRoot 'index.html');$shortcut.WorkingDirectory=$InstallRoot;$shortcut.Save()
+          @"
+          [InternetShortcut]
+          URL=https://kaalflash12.github.io/reinos-tribais-online/
+          "@|Set-Content -LiteralPath (Join-Path $desktop 'Reino Tribal Online.url') -Encoding ASCII
+          Write-Host '[OK] Reino Tribal v1.0.0 instalado.'
+          Write-Host "Pasta: $InstallRoot"
+          Start-Process (Join-Path $InstallRoot 'index.html')
+          '@
+          $script=$script.Replace('__HASH__',$hash)
+          Set-Content INSTALAR_REINO_TRIBAL_v1.0.0.ps1 -Value $script -Encoding ASCII
+          $errors=$null;$tokens=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path INSTALAR_REINO_TRIBAL_v1.0.0.ps1),[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List|Out-String|Write-Host;throw 'PowerShell final com erro de sintaxe.'}
+          Write-Host '[OK] PowerShell parseado no Windows.'
+
+      - name: Final integrity
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $tmp=Join-Path $env:RUNNER_TEMP 'recheck'
+          Expand-Archive Reino_Tribal_v1.0.0.zip $tmp -Force
+          $info=Get-Content (Join-Path $tmp 'REINO_TRIBAL_BUILD_INFO.json') -Raw|ConvertFrom-Json
+          if($info.product -ne 'Reino Tribal' -or $info.version -ne '1.0.0'){throw 'Build info invalido.'}
+          $ps=Get-Content INSTALAR_REINO_TRIBAL_v1.0.0.ps1 -Raw
+          $hash=(Get-FileHash Reino_Tribal_v1.0.0.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($ps -notmatch [regex]::Escape($hash)){throw 'Instalador nao contem hash real do ZIP.'}
+          Write-Host "[PASS] Reino Tribal v1.0.0 | commit=$($info.source_commit) | files=$($info.files) | assets=$($info.assets)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: REINO_TRIBAL_v1.0.0_FINAL
+          path: |
+            Reino_Tribal_v1.0.0.zip
+            INSTALAR_REINO_TRIBAL_v1.0.0.ps1
+            Reino_Tribal_v1.0.0_SHA256.txt
+            Reino_Tribal_v1.0.0_BUILD.txt
