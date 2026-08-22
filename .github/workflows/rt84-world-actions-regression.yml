@@ -1,0 +1,48 @@
+name: RT84 World Actions Regression
+on:
+  pull_request:
+    paths:
+      - 'rt84-world-actions.js'
+      - 'rt79-village-ui.js'
+      - 'backend/rt84-world-interactions.sql'
+      - 'tools/rt84_world_actions_regression.py'
+      - '.github/workflows/rt84-world-actions-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  world-actions:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Selenium
+        run: python -m pip install --disable-pip-version-check selenium
+      - name: Validate RT84 sources
+        shell: pwsh
+        run: |
+          node --check rt84-world-actions.js
+          node --check rt79-village-ui.js
+          if (-not (Select-String -LiteralPath rt79-village-ui.js -SimpleMatch "rt84-world-actions.js?v=84.0")) { throw 'RT84 loader ausente' }
+          if (-not (Select-String -LiteralPath backend/rt84-world-interactions.sql -SimpleMatch 'rt84_interact_world_node')) { throw 'Migration RT84 ausente' }
+          if (-not (Select-String -LiteralPath backend/rt84-world-interactions.sql -SimpleMatch 'Limite diário de 30')) { throw 'Limite diário RT84 ausente' }
+      - name: Start local branch
+        shell: pwsh
+        run: |
+          $p=Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1' -PassThru -WindowStyle Hidden
+          $p.Id | Set-Content "$env:RUNNER_TEMP\rt84_server.pid"
+          Start-Sleep -Seconds 2
+          (Invoke-WebRequest 'http://127.0.0.1:8765/' -UseBasicParsing).StatusCode
+      - name: Run RT84 anti-spam/economy regression
+        env:
+          RT84_URL: http://127.0.0.1:8765/
+        run: python tools/rt84_world_actions_regression.py
+      - name: Upload proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT84_WORLD_ACTIONS_PROOF
+          path: ${{ runner.temp }}/RT84_WORLD_ACTIONS_PROOF
+          if-no-files-found: error
