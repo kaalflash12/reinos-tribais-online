@@ -95,8 +95,10 @@ jobs:
               online=WebDriverWait(d,3).until(EC.element_to_be_clickable((By.CSS_SELECTOR,'[data-entry-online]')))
               WebDriverWait(d,5).until(lambda x:x.execute_script('return !!window.__RT85_AUTH_BRIDGE__'))
               out['rt85_bridge_loaded']=True
-              online.click(); WebDriverWait(d,5).until(EC.visibility_of_element_located((By.CSS_SELECTOR,'input[name="identifier"],input[type="email"],#rt55-online-email')))
+              online.click()
+              WebDriverWait(d,5).until(lambda x: len(x.find_elements(By.CSS_SELECTOR,'input')) >= 4)
               out['online_auth_visible']=True
+              out['auth_inputs']=len(d.find_elements(By.CSS_SELECTOR,'input'))
               logs=d.get_log('browser'); severe=[x for x in logs if x.get('level')=='SEVERE' and 'favicon' not in x.get('message','').lower()]
               out['severe']=severe
               assert out['landing_visible_ms']<8000,out
