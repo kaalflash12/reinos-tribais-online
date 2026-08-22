@@ -1,0 +1,36 @@
+{
+  "schema": "RT85",
+  "database": "Supabase production",
+  "repository": "kaalflash12/reinos-tribais-online",
+  "runtime_merge_commit": "4d30c9a8c6d1c101473c79c256d425dd5c64e141",
+  "scope": "Objetos e migrations do Reinos Tribais no Supabase compartilhado; segredos, senhas e dados privados de jogadores não são versionados.",
+  "manifest": {
+    "functions_count": 119,
+    "functions_hash": "2eceb2172822043d9432a58daf4ecd27",
+    "tables_count": 39,
+    "tables_hash": "b048d6e3ea2e42fe79aeefdf681a89cb",
+    "indexes_count": 104,
+    "indexes_hash": "cd4dd5f9605a92d04bfe8763d734e052",
+    "policies_count": 39,
+    "policies_hash": "46784c6e567d0edc1b73f0eec6de44f2",
+    "migrations_count": 85,
+    "migrations_hash": "9321bfaa9d2fef9969dc4eddff941ca6",
+    "latest_migration": "20260822005426",
+    "overall_hash": "5253c978c7a25a8b787d4c93a96919e6"
+  },
+  "auth": {
+    "edge_function": "rt-login-v85",
+    "alias_table": "rt85_login_aliases",
+    "aliases": 7,
+    "users_with_alias": 4,
+    "rt_players": 4,
+    "passwords_versioned": false
+  },
+  "critical_migrations_present": [
+    "rt83_real_world_combat",
+    "rt84_world_interactions_limits_and_logs",
+    "rt84_git_db_schema_sync_registry",
+    "rt84_git_db_schema_sync_scope_fix",
+    "rt85_auth_alias_and_profile_repair"
+  ]
+}
