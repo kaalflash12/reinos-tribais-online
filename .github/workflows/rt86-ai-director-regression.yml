@@ -15,11 +15,12 @@ jobs:
       - name: Static syntax
         run: |
           node --check rt86-ai-director-ui.js
-          grep -q "rt86-ai-director-ui.js?v=86.1" rt79-village-ui.js
+          grep -q "rt86-ai-director-ui.js?v=86.2" rt79-village-ui.js
           grep -q "Diretor IA" backend/rt86-ai-director-and-per-npc-agents.sql
           grep -q "rt86_npc_ai_agents" backend/rt86-ai-director-and-per-npc-agents.sql
           grep -q "private.rt79_system_tick" backend/rt86-ai-director-and-per-npc-agents.sql
           grep -q "no_safe_target" backend/rt86-ai-director-and-per-npc-agents.sql
+          grep -q "rt86-ai-admin" rt86-ai-director-ui.js
       - name: Production status proof
         shell: python
         run: |
@@ -33,7 +34,7 @@ jobs:
           assert data['version']==86, data
           assert data['principal']=='ai_director', data
           agents=data.get('agents') or []
-          assert len(agents)>=1, data
+          assert len(agents)==26, len(agents)
           names=[a['name'] for a in agents]
           assert len(names)==len(set(names)), names
           assert all(a.get('personality') and isinstance(a.get('traits'),dict) for a in agents), agents
