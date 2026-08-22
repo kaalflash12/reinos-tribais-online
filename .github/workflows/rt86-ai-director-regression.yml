@@ -1,0 +1,41 @@
+name: RT86 AI Director Regression
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ai-director:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static syntax
+        run: |
+          node --check rt86-ai-director-ui.js
+          grep -q "rt86-ai-director-ui.js?v=86.1" rt79-village-ui.js
+          grep -q "Diretor IA" backend/rt86-ai-director-and-per-npc-agents.sql
+          grep -q "rt86_npc_ai_agents" backend/rt86-ai-director-and-per-npc-agents.sql
+          grep -q "private.rt79_system_tick" backend/rt86-ai-director-and-per-npc-agents.sql
+          grep -q "no_safe_target" backend/rt86-ai-director-and-per-npc-agents.sql
+      - name: Production status proof
+        shell: python
+        run: |
+          import json,re,urllib.request,pathlib
+          text=pathlib.Path('index.html').read_text(encoding='utf-8')
+          url=re.search(r"url:\s*'([^']+supabase\.co)'",text).group(1)
+          key=re.search(r"key:\s*'([^']+)'",text).group(1)
+          world=re.search(r"worldId:\s*'([0-9a-f-]{36})'",text).group(1)
+          req=urllib.request.Request(url+'/rest/v1/rpc/rt86_ai_public_status',data=json.dumps({'p_world_id':world}).encode(),headers={'apikey':key,'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+          data=json.loads(urllib.request.urlopen(req,timeout=20).read())
+          assert data['version']==86, data
+          assert data['principal']=='ai_director', data
+          agents=data.get('agents') or []
+          assert len(agents)>=1, data
+          names=[a['name'] for a in agents]
+          assert len(names)==len(set(names)), names
+          assert all(a.get('personality') and isinstance(a.get('traits'),dict) for a in agents), agents
+          assert data.get('director',{}).get('enabled') is True, data
+          print(json.dumps({'pass':True,'agents':len(agents),'unique_agents':len(set(names)),'pace':data['director'].get('pace_multiplier'),'active_orders':data.get('active_orders')},ensure_ascii=False))
