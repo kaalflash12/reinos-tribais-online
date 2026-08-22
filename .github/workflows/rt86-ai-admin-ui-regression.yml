@@ -1,0 +1,85 @@
+name: RT86 AI Admin UI Regression
+
+on:
+  pull_request:
+    paths:
+      - 'rt86-ai-director-ui.js'
+      - 'rt86-ai-admin-nav.js'
+      - '.github/workflows/rt86-ai-admin-ui-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  ai-admin-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Selenium
+        run: pip install selenium
+      - name: Build isolated admin harness
+        shell: python
+        run: |
+          from pathlib import Path
+          agents=[]
+          personalities=['raider','warden','merchant','scholar','opportunist','conqueror','diplomat','builder']
+          for i in range(26):
+              agents.append({'id':f'agent-{i+1}','name':f'NPC {i+1:02d}','personality':personalities[i%len(personalities)],'enabled':True,'last_action':'build:warehouse+recruit:spear','traits':{'aggression':30+i%60,'risk':25+i%55},'metrics':{'points':1200+i*90,'villages':1+i%4,'risk_limit':0.9},'next_tick':'2026-08-22T17:30:00Z'})
+          import json
+          status={'version':86,'principal':'ai_director','director':{'enabled':True,'pace_multiplier':0.85,'player_median_points':900,'npc_median_points':1400,'target_difficulty':1.0,'event_pressure':5,'monster_pressure':4,'last_tick':'2026-08-22T17:20:00Z','next_tick':'2026-08-22T17:21:00Z'},'agents':agents,'active_orders':3,'counts':{'ai_villages':117,'barbarian_villages':122,'active_events':2,'active_monsters':1},'recent_decisions':[{'actor':'NPC 01','action':'schedule_attack','created_at':'2026-08-22T17:19:00Z','data':{}}],'monster_balance':[{'monster_id':'m1'}]}
+          html=f'''<!doctype html><meta charset="utf-8"><title>RT86 UI Harness</title>
+          <style>body{{background:#080b08;color:#e8dec2;font:13px Arial}}.rt60-admin-layout{{display:grid;grid-template-columns:210px 1fr}}.rt60-admin-nav{{display:grid;align-content:start;gap:4px;padding:10px}}.rt60-admin-nav button{{padding:10px;background:#151a14;color:#ddd;border:1px solid #554624}}.rt60-admin-nav button.active{{color:#ffe092;background:#493919}}.rt60-admin-main{{padding:14px}}.hidden{{display:none!important}}.btn{{padding:6px}}table{{width:100%}}td,th{{padding:4px}}</style>
+          <main class="rt60-admin-shell"><div class="rt60-admin-layout"><nav class="rt60-admin-nav"><button class="active" data-admin-tab="overview"><b>◈</b>Visão geral</button><button data-admin-tab="audit"><b>📜</b>Auditoria</button></nav><section class="rt60-admin-main"><section data-admin-panel="overview">Overview</section></section></div></main>
+          <script>
+          window.__requests=[];
+          const STATUS={json.dumps(status,ensure_ascii=False)};
+          window.CLOUD={{url:'https://example.invalid',key:'anon',worldId:'world-test',client:{{rpc:async()=>({{data:STATUS,error:null}})}}}};
+          window.supabase={{createClient:()=>CLOUD.client}};
+          window.RTADMIN={{token:'test-token',ui:{{tab:'overview'}}}};
+          window.fetch=async (url,opt)=>{{const body=JSON.parse(opt.body||'{{}}');window.__requests.push(body);return new Response(JSON.stringify(body.action==='status'?STATUS:{{ok:true,result:{{action:body.action}}}}),{{status:200,headers:{{'Content-Type':'application/json'}}}})}};
+          document.addEventListener('click',e=>{{const b=e.target.closest('[data-admin-tab]');if(!b)return;RTADMIN.ui.tab=b.dataset.adminTab;document.querySelectorAll('[data-admin-tab]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('[data-admin-panel]').forEach(x=>x.classList.toggle('hidden',x.dataset.adminPanel!==b.dataset.adminTab));}});
+          </script>
+          <script src="rt86-ai-director-ui.js"></script><script src="rt86-ai-admin-nav.js"></script>'''
+          Path('rt86-ui-harness.html').write_text(html,encoding='utf-8')
+      - name: Run browser control proof
+        shell: python
+        run: |
+          import subprocess,time,json
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          server=subprocess.Popen(['python','-m','http.server','8765'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+          try:
+              o=webdriver.ChromeOptions();o.add_argument('--headless=new');o.add_argument('--no-sandbox');o.add_argument('--window-size=1600,1000')
+              d=webdriver.Chrome(options=o);w=WebDriverWait(d,20)
+              d.get('http://127.0.0.1:8765/rt86-ui-harness.html')
+              nav=w.until(EC.element_to_be_clickable((By.CSS_SELECTOR,'[data-admin-tab="ai"]')))
+              assert 'Diretor IA' in nav.text,nav.text
+              nav.click();
+              panel=w.until(EC.visibility_of_element_located((By.ID,'rt86-ai-director-panel')))
+              assert panel.find_element(By.CSS_SELECTOR,'[data-rt86-director-tick]')
+              assert panel.find_element(By.CSS_SELECTOR,'[data-rt86-config-save]')
+              assert len(panel.find_elements(By.CSS_SELECTOR,'[data-rt86-agent-row]'))==26
+              assert len(panel.find_elements(By.CSS_SELECTOR,'[data-rt86-agent-save]'))==26
+              panel.find_element(By.CSS_SELECTOR,'[data-rt86-director-tick]').click();time.sleep(.5)
+              panel.find_element(By.CSS_SELECTOR,'[data-rt86-agent-save]').click();time.sleep(.5)
+              reqs=d.execute_script('return window.__requests')
+              actions=[x.get('action') for x in reqs]
+              assert 'tick' in actions,actions
+              assert 'agent_patch' in actions,actions
+              d.save_screenshot('RT86_AI_ADMIN_CONTROLS.png')
+              proof={'pass':True,'agents':26,'nav':'Diretor IA','actions':actions,'controls':['tick','config','agent_patch','agent_tick','reset_memory']}
+              open('PROVA_RT86_AI_ADMIN_UI.json','w',encoding='utf-8').write(json.dumps(proof,ensure_ascii=False,indent=2))
+              print(json.dumps(proof,ensure_ascii=False))
+              d.quit()
+          finally:
+              server.terminate()
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RT86_AI_ADMIN_UI_PROOF
+          path: |
+            RT86_AI_ADMIN_CONTROLS.png
+            PROVA_RT86_AI_ADMIN_UI.json
