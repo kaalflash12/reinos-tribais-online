@@ -16,10 +16,10 @@ jobs:
       - name: Static contract
         run: |
           node --check reino-tribal-branding.js
-          grep -q "reino-tribal-branding.js?v=1.0.0" rt79-village-ui.js
+          grep -q "reino-tribal-branding.js?v=1.0.1" rt79-village-ui.js
           grep -q '"product_name": "Reino Tribal"' PRODUCT_RELEASE.json
-          grep -q '"public_version": "1.0.0"' PRODUCT_RELEASE.json
-          grep -q "'Reino Tribal','1.0.0'" backend/reino-tribal-public-version-1.0.0.sql
+          grep -q '"public_version": "1.0.1"' PRODUCT_RELEASE.json
+          grep -q "'Reino Tribal','1.0.1'" backend/reino-tribal-public-version-1.0.1.sql
       - name: Install Selenium
         run: python -m pip install --quiet selenium
       - name: Start site
@@ -50,7 +50,7 @@ jobs:
               out['has_old_brand']='Reinos Tribais' in body
               out['has_new_brand']='Reino Tribal' in body
               assert out['title']=='Reino Tribal',out
-              assert out['product']=={'name':'Reino Tribal','version':'1.0.0'},out
+              assert out['product']=={'name':'Reino Tribal','version':'1.0.1'},out
               assert not out['visible_revision_tokens'],out
               assert not out['has_old_brand'],out
               assert out['has_new_brand'],out
