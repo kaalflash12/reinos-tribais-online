@@ -1,0 +1,133 @@
+name: RT87 Normal Cold Boot
+
+on:
+  push:
+    branches: [rt87-canonical]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'JOGAR_REINOS_TRIBAIS.html'
+      - 'rt76-master-core.js'
+      - '.github/workflows/rt87-normal-cold-boot.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref_name || github.head_ref }}
+          fetch-depth: 0
+      - name: Apply RT87 boot patch
+        shell: python
+        run: |
+          from pathlib import Path
+          tags = [
+            'rt76-runtime.js?v=79.1','rt76-map-ai.js?v=79.1','rt76-master-plan.js?v=79.1',
+            'rt79-suite.js?v=79.1','rt79-groups-addon.js?v=79.1','rt79-logistics-ai-addon.js?v=79.1',
+            'rt79-village-ui.js?v=79.1','rt79-admin-suite.js?v=79.1','rt79-admin-logistics-addon.js?v=79.1'
+          ]
+          for name in ('index.html','JOGAR_REINOS_TRIBAIS.html'):
+            p=Path(name); s=p.read_text(encoding='utf-8')
+            for src in tags:
+              s=s.replace(f'<script src="{src}"></script>',f'<script defer src="{src}"></script>')
+            p.write_text(s,encoding='utf-8')
+          p=Path('rt76-master-core.js'); s=p.read_text(encoding='utf-8')
+          s=s.replace('const m=ensure();let changed=false;\n      for(const x of m.scheduledSupport)', 'const m=ensure();if(!m)return false;let changed=false;\n      for(const x of m.scheduledSupport)')
+          s=s.replace("setInterval(()=>{try{Planner.processSupport(stamp());", "setInterval(()=>{try{if(!S()){inject();return}Planner.processSupport(stamp());")
+          p.write_text(s,encoding='utf-8')
+      - name: Validate patch statically
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          a=Path('index.html').read_text(encoding='utf-8')
+          b=Path('JOGAR_REINOS_TRIBAIS.html').read_text(encoding='utf-8')
+          assert a==b, 'HTML mirrors diverged'
+          required=['rt76-runtime.js?v=79.1','rt76-map-ai.js?v=79.1','rt76-master-plan.js?v=79.1','rt79-suite.js?v=79.1','rt79-groups-addon.js?v=79.1','rt79-logistics-ai-addon.js?v=79.1','rt79-village-ui.js?v=79.1','rt79-admin-suite.js?v=79.1','rt79-admin-logistics-addon.js?v=79.1']
+          for src in required:
+              assert f'<script defer src="{src}"></script>' in a, src
+          c=Path('rt76-master-core.js').read_text(encoding='utf-8')
+          assert 'const m=ensure();if(!m)return false;let changed=false;' in c
+          assert 'if(!S()){inject();return}Planner.processSupport' in c
+          print('RT87 static PASS')
+          PY
+          node --check rt76-master-core.js
+      - name: Install Selenium
+        run: python -m pip install --quiet selenium
+      - name: Start local site
+        shell: bash
+        run: |
+          python -m http.server 8765 >/tmp/rt87-http.log 2>&1 &
+          echo $! > /tmp/rt87-http.pid
+          sleep 2
+      - name: Cold boot browser proof
+        shell: python
+        run: |
+          import json,time
+          from pathlib import Path
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+          o=Options()
+          for x in ['--headless=new','--no-sandbox','--disable-dev-shm-usage','--window-size=1440,1000','--disable-cache']:
+              o.add_argument(x)
+          o.set_capability('goog:loggingPrefs',{'browser':'ALL'})
+          d=webdriver.Chrome(options=o)
+          d.execute_cdp_cmd('Network.setCacheDisabled',{'cacheDisabled':True})
+          out={'url':'http://127.0.0.1:8765/','fast_mode':False}
+          try:
+              t=time.perf_counter(); d.get(out['url']);
+              landing=WebDriverWait(d,8).until(EC.visibility_of_element_located((By.CSS_SELECTOR,'.rt55-entry')))
+              out['landing_visible_ms']=round((time.perf_counter()-t)*1000)
+              online=WebDriverWait(d,3).until(EC.element_to_be_clickable((By.CSS_SELECTOR,'[data-entry-online]')))
+              out['landing_interactive']=True
+              nav=d.execute_script("return performance.getEntriesByType('navigation')[0].toJSON()")
+              resources=d.execute_script("return performance.getEntriesByType('resource').map(x=>({name:x.name,initiatorType:x.initiatorType,duration:x.duration,transferSize:x.transferSize}))")
+              out['navigation']={k:nav.get(k) for k in ['domInteractive','domContentLoadedEventEnd','loadEventEnd','responseEnd']}
+              out['resource_count']=len(resources)
+              out['script_resources']=len([x for x in resources if x['initiatorType']=='script'])
+              out['image_resources']=len([x for x in resources if x['initiatorType']=='img'])
+              severe=[x for x in d.get_log('browser') if x.get('level')=='SEVERE' and 'favicon' not in x.get('message','').lower()]
+              out['severe_before_login']=severe
+              online.click()
+              WebDriverWait(d,5).until(EC.visibility_of_element_located((By.CSS_SELECTOR,'input[name="identifier"],input[type="email"],#rt55-online-email')))
+              out['online_auth_visible']=True
+              WebDriverWait(d,5).until(lambda x: x.execute_script("return !!window.__RT85_AUTH_BRIDGE__"))
+              out['rt85_bridge_loaded']=True
+              assert out['landing_visible_ms'] < 5000, out
+              assert not severe, severe
+              assert out['online_auth_visible'] and out['rt85_bridge_loaded']
+              out['pass']=True
+          finally:
+              Path('RT87_COLD_BOOT_PROOF.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+              d.save_screenshot('RT87_COLD_BOOT.png')
+              d.quit()
+          print(json.dumps(out,ensure_ascii=False,indent=2))
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RT87_COLD_BOOT_PROOF
+          path: |
+            RT87_COLD_BOOT_PROOF.json
+            RT87_COLD_BOOT.png
+      - name: Commit boot patch on branch
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          if git diff --quiet -- index.html JOGAR_REINOS_TRIBAIS.html rt76-master-core.js; then
+            echo 'No patch changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html JOGAR_REINOS_TRIBAIS.html rt76-master-core.js
+          git commit -m 'RT87 normal cold boot: parallel scripts and idle scheduler'
+          git push origin HEAD:${{ github.ref_name }}
