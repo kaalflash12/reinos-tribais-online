@@ -1,0 +1,35 @@
+{
+  "schema": "RT86.3",
+  "database": "Supabase production",
+  "repository": "kaalflash12/reinos-tribais-online",
+  "rt86_merge_commit": "c8e92ac431497d7de4c3a36a1b4edb90536056f5",
+  "scope": "Somente migrations e objetos do Reinos Tribais; migrations de projetos compartilhados no mesmo Supabase ficam fora do hash.",
+  "manifest": {
+    "functions_count": 127,
+    "functions_hash": "a50a29c2a62b6fe2620152fdae9fdee7",
+    "tables_count": 44,
+    "tables_hash": "f5ce59769b6ea11deb58cb7219e90782",
+    "indexes_count": 115,
+    "indexes_hash": "d423fd563d9253b8f7bd1ce7631310c4",
+    "policies_count": 39,
+    "policies_hash": "46784c6e567d0edc1b73f0eec6de44f2",
+    "migrations_count": 89,
+    "migrations_hash": "a1c79f175dc69cf37e9d879039544e52",
+    "latest_migration": "20260822033226",
+    "overall_hash": "f8f9a86b36e02bf6eec897c774c9d39c"
+  },
+  "rt86_migrations": [
+    "rt86_ai_director_and_per_npc_agents",
+    "rt86_1_npc_target_intelligence",
+    "rt86_2_ai_public_status_principal",
+    "rt86_3_preserve_agent_metrics"
+  ],
+  "rt86_runtime": {
+    "admin_principal": "ai_director",
+    "npc_agents": 26,
+    "agent_scope": "one persistent agent per unique AI player owner_name",
+    "cron": "private.rt79_system_tick every minute",
+    "features": ["adaptive world pacing","per-NPC personality/traits/memory/goals","real troop dispatch and return","real casualties and loot","risk-aware target selection","event activation","pre-engagement monster balancing","admin audit log","admin visibility panel"]
+  },
+  "notes": "Nao contem dados privados de jogadores, credenciais ou senha do principal de servico. O hash e recalculavel com public.rt_schema_manifest()."
+}
