@@ -3,5 +3,6 @@
   "public_version": "1.0.0",
   "version_scheme": "semver",
   "versioning_started_at": "2026-08-22",
+  "source_commit": "c23402d7d2c80ec5aa38b267449fb7963e000dcc",
   "rule": "Revision identifiers such as RT80/RT86/RT87 are internal compatibility identifiers only and must not be shown as the game name or public version."
 }
