@@ -14,6 +14,6 @@
   loadScript('rt84-world-actions.js?v=84.0','rt84-world-actions','__RT84_WORLD_ACTIONS__');
   loadScript('rt84-offer-consistency.js?v=84.1','rt84-offer-consistency','__RT84_OFFER_CONSISTENCY__');
   loadScript('rt85-auth-bridge.js?v=85.0','rt85-auth-bridge','__RT85_AUTH_BRIDGE__');
-  loadScript('rt86-ai-director-ui.js?v=86.1','rt86-ai-director-ui','__RT86_AI_DIRECTOR_UI__');
-  // RT80.5 + RT81.3 + RT83.0 + RT84.1 + RT85.0 + RT86.1: interface, autoridade, combate, interações mundiais, autenticação e Diretor IA/NPCs persistentes.
+  loadScript('rt86-ai-director-ui.js?v=86.2','rt86-ai-director-ui','__RT86_AI_DIRECTOR_UI__');
+  // RT80.5 + RT81.3 + RT83.0 + RT84.1 + RT85.0 + RT86.2: interface, autoridade, combate, interações mundiais, autenticação e Diretor IA/NPCs persistentes com controles ADM.
 })();
