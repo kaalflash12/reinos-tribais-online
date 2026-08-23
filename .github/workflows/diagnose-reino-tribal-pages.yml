@@ -21,34 +21,40 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Inspect Pages API and public endpoint
+      - name: Inspect Pages API and public endpoints
         id: inspect
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -u
+          BASE="https://kaalflash12.github.io/reinos-tribais-online"
           api_code=$(curl -L -sS -o /tmp/pages.json -w '%{http_code}' \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/pages" || true)
-          public_code=$(curl -L -sS -o /tmp/public.html -w '%{http_code}' \
-            --connect-timeout 10 --max-time 30 \
-            "https://kaalflash12.github.io/reinos-tribais-online/?diag=$GITHUB_SHA" || true)
+          public_code=$(curl -L -sS -o /tmp/public.html -w '%{http_code}' --connect-timeout 10 --max-time 30 "$BASE/?diag=$GITHUB_SHA" || true)
+          release_code=$(curl -L -sS -o /tmp/release.json -w '%{http_code}' --connect-timeout 10 --max-time 30 "$BASE/PRODUCT_RELEASE.json?diag=$GITHUB_SHA" || true)
+          loader_code=$(curl -L -sS -o /tmp/loader.js -w '%{http_code}' --connect-timeout 10 --max-time 30 "$BASE/rt79-village-ui.js?diag=$GITHUB_SHA" || true)
+          auth_code=$(curl -L -sS -o /tmp/auth.js -w '%{http_code}' --connect-timeout 10 --max-time 30 "$BASE/rt85-auth-bridge.js?diag=$GITHUB_SHA" || true)
           echo "api_code=$api_code" >> "$GITHUB_OUTPUT"
           echo "public_code=$public_code" >> "$GITHUB_OUTPUT"
-          echo "Pages API HTTP=$api_code"
-          cat /tmp/pages.json || true
-          echo
-          echo "Public HTTP=$public_code"
+          echo "release_code=$release_code" >> "$GITHUB_OUTPUT"
+          echo "loader_code=$loader_code" >> "$GITHUB_OUTPUT"
+          echo "auth_code=$auth_code" >> "$GITHUB_OUTPUT"
+          echo "Pages API HTTP=$api_code Public=$public_code Release=$release_code Loader=$loader_code Auth=$auth_code"
           grep -o '<title>[^<]*</title>' /tmp/public.html | head -1 || true
+          cat /tmp/release.json || true
       - name: Persist diagnosis
         if: always()
         shell: bash
         env:
           API_CODE: ${{ steps.inspect.outputs.api_code }}
           PUBLIC_CODE: ${{ steps.inspect.outputs.public_code }}
+          RELEASE_CODE: ${{ steps.inspect.outputs.release_code }}
+          LOADER_CODE: ${{ steps.inspect.outputs.loader_code }}
+          AUTH_CODE: ${{ steps.inspect.outputs.auth_code }}
         run: |
           set -euo pipefail
           git fetch origin main
@@ -58,22 +64,38 @@ jobs:
           def read(path):
               try:return open(path,encoding='utf-8').read()
               except:return ''
+          def code(name):
+              try:return int(os.environ.get(name) or 0)
+              except:return 0
           api_raw=read('/tmp/pages.json')
           try: api=json.loads(api_raw) if api_raw else None
           except: api={'raw':api_raw[:2000]}
           html=read('/tmp/public.html')
-          public_code=int(os.environ.get('PUBLIC_CODE') or 0)
+          release_raw=read('/tmp/release.json')
+          try: release=json.loads(release_raw) if release_raw else None
+          except: release=None
+          loader=read('/tmp/loader.js')
+          auth=read('/tmp/auth.js')
+          checks={
+            'root_http_200':code('PUBLIC_CODE')==200,
+            'title_reino_tribal':'<title>Reino Tribal</title>' in html,
+            'release_http_200':code('RELEASE_CODE')==200,
+            'release_v1_0_1':isinstance(release,dict) and release.get('product_name')=='Reino Tribal' and release.get('public_version')=='1.0.1',
+            'loader_http_200':code('LOADER_CODE')==200,
+            'loader_v1_0_1':'reino-tribal-branding.js?v=1.0.1' in loader,
+            'auth_http_200':code('AUTH_CODE')==200,
+            'auth_bridge_present':'__RT85_AUTH_BRIDGE__' in auth or 'RT85Auth' in auth,
+          }
           data={
             'product':'Reino Tribal',
             'public_version':'1.0.1',
-            'status':'online' if public_code==200 and '<title>Reino Tribal</title>' in html else 'failed',
-            'http_status':public_code,
+            'status':'online' if all(checks.values()) else 'failed',
+            'http_status':code('PUBLIC_CODE'),
             'url':'https://kaalflash12.github.io/reinos-tribais-online/',
             'diagnosed_commit':os.environ['GITHUB_SHA'],
-            'pages_api_http':int(os.environ.get('API_CODE') or 0),
+            'pages_api_http':code('API_CODE'),
             'pages':api,
-            'title_ok':'<title>Reino Tribal</title>' in html,
-            'version_loader_ok':'reino-tribal-branding.js?v=1.0.1' in html,
+            'checks':checks,
             'verified_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()
           }
           open('PUBLIC_DEPLOY_STATUS.json','w',encoding='utf-8').write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
@@ -81,5 +103,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add PUBLIC_DEPLOY_STATUS.json
-          git commit -m 'Reino Tribal: diagnóstico público do Pages [skip ci]' || exit 0
+          git commit -m 'Reino Tribal: prova pública v1.0.1 e auth [skip ci]' || exit 0
           git push origin HEAD:main
