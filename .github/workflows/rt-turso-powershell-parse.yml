@@ -46,22 +46,25 @@ jobs:
         run: |
           $s = Get-Content 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1' -Raw
           $required = @(
-            "reino-tribal-prod",
             "reino-tribal-api",
-            "turso auth login --headless",
-            "turso db tokens create",
+            "node-v24.19.0-win-x64.zip",
+            "vercel-59.3.0",
+            "tursocloud/database",
             "TURSO_DATABASE_URL",
             "TURSO_AUTH_TOKEN",
             "RT_ADMIN_PASSWORD",
             "RT_ADMIN_RECOVERY_KEY",
-            "gh pr checks",
-            "gh pr merge",
+            "pr','checks",
+            "pr','merge",
             "deploy-reino-tribal-pages.yml"
           )
           foreach ($needle in $required) {
             if (-not $s.Contains($needle)) { throw "Contrato ausente: $needle" }
           }
+          if ($s -match 'winget(?:\.exe)?|wsl\.exe|get\.tur\.so|turso auth login|turso db tokens create') {
+            throw 'Configurador voltou a usar instalador/WSL/Turso CLI; isso é proibido.'
+          }
           if ($s -match 'rlyiwlwzrdgvcwawrnpl|supabase\.co|cloudflare|mongodb|neon') {
             throw 'Configurador contém referência proibida a infraestrutura de outro jogo.'
           }
-          Write-Host 'POWERSHELL_SAFETY_PASS'
+          Write-Host 'POWERSHELL_NO_INSTALL_LOOP_PASS'
