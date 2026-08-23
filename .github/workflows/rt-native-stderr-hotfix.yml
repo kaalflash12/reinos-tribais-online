@@ -1,0 +1,59 @@
+name: RT Native STDERR Hotfix
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - 'CORRIGIR_E_EXECUTAR_REINO_TRIBAL_V2.ps1'
+      - 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'
+      - '.github/workflows/rt-native-stderr-hotfix.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CORRIGIR_E_EXECUTAR_REINO_TRIBAL_V2.ps1'
+      - 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'
+      - '.github/workflows/rt-native-stderr-hotfix.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse launcher
+        shell: powershell
+        run: |
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'CORRIGIR_E_EXECUTAR_REINO_TRIBAL_V2.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count) { $errors | % { Write-Error $_.Message }; exit 1 }
+          Write-Host 'V2_LAUNCHER_PARSE_PASS'
+      - name: Transform bootstrap without executing it
+        shell: powershell
+        env:
+          RT_VALIDATE_ONLY: '1'
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\CORRIGIR_E_EXECUTAR_REINO_TRIBAL_V2.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Host 'V2_TRANSFORM_PARSE_PASS'
+      - name: Reproduce Vercel stderr exit zero safely
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $fake = Join-Path $env:TEMP 'fake-vercel.cmd'
+          Set-Content -Path $fake -Encoding ASCII -Value "@echo off`r`necho Vercel CLI 59.3.0 1>&2`r`nexit /b 0"
+          function Testar-NativoSilencioso([string]$Exe,[string[]]$Args) {
+            $anterior=$ErrorActionPreference
+            try {
+              $ErrorActionPreference='Continue'
+              & $Exe @Args 1>$null 2>$null
+              return [int]$LASTEXITCODE
+            } finally {
+              $ErrorActionPreference=$anterior
+            }
+          }
+          $code = Testar-NativoSilencioso $fake @('--version')
+          if ($code -ne 0) { throw "expected exit 0, got $code" }
+          Write-Host 'NATIVE_STDERR_EXIT0_PASS'
