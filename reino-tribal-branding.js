@@ -4,7 +4,7 @@
   window.__REINO_TRIBAL_BRANDING__=true;
 
   const PRODUCT_NAME='Reino Tribal';
-  const PUBLIC_VERSION='1.0.2';
+  const PUBLIC_VERSION='1.0.3';
   const REVISION_RE=/\bRT\s*\d+(?:\.\d+)*\b/gi;
   const BRAND_RE=/\bReinos Tribais\b/gi;
   const SKIP=new Set(['SCRIPT','STYLE','CODE','PRE','TEXTAREA','INPUT','OPTION']);
