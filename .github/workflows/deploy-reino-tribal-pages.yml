@@ -3,10 +3,12 @@ name: Deploy Reino Tribal Online
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - PUBLIC_DEPLOY_STATUS.json
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -41,6 +43,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
       - name: Verify public HTTP endpoint
+        id: verify
         shell: bash
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
@@ -49,14 +52,43 @@ jobs:
           URL="${PAGE_URL:-https://kaalflash12.github.io/reinos-tribais-online/}"
           echo "Checking $URL"
           ok=0
+          final_code=000
           for i in $(seq 1 30); do
-            code=$(curl -L -sS -o /tmp/page.html -w '%{http_code}' --connect-timeout 10 --max-time 30 "$URL?health=v1.0.1-$GITHUB_SHA" || true)
-            echo "attempt=$i http=$code"
-            if [ "$code" = "200" ] && grep -q '<title>Reino Tribal</title>' /tmp/page.html && grep -q 'reino-tribal-branding.js?v=1.0.1' /tmp/page.html; then
+            final_code=$(curl -L -sS -o /tmp/page.html -w '%{http_code}' --connect-timeout 10 --max-time 30 "$URL?health=v1.0.1-$GITHUB_SHA" || true)
+            echo "attempt=$i http=$final_code"
+            if [ "$final_code" = "200" ] && grep -q '<title>Reino Tribal</title>' /tmp/page.html && grep -q 'reino-tribal-branding.js?v=1.0.1' /tmp/page.html; then
               ok=1
               break
             fi
             sleep 5
           done
           test "$ok" = 1
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "http=$final_code" >> "$GITHUB_OUTPUT"
           echo "PUBLIC_HTTP_PASS url=$URL sha=$GITHUB_SHA"
+      - name: Persist public deployment proof
+        shell: bash
+        env:
+          PAGE_URL: ${{ steps.verify.outputs.url }}
+          HTTP_CODE: ${{ steps.verify.outputs.http }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os,datetime
+          data={
+            'product':'Reino Tribal',
+            'public_version':'1.0.1',
+            'status':'online',
+            'http_status':int(os.environ['HTTP_CODE']),
+            'url':os.environ['PAGE_URL'],
+            'deployed_commit':os.environ['GITHUB_SHA'],
+            'verified_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()
+          }
+          open('PUBLIC_DEPLOY_STATUS.json','w',encoding='utf-8').write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add PUBLIC_DEPLOY_STATUS.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Reino Tribal v1.0.1: prova pública HTTP 200 [skip ci]'
+          git push origin HEAD:main
