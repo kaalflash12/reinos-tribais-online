@@ -1,6 +1,6 @@
 {
   "product_name": "Reino Tribal",
-  "public_version": "1.0.1",
+  "public_version": "1.0.2",
   "version_scheme": "semver",
   "versioning_started_at": "2026-08-22",
   "rule": "Revision identifiers such as RT80/RT86/RT87 are internal compatibility identifiers only and must not be shown as the game name or public version."
