@@ -5,7 +5,6 @@
   const SB='https://rlyiwlwzrdgvcwawrnpl.supabase.co';
   const KEY='sb_publishable_S9LtSpLhLKFOU9iSd8b4yQ_EziH1Arr';
   const ENDPOINT=`${SB}/functions/v1/rt-admin-recovery-v102`;
-  const esc=s=>String(s??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
   function msg(text,type=''){
     const global=document.querySelector('#rt18-auth-message');
     if(global){global.textContent=text;global.className=`rt18-auth-message${type?` ${type}`:''}`;}
@@ -20,7 +19,7 @@
   }
   function enhance(){
     const form=document.querySelector('#rt18-login-form');
-    if(!form||document.querySelector('[data-rt102-admin-recovery]'))return;
+    if(!form||document.querySelector('[data-rt102-admin-recovery]'))return false;
     const wrap=document.createElement('div');
     wrap.setAttribute('data-rt102-admin-recovery','1');
     wrap.style.marginTop='10px';
@@ -34,7 +33,17 @@
       try{msg('Atualizando a senha administrativa...');await recover(token,p);sessionStorage.removeItem('rt60_admin_token');sessionStorage.removeItem('rt59_admin_token');sessionStorage.removeItem('rt58_admin_token');msg('Senha administrativa atualizada. Entre com reinos_admin e a nova senha.','success');e.currentTarget.reset();}
       catch(err){msg(`Falha na recuperação administrativa: ${err?.message||err}`,'error');}
     });
+    return true;
   }
-  const obs=new MutationObserver(enhance);obs.observe(document.documentElement,{childList:true,subtree:true});
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enhance,{once:true});else enhance();
+  const obs=new MutationObserver(()=>enhance());
+  const start=()=>{
+    obs.observe(document.documentElement,{childList:true,subtree:true});
+    enhance();
+    // A tela de autenticação é substituída por innerHTML em runtime. O pulso curto
+    // garante a montagem mesmo em navegadores que coalescem mutações agressivamente.
+    const pulse=setInterval(enhance,250);
+    setTimeout(()=>clearInterval(pulse),30000);
+    document.addEventListener('click',()=>setTimeout(enhance,0),true);
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
