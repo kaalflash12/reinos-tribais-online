@@ -35,7 +35,22 @@ jobs:
           grep -q '<title>Reino Tribal</title>' index.html
           grep -q '"public_version": "1.0.1"' PRODUCT_RELEASE.json
           cmp -s index.html JOGAR_REINOS_TRIBAIS.html
+      - name: Force Pages to GitHub Actions mode
+        id: enable
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body -L \
+            -X PUT \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/pages" \
+            -d '{"build_type":"workflow"}'
       - uses: actions/configure-pages@v5
+        id: configure
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
@@ -53,7 +68,7 @@ jobs:
           echo "Checking $URL"
           ok=0
           final_code=000
-          for i in $(seq 1 30); do
+          for i in $(seq 1 36); do
             final_code=$(curl -L -sS -o /tmp/page.html -w '%{http_code}' --connect-timeout 10 --max-time 30 "$URL?health=v1.0.1-$GITHUB_SHA" || true)
             echo "attempt=$i http=$final_code"
             if [ "$final_code" = "200" ] && grep -q '<title>Reino Tribal</title>' /tmp/page.html && grep -q 'reino-tribal-branding.js?v=1.0.1' /tmp/page.html; then
@@ -62,26 +77,43 @@ jobs:
             fi
             sleep 5
           done
-          test "$ok" = 1
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "http=$final_code" >> "$GITHUB_OUTPUT"
+          test "$ok" = 1
           echo "PUBLIC_HTTP_PASS url=$URL sha=$GITHUB_SHA"
-      - name: Persist public deployment proof
+      - name: Persist deployment diagnosis
+        if: always()
         shell: bash
         env:
+          ENABLE_OUTCOME: ${{ steps.enable.outcome }}
+          CONFIGURE_OUTCOME: ${{ steps.configure.outcome }}
+          DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
           PAGE_URL: ${{ steps.verify.outputs.url }}
           HTTP_CODE: ${{ steps.verify.outputs.http }}
         run: |
           set -euo pipefail
+          git fetch origin main
+          git checkout -B public-proof origin/main
           python - <<'PY'
           import json,os,datetime
+          verify=os.environ.get('VERIFY_OUTCOME','')
+          raw=os.environ.get('HTTP_CODE','') or '0'
+          try: code=int(raw)
+          except: code=0
           data={
             'product':'Reino Tribal',
             'public_version':'1.0.1',
-            'status':'online',
-            'http_status':int(os.environ['HTTP_CODE']),
-            'url':os.environ['PAGE_URL'],
+            'status':'online' if verify=='success' and code==200 else 'failed',
+            'http_status':code,
+            'url':os.environ.get('PAGE_URL') or 'https://kaalflash12.github.io/reinos-tribais-online/',
             'deployed_commit':os.environ['GITHUB_SHA'],
+            'steps':{
+              'enable_pages':os.environ.get('ENABLE_OUTCOME',''),
+              'configure_pages':os.environ.get('CONFIGURE_OUTCOME',''),
+              'deploy_pages':os.environ.get('DEPLOY_OUTCOME',''),
+              'verify_http':verify
+            },
             'verified_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat()
           }
           open('PUBLIC_DEPLOY_STATUS.json','w',encoding='utf-8').write(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
@@ -90,5 +122,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add PUBLIC_DEPLOY_STATUS.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Reino Tribal v1.0.1: prova pública HTTP 200 [skip ci]'
+          git commit -m 'Reino Tribal v1.0.1: diagnóstico do deploy público [skip ci]'
           git push origin HEAD:main
