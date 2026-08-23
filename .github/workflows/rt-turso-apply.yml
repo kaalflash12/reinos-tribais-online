@@ -1,0 +1,54 @@
+name: RT Turso apply bridge
+
+on:
+  push:
+    branches: [rt-turso-migration]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[turso-patched]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rt-turso-migration
+      - name: Patch both standalone game files
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          files=[Path('index.html'),Path('JOGAR_REINOS_TRIBAIS.html')]
+          bridge='<script src="rt85-auth-bridge.js?v=1.0.4-turso"></script>'
+          for p in files:
+              s=p.read_text(encoding='utf-8')
+              s=s.replace('conta e save online via Supabase','conta e save online via Turso')
+              if bridge not in s:
+                  if '</head>' not in s:
+                      raise SystemExit(f'{p}: </head> ausente')
+                  s=s.replace('</head>',bridge+'\n</head>',1)
+              s=s.replace('if(CLOUD.ready)return rt82VillageRpc','if(CLOUD.ready&&window.__RT_SERVER_ACTIONS_ENABLED__!==false)return rt82VillageRpc')
+              p.write_text(s,encoding='utf-8')
+          if files[0].read_bytes()!=files[1].read_bytes():
+              raise SystemExit('index.html e JOGAR_REINOS_TRIBAIS.html divergiram')
+          PY
+      - name: Verify Turso bridge is active before bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'rt85-auth-bridge.js?v=1.0.4-turso' index.html
+          grep -q 'conta e save online via Turso' index.html
+          grep -q '__RT_SERVER_ACTIONS_ENABLED__' rt85-auth-bridge.js
+          cmp -s index.html JOGAR_REINOS_TRIBAIS.html
+      - name: Commit patched standalone files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html JOGAR_REINOS_TRIBAIS.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'RT Turso: ativar ponte antes do bootstrap [turso-patched] [skip ci]'
+          git push origin HEAD:rt-turso-migration
