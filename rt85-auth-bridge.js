@@ -20,12 +20,21 @@
   const urlOf=input=>typeof input==='string'?input:(input?.url||'');
   const parseBody=body=>{try{return typeof body==='string'?JSON.parse(body):body||{}}catch{return {}}};
   const session=()=>{try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null')}catch{return null}};
-  const authHeader=init=>String(init?.headers?.Authorization||init?.headers?.authorization||'');
+  const headerValue=(headers,name)=>{
+    if(!headers)return '';
+    if(typeof headers.get==='function')return String(headers.get(name)||'');
+    const key=Object.keys(headers).find(k=>k.toLowerCase()===String(name).toLowerCase());
+    return key?String(headers[key]||''):'';
+  };
+  const authHeader=init=>headerValue(init?.headers,'authorization');
   const tokenFrom=(init={})=>{
     const h=authHeader(init);if(/^Bearer\s+/i.test(h))return h.replace(/^Bearer\s+/i,'').trim();
     return session()?.access_token||'';
   };
-  const jsonResponse=(data,status=200,headers={})=>new Response(JSON.stringify(data??null),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...headers}});
+  const jsonResponse=(data,status=200,headers={})=>{
+    const body=status===204||status===205||status===304?null:JSON.stringify(data??null);
+    return new Response(body,{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...headers}});
+  };
   const errorResponse=(message,status=400)=>jsonResponse({error:String(message||'Falha na requisição.')},status);
 
   async function call(path,action,payload={},token=''){
@@ -93,7 +102,7 @@
       const world=eqParam(p,'world_id',DEFAULT_WORLD);const row=await api('load_save',{world_id:world},token);return jsonResponse(row?[row]:[]);
     }
     if(path==='/rest/v1/game_saves'&&method==='DELETE'){
-      const world=eqParam(p,'world_id',DEFAULT_WORLD);await api('delete_save',{world_id:world},token);return jsonResponse(null,204);
+      const world=eqParam(p,'world_id',DEFAULT_WORLD);await api('delete_save',{world_id:world},token);return jsonResponse({ok:true},200);
     }
     if(path==='/rest/v1/game_saves'&&(method==='POST'||method==='PATCH')){
       const world=String(body.world_id||eqParam(p,'world_id',DEFAULT_WORLD));const state=body.state??body.state_json;
@@ -125,11 +134,11 @@
           return jsonResponse({ok:true,token:s.access_token,admin:{id:s.user.id,username:s.user.username,role:'superadmin'}});
         }catch(e){return errorResponse(e.message,e.status||401)}
       }
-      const adminToken=String(init?.headers?.['x-admin-token']||init?.headers?.['X-Admin-Token']||sessionStorage.getItem('rt60_admin_token')||'');
+      const adminToken=String(headerValue(init?.headers,'x-admin-token')||sessionStorage.getItem('rt60_admin_token')||'');
       try{return jsonResponse(await adminApi(body.action,body,adminToken))}catch(e){return errorResponse(e.message,e.status||400)}
     }
     if(path==='/functions/v1/rt-admin-logout-v67'){
-      const adminToken=String(init?.headers?.['x-admin-token']||init?.headers?.['X-Admin-Token']||sessionStorage.getItem('rt60_admin_token')||'');
+      const adminToken=String(headerValue(init?.headers,'x-admin-token')||sessionStorage.getItem('rt60_admin_token')||'');
       try{return jsonResponse(await adminApi('logout',{},adminToken))}catch{return jsonResponse({ok:true})}
     }
     return null;
