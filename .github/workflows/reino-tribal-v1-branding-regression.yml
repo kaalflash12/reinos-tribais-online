@@ -46,7 +46,7 @@ jobs:
           try:
               d.get('http://127.0.0.1:8765/')
               WebDriverWait(d,8).until(lambda x:x.execute_script('return !!window.__REINO_TRIBAL_BRANDING__'))
-              time.sleep(.5)
+              time.sleep(.4)
               out['title']=d.title
               out['product']=d.execute_script('return window.REINO_TRIBAL')
               body=d.find_element(By.TAG_NAME,'body').get_attribute('innerText')
@@ -54,9 +54,12 @@ jobs:
               out['has_old_brand']='Reinos Tribais' in body
               out['has_new_brand']='Reino Tribal' in body
               out['admin_recovery_loaded']=bool(d.execute_script('return !!window.__REINO_TRIBAL_ADMIN_RECOVERY_V102__'))
-              d.execute_script("if(window.renderAuthScreen) window.renderAuthScreen();")
-              time.sleep(.3)
-              out['admin_recovery_button']=len(d.find_elements(By.CSS_SELECTOR,'[data-rt102-open]'))==1
+              entry=d.find_elements(By.CSS_SELECTOR,'[data-entry-online]')
+              if entry: entry[0].click()
+              WebDriverWait(d,5).until(lambda x: len(x.find_elements(By.ID,'rt18-login-form'))==1)
+              WebDriverWait(d,5).until(lambda x: len(x.find_elements(By.CSS_SELECTOR,'[data-rt102-open]'))==1)
+              out['login_form']=True
+              out['admin_recovery_button']=True
               assert out['title']=='Reino Tribal',out
               assert out['product']=={'name':'Reino Tribal','version':'1.0.2'},out
               assert not out['visible_revision_tokens'],out
