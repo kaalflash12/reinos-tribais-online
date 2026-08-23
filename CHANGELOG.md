@@ -1,5 +1,15 @@
 # Reino Tribal — Histórico de versões
 
+## 1.0.2 — 2026-08-23
+
+- Recuperação segura e de uso único para a conta administrativa `reinos_admin`.
+- Nova tela de recuperação administrativa integrada ao login; nenhuma senha é fixa no código.
+- Sessões administrativas antigas são revogadas ao trocar a senha.
+- Backend de recuperação + autenticação administrativa validado E2E no banco.
+- Interação mundial RT84 executada e persistida com custo, recompensa, cooldown e limite diário.
+- Ciclo do Diretor IA `scheduled → active → finished` executado e comprovado no banco.
+- Cache público e branding atualizados para `1.0.2`.
+
 ## 1.0.1 — 2026-08-22
 
 - Sincronização definitiva entre Supabase Auth e `rt_players`.
