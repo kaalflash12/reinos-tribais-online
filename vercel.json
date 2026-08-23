@@ -3,11 +3,14 @@
   "functions": {
     "api/reino.js": {
       "maxDuration": 30
+    },
+    "api/admin.js": {
+      "maxDuration": 30
     }
   },
   "headers": [
     {
-      "source": "/api/reino",
+      "source": "/api/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store" },
         { "key": "X-Content-Type-Options", "value": "nosniff" }
