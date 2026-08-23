@@ -1,0 +1,15 @@
+{
+  "product": "Reino Tribal",
+  "public_version": "1.0.1",
+  "status": "failed",
+  "http_status": 0,
+  "url": "https://kaalflash12.github.io/reinos-tribais-online/",
+  "deployed_commit": "1ab3029e66970414ed756ec53e04fc7b0a1c8267",
+  "steps": {
+    "enable_pages": "failure",
+    "configure_pages": "skipped",
+    "deploy_pages": "skipped",
+    "verify_http": "skipped"
+  },
+  "verified_at_utc": "2026-08-23T01:49:12.646918+00:00"
+}
