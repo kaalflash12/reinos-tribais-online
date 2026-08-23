@@ -5,6 +5,12 @@
   const SB='https://rlyiwlwzrdgvcwawrnpl.supabase.co';
   const KEY='sb_publishable_S9LtSpLhLKFOU9iSd8b4yQ_EziH1Arr';
   const ENDPOINT=`${SB}/functions/v1/rt-admin-recovery-v102`;
+  function recoveryTokenFromHash(){
+    try{return String(new URLSearchParams((location.hash||'').replace(/^#/,'')).get('admin-recovery')||'').trim()}catch{return ''}
+  }
+  function clearRecoveryHash(){
+    try{if(location.hash.includes('admin-recovery='))history.replaceState(null,'',location.pathname+location.search)}catch{}
+  }
   function msg(text,type=''){
     const global=document.querySelector('#rt18-auth-message');
     if(global){global.textContent=text;global.className=`rt18-auth-message${type?` ${type}`:''}`;}
@@ -23,15 +29,28 @@
     const wrap=document.createElement('div');
     wrap.setAttribute('data-rt102-admin-recovery-ui','1');
     wrap.style.marginTop='10px';
-    wrap.innerHTML=`<button class="rt18-auth-btn secondary" type="button" data-rt102-open>Recuperar administrador</button><section data-rt102-panel hidden style="margin-top:10px;padding:10px;border:1px solid #9d7a43;border-radius:6px;background:rgba(255,250,232,.8)"><h3 style="margin-top:0">Recuperação administrativa</h3><p class="small">Conta: <b>reinos_admin</b>. Use um código de recuperação de uso único e escolha uma nova senha.</p><form data-rt102-form><label>Código de recuperação<input class="text-input" type="text" name="token" autocomplete="one-time-code" minlength="32" required></label><label>Nova senha<input class="text-input" type="password" name="password" autocomplete="new-password" minlength="12" required></label><label>Confirmar<input class="text-input" type="password" name="confirm" autocomplete="new-password" minlength="12" required></label><button class="rt18-auth-btn" type="submit">Trocar senha do administrador</button></form><p class="small" data-rt102-admin-status></p></section>`;
+    wrap.innerHTML=`<button class="rt18-auth-btn secondary" type="button" data-rt102-open>Recuperar administrador</button><section data-rt102-panel hidden style="margin-top:10px;padding:10px;border:1px solid #9d7a43;border-radius:6px;background:rgba(255,250,232,.8)"><h3 style="margin-top:0">Recuperação administrativa</h3><p class="small">Conta: <b>reinos_admin</b>. Use o link/código de recuperação de uso único e escolha uma nova senha.</p><form data-rt102-form><label>Código de recuperação<input class="text-input" type="text" name="token" autocomplete="one-time-code" minlength="32" required></label><label>Nova senha<input class="text-input" type="password" name="password" autocomplete="new-password" minlength="12" required></label><label>Confirmar<input class="text-input" type="password" name="confirm" autocomplete="new-password" minlength="12" required></label><button class="rt18-auth-btn" type="submit">Trocar senha do administrador</button></form><p class="small" data-rt102-admin-status></p></section>`;
     form.insertAdjacentElement('afterend',wrap);
-    wrap.querySelector('[data-rt102-open]').addEventListener('click',()=>{const p=wrap.querySelector('[data-rt102-panel]');p.hidden=!p.hidden;if(!p.hidden)wrap.querySelector('input[name=token]')?.focus();});
+    const panel=wrap.querySelector('[data-rt102-panel]');
+    const tokenField=wrap.querySelector('input[name=token]');
+    const directToken=recoveryTokenFromHash();
+    if(directToken){panel.hidden=false;tokenField.value=directToken;msg('Link administrativo reconhecido. Defina sua nova senha.','success');setTimeout(()=>wrap.querySelector('input[name=password]')?.focus(),0);}
+    wrap.querySelector('[data-rt102-open]').addEventListener('click',()=>{panel.hidden=!panel.hidden;if(!panel.hidden)tokenField?.focus();});
     wrap.querySelector('[data-rt102-form]').addEventListener('submit',async e=>{
       e.preventDefault();const fd=new FormData(e.currentTarget);const token=String(fd.get('token')||'').trim(),p=String(fd.get('password')||''),c=String(fd.get('confirm')||'');
       if(p.length<12)return msg('A nova senha precisa ter pelo menos 12 caracteres.','error');
       if(p!==c)return msg('As senhas não coincidem.','error');
-      try{msg('Atualizando a senha administrativa...');await recover(token,p);sessionStorage.removeItem('rt60_admin_token');sessionStorage.removeItem('rt59_admin_token');sessionStorage.removeItem('rt58_admin_token');msg('Senha administrativa atualizada. Entre com reinos_admin e a nova senha.','success');e.currentTarget.reset();}
-      catch(err){msg(`Falha na recuperação administrativa: ${err?.message||err}`,'error');}
+      try{
+        msg('Atualizando a senha administrativa...');
+        await recover(token,p);
+        sessionStorage.removeItem('rt60_admin_token');sessionStorage.removeItem('rt59_admin_token');sessionStorage.removeItem('rt58_admin_token');
+        clearRecoveryHash();
+        e.currentTarget.reset();panel.hidden=true;
+        const userField=document.querySelector('#rt18-login-form input[name="email"]');
+        if(userField)userField.value='reinos_admin';
+        msg('Senha administrativa atualizada. Entre com reinos_admin e a nova senha.','success');
+        document.querySelector('#rt18-login-form input[name="password"]')?.focus();
+      }catch(err){msg(`Falha na recuperação administrativa: ${err?.message||err}`,'error');}
     });
     return true;
   }
