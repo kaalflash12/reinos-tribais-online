@@ -1,0 +1,61 @@
+name: RT Turso PowerShell Parse
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - 'CONFIGURAR_TURSO_REINO_TRIBAL.ps1'
+      - '.github/workflows/rt-turso-powershell-parse.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CONFIGURAR_TURSO_REINO_TRIBAL.ps1'
+      - '.github/workflows/rt-turso-powershell-parse.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parse:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse PowerShell without executing external actions
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'CONFIGURAR_TURSO_REINO_TRIBAL.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error ($_.Message + ' @ ' + $_.Extent.StartLineNumber + ':' + $_.Extent.StartColumnNumber) }
+            exit 1
+          }
+          Write-Host 'POWERSHELL_PARSE_PASS'
+      - name: Static safety contract
+        shell: powershell
+        run: |
+          $s = Get-Content 'CONFIGURAR_TURSO_REINO_TRIBAL.ps1' -Raw
+          $required = @(
+            "reino-tribal-prod",
+            "reino-tribal-api",
+            "turso auth login --headless",
+            "turso db tokens create",
+            "TURSO_DATABASE_URL",
+            "TURSO_AUTH_TOKEN",
+            "RT_ADMIN_PASSWORD",
+            "gh pr checks",
+            "gh pr merge"
+          )
+          foreach ($needle in $required) {
+            if (-not $s.Contains($needle)) { throw "Contrato ausente: $needle" }
+          }
+          if ($s -match 'rlyiwlwzrdgvcwawrnpl|supabase\.co|cloudflare|mongodb|neon') {
+            throw 'Configurador contém referência proibida a infraestrutura de outro jogo.'
+          }
+          Write-Host 'POWERSHELL_SAFETY_PASS'
