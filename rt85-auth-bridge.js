@@ -2,6 +2,7 @@
 (()=>{
   if(window.__RT_TURSO_BRIDGE__) return;
   window.__RT_TURSO_BRIDGE__=true;
+  window.__RT85_AUTH_BRIDGE__=true; // marcador legado; backend continua Turso
   window.__RT_SERVER_ACTIONS_ENABLED__=false;
 
   const ORIGINAL_FETCH=window.fetch.bind(window);
