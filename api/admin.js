@@ -7,7 +7,9 @@ const now=()=>new Date().toISOString();
 const hashToken=v=>createHash('sha256').update(String(v||'')).digest('hex');
 const passwordHash=(password,salt=randomBytes(16).toString('hex'))=>`scrypt$${salt}$${scryptSync(String(password),salt,64).toString('hex')}`;
 const parse=(v,f={})=>{try{return v?JSON.parse(v):f}catch{return f}};
-const db=()=>connection||(connection=connect({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN}));
+let rawConnection;
+function wrapConnection(raw){return {prepare(sql){let statementPromise;const statement=()=>statementPromise||=Promise.resolve(raw.prepare(sql));return {get:async(...args)=>(await statement()).get(...args),all:async(...args)=>(await statement()).all(...args),run:async(...args)=>(await statement()).run(...args)}},batch:(...args)=>raw.batch(...args),exec:(...args)=>raw.exec(...args),run:(...args)=>raw.run(...args),get:(...args)=>raw.get(...args),all:(...args)=>raw.all(...args),close:(...args)=>raw.close?.(...args)}}
+const db=()=>connection||(rawConnection=connect({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN}),connection=wrapConnection(rawConnection));
 
 function cors(req,res){
   const origin=String(req.headers.origin||'');

@@ -13,6 +13,7 @@ const SESSION_DAYS = Math.max(1, Number(process.env.RT_SESSION_DAYS || 30));
 const MAX_SAVE_BYTES = Math.max(256000, Number(process.env.RT_MAX_SAVE_BYTES || 6_000_000));
 const ADMIN_USERNAME = 'reinos_admin';
 
+let rawConnection;
 let connection;
 let schemaPromise;
 
@@ -20,13 +21,35 @@ function configured() {
   return Boolean(process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN);
 }
 
+function wrapConnection(raw) {
+  return {
+    prepare(sql) {
+      let statementPromise;
+      const statement = () => statementPromise ||= Promise.resolve(raw.prepare(sql));
+      return {
+        get: async (...args) => (await statement()).get(...args),
+        all: async (...args) => (await statement()).all(...args),
+        run: async (...args) => (await statement()).run(...args),
+        iterate: async function* (...args) { for await (const row of (await statement()).iterate(...args)) yield row; },
+      };
+    },
+    batch: (...args) => raw.batch(...args),
+    exec: (...args) => raw.exec(...args),
+    run: (...args) => raw.run(...args),
+    get: (...args) => raw.get(...args),
+    all: (...args) => raw.all(...args),
+    close: (...args) => raw.close?.(...args),
+  };
+}
+
 function db() {
   if (!configured()) throw new Error('Turso não configurado no servidor.');
   if (!connection) {
-    connection = connect({
+    rawConnection = connect({
       url: process.env.TURSO_DATABASE_URL,
       authToken: process.env.TURSO_AUTH_TOKEN,
     });
+    connection = wrapConnection(rawConnection);
   }
   return connection;
 }
