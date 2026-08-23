@@ -29,21 +29,35 @@ function Exigir-Comando([string]$Nome, [string]$WingetId) {
   if ($LASTEXITCODE -ne 0) { throw "Falha instalando $Nome pelo winget." }
   Atualizar-Path
   $cmd = Get-Command $Nome -ErrorAction SilentlyContinue
-  if (-not $cmd) { throw "$Nome foi instalado, mas ainda não entrou no PATH. Feche e reabra o PowerShell e execute este arquivo novamente." }
+  if (-not $cmd) {
+    throw "$Nome foi instalado, mas ainda não entrou no PATH. Reabra o PowerShell e execute este arquivo novamente."
+  }
   return $cmd.Source
 }
 
-function Executar-ComEntrada([string]$Arquivo, [string]$Argumentos, [string]$Entrada, [string]$Diretorio = '') {
+function Executar-ComEntrada(
+  [string]$Arquivo,
+  [string]$Argumentos,
+  [string]$Entrada,
+  [string]$Diretorio = ''
+) {
   $psi = New-Object System.Diagnostics.ProcessStartInfo
-  $psi.FileName = $Arquivo
-  $psi.Arguments = $Argumentos
+  if ($Arquivo -match '\.(cmd|bat)$') {
+    $psi.FileName = $env:ComSpec
+    $psi.Arguments = '/d /s /c ""' + $Arquivo + '" ' + $Argumentos + '"'
+  } else {
+    $psi.FileName = $Arquivo
+    $psi.Arguments = $Argumentos
+  }
   $psi.UseShellExecute = $false
   $psi.RedirectStandardInput = $true
   $psi.RedirectStandardOutput = $true
   $psi.RedirectStandardError = $true
   $psi.CreateNoWindow = $true
   if ($Diretorio) { $psi.WorkingDirectory = $Diretorio }
+
   $p = [System.Diagnostics.Process]::Start($psi)
+  if (-not $p) { throw "Não foi possível iniciar $Arquivo." }
   $p.StandardInput.Write($Entrada)
   $p.StandardInput.Close()
   $stdout = $p.StandardOutput.ReadToEnd()
@@ -59,7 +73,10 @@ function Turso-Capturar([string]$Comando) {
   $full = 'export PATH="$HOME/.turso:$HOME/.local/bin:$PATH"; ' + $Comando
   $saida = & wsl.exe bash -lc $full 2>&1
   $codigo = $LASTEXITCODE
-  return [pscustomobject]@{ Codigo = $codigo; Texto = (($saida | ForEach-Object { "$_" }) -join "`n").Trim() }
+  return [pscustomobject]@{
+    Codigo = $codigo
+    Texto = (($saida | ForEach-Object { "$_" }) -join "`n").Trim()
+  }
 }
 
 function Ler-Segredo([string]$Prompt) {
@@ -72,7 +89,13 @@ function Ler-Segredo([string]$Prompt) {
 function Post-Json([string]$Uri, [hashtable]$Body, [string]$Bearer = '') {
   $headers = @{}
   if ($Bearer) { $headers.Authorization = "Bearer $Bearer" }
-  return Invoke-RestMethod -Uri $Uri -Method Post -ContentType 'application/json' -Headers $headers -Body ($Body | ConvertTo-Json -Depth 30 -Compress) -TimeoutSec 45
+  return Invoke-RestMethod `
+    -Uri $Uri `
+    -Method Post `
+    -ContentType 'application/json' `
+    -Headers $headers `
+    -Body ($Body | ConvertTo-Json -Depth 30 -Compress) `
+    -TimeoutSec 45
 }
 
 Etapa 'Pré-requisitos locais'
@@ -87,7 +110,7 @@ $wslList = & wsl.exe -l -q 2>$null
 if ($LASTEXITCODE -ne 0 -or -not (($wslList | Out-String).Trim())) {
   Etapa 'Instalando WSL/Ubuntu'
   & wsl.exe --install -d Ubuntu
-  throw 'O WSL foi solicitado pelo Windows. Se ele pedir reinicialização, reinicie e execute este arquivo novamente.'
+  throw 'O Windows iniciou a instalação do WSL. Se pedir reinicialização, reinicie e execute este arquivo novamente.'
 }
 
 Etapa 'Turso CLI'
@@ -103,7 +126,7 @@ Write-Host $probe.Texto
 Etapa 'Autenticação Turso'
 $who = Turso-Capturar 'turso auth whoami'
 if ($who.Codigo -ne 0) {
-  Write-Host 'O Turso vai mostrar uma URL/código para autenticação. A credencial não será gravada neste script.' -ForegroundColor Yellow
+  Write-Host 'O Turso mostrará uma URL/código para autenticação. Nenhum token será colocado no script.' -ForegroundColor Yellow
   & wsl.exe bash -lc 'export PATH="$HOME/.turso:$HOME/.local/bin:$PATH"; turso auth login --headless'
   if ($LASTEXITCODE -ne 0) { throw 'Login no Turso falhou.' }
 }
@@ -115,11 +138,12 @@ Etapa "Banco Turso exclusivo: $BancoTurso"
 if ($BancoTurso -notmatch '^[a-zA-Z0-9._-]+$') { throw 'Nome de banco Turso inválido.' }
 $db = Turso-Capturar "turso db show $BancoTurso --url"
 if ($db.Codigo -ne 0 -or -not $db.Texto) {
-  $create = Turso-Capturar "turso db create $BancoTurso"
+  $create = Turso-Capturar "turso db create $BancoTurso --wait"
   if ($create.Codigo -ne 0) { throw "Falha criando $BancoTurso.`n$($create.Texto)" }
   $db = Turso-Capturar "turso db show $BancoTurso --url"
 }
-$dbUrl = (($db.Texto -split "`n") | Where-Object { $_ -match '^(libsql|https)://' } | Select-Object -Last 1).Trim()
+$dbUrlRaw = $db.Texto -split "`n" | Where-Object { $_ -match '^(libsql|https)://' } | Select-Object -Last 1
+$dbUrl = if ($dbUrlRaw) { ([string]$dbUrlRaw).Trim() } else { '' }
 if (-not $dbUrl) { throw "Não consegui obter a URL do banco $BancoTurso." }
 
 $tok = Turso-Capturar "turso db tokens create $BancoTurso --expiration never"
@@ -127,6 +151,7 @@ if ($tok.Codigo -ne 0) { throw "Falha criando token do banco.`n$($tok.Texto)" }
 $tokenLines = @($tok.Texto -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $dbToken = $tokenLines | Where-Object { $_ -match '^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$' } | Select-Object -Last 1
 if (-not $dbToken -and $tokenLines.Count -gt 0) { $dbToken = $tokenLines[-1] }
+$dbToken = [string]$dbToken
 if (-not $dbToken -or $dbToken.Length -lt 20) { throw 'Token Turso retornado em formato inesperado.' }
 Write-Host 'Banco e token Turso obtidos sem expor o token.' -ForegroundColor Green
 
@@ -134,8 +159,14 @@ Etapa 'Senha administrativa do Reino Tribal'
 do {
   $admin1 = Ler-Segredo 'Digite a senha do ADM reinos_admin (mínimo 12 caracteres)'
   $admin2 = Ler-Segredo 'Repita a senha do ADM'
-  if ($admin1.Length -lt 12) { Write-Host 'Senha curta demais.' -ForegroundColor Yellow; continue }
-  if ($admin1 -cne $admin2) { Write-Host 'As senhas não coincidem.' -ForegroundColor Yellow; continue }
+  if ($admin1.Length -lt 12) {
+    Write-Host 'Senha curta demais.' -ForegroundColor Yellow
+    continue
+  }
+  if ($admin1 -cne $admin2) {
+    Write-Host 'As senhas não coincidem.' -ForegroundColor Yellow
+    continue
+  }
   break
 } while ($true)
 
@@ -184,9 +215,9 @@ try {
     $deployCode = $LASTEXITCODE
     $deployText = (($deployOut | ForEach-Object { "$_" }) -join "`n")
     if ($deployCode -ne 0) { throw "Deploy Vercel falhou.`n$deployText" }
-    $deployUrl = (($deployText -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^https://[a-zA-Z0-9.-]+\.vercel\.app/?$' } | Select-Object -Last 1)
-    if (-not $deployUrl) { throw "Não consegui identificar a URL do deploy.`n$deployText" }
-    $deployUrl = $deployUrl.TrimEnd('/')
+    $matches = [regex]::Matches($deployText, 'https://[A-Za-z0-9.-]+\.vercel\.app')
+    if ($matches.Count -lt 1) { throw "Não consegui identificar a URL do deploy.`n$deployText" }
+    $deployUrl = $matches[$matches.Count - 1].Value.TrimEnd('/')
     Write-Host "Backend: $deployUrl" -ForegroundColor Green
 
     Etapa 'Teste real Turso/API'
@@ -194,18 +225,24 @@ try {
     for ($i=1; $i -le 12; $i++) {
       try {
         $health = Post-Json "$deployUrl/api/reino" @{ action='health' }
-        if ($health) { break }
+        if ($health -and $health.ok -and $health.database -eq 'turso') { break }
       } catch {
+        $health = $null
         Start-Sleep -Seconds 3
       }
     }
-    if (-not $health) { throw 'API não respondeu ao health check.' }
+    if (-not $health -or -not $health.ok) { throw 'API/Turso não respondeu ao health check.' }
 
     $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
     $testUser = "rtprobe_$stamp"
     $testEmail = "$testUser@example.invalid"
     $testPass = 'RTp!' + [Guid]::NewGuid().ToString('N') + '9z'
-    $reg = Post-Json "$deployUrl/api/reino" @{ action='register'; email=$testEmail; username=$testUser; password=$testPass }
+    $reg = Post-Json "$deployUrl/api/reino" @{
+      action='register'
+      email=$testEmail
+      username=$testUser
+      password=$testPass
+    }
     if (-not $reg.access_token) { throw 'Registro normal não retornou sessão.' }
     $playerToken = [string]$reg.access_token
 
@@ -215,7 +252,11 @@ try {
     $load = Post-Json "$deployUrl/api/reino" @{ action='load_save' } $playerToken
     if (-not $load.state -or $load.state.probe -ne 'reino-tribal-turso') { throw 'Leitura do save falhou.' }
 
-    $admin = Post-Json "$deployUrl/api/reino" @{ action='login'; identifier='reinos_admin'; password=$admin1 }
+    $admin = Post-Json "$deployUrl/api/reino" @{
+      action='login'
+      identifier='reinos_admin'
+      password=$admin1
+    }
     if (-not $admin.access_token -or $admin.user.role -ne 'admin') { throw 'Login ADM real falhou.' }
     Write-Host 'PASS: registro normal + sessão + save + load + login ADM.' -ForegroundColor Green
 
@@ -225,6 +266,7 @@ try {
 
     Etapa 'Revalidando PR'
     & $gh pr ready $PullRequest -R $Repositorio *> $null
+    if ($LASTEXITCODE -ne 0) { throw 'Não consegui marcar o PR como pronto.' }
     & $gh pr checks $PullRequest -R $Repositorio --watch --fail-fast
     if ($LASTEXITCODE -ne 0) { throw 'Algum check do PR falhou; merge cancelado.' }
 
@@ -232,18 +274,38 @@ try {
     & $gh pr merge $PullRequest -R $Repositorio --squash
     if ($LASTEXITCODE -ne 0) { throw 'Merge do PR falhou.' }
 
-    Etapa 'Publicando GitHub Pages já conectado ao Turso'
+    Etapa 'Publicando GitHub Pages conectado ao Turso'
     & $gh workflow run deploy-reino-tribal-pages.yml -R $Repositorio --ref main
     if ($LASTEXITCODE -ne 0) { throw 'Falha disparando deploy do GitHub Pages.' }
-    Start-Sleep -Seconds 4
-    $runId = (& $gh run list -R $Repositorio --workflow deploy-reino-tribal-pages.yml --branch main --limit 1 --json databaseId --jq '.[0].databaseId').Trim()
+
+    $runId = ''
+    for ($i=1; $i -le 15; $i++) {
+      Start-Sleep -Seconds 2
+      $runRaw = & $gh run list `
+        -R $Repositorio `
+        --workflow deploy-reino-tribal-pages.yml `
+        --branch main `
+        --event workflow_dispatch `
+        --limit 1 `
+        --json databaseId `
+        --jq '.[0].databaseId' 2>$null
+      if ($LASTEXITCODE -eq 0 -and $runRaw) {
+        $runId = ([string]($runRaw | Select-Object -First 1)).Trim()
+        if ($runId) { break }
+      }
+    }
     if (-not $runId) { throw 'Não consegui localizar o run do deploy Pages.' }
+
     & $gh run watch $runId -R $Repositorio --exit-status
     if ($LASTEXITCODE -ne 0) { throw 'Deploy público do GitHub Pages falhou.' }
 
     $publicUrl = 'https://kaalflash12.github.io/reinos-tribais-online/'
-    $html = (Invoke-WebRequest -Uri ($publicUrl + '?turso=' + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) -UseBasicParsing -TimeoutSec 45).Content
-    if ($html -notmatch 'reino-tribal-config\.js\?v=1\.0\.4-turso' -or $html -notmatch 'rt85-auth-bridge\.js\?v=1\.0\.4-turso') {
+    $html = (Invoke-WebRequest `
+      -Uri ($publicUrl + '?turso=' + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()) `
+      -UseBasicParsing `
+      -TimeoutSec 45).Content
+    if ($html -notmatch 'reino-tribal-config\.js\?v=1\.0\.4-turso' -or
+        $html -notmatch 'rt85-auth-bridge\.js\?v=1\.0\.4-turso') {
       throw 'A página pública respondeu, mas não contém a configuração Turso esperada.'
     }
 
@@ -260,5 +322,7 @@ finally {
   $admin1 = $null
   $admin2 = $null
   $dbToken = $null
-  if (Test-Path $work) { Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue }
+  if (Test-Path $work) {
+    Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+  }
 }
