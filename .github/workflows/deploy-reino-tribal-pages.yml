@@ -1,0 +1,62 @@
+name: Deploy Reino Tribal Online
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: reino-tribal-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate release before deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -f JOGAR_REINOS_TRIBAIS.html
+          test -f PRODUCT_RELEASE.json
+          grep -q '<title>Reino Tribal</title>' index.html
+          grep -q '"public_version": "1.0.1"' PRODUCT_RELEASE.json
+          cmp -s index.html JOGAR_REINOS_TRIBAIS.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Verify public HTTP endpoint
+        shell: bash
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          URL="${PAGE_URL:-https://kaalflash12.github.io/reinos-tribais-online/}"
+          echo "Checking $URL"
+          ok=0
+          for i in $(seq 1 30); do
+            code=$(curl -L -sS -o /tmp/page.html -w '%{http_code}' --connect-timeout 10 --max-time 30 "$URL?health=v1.0.1-$GITHUB_SHA" || true)
+            echo "attempt=$i http=$code"
+            if [ "$code" = "200" ] && grep -q '<title>Reino Tribal</title>' /tmp/page.html && grep -q 'reino-tribal-branding.js?v=1.0.1' /tmp/page.html; then
+              ok=1
+              break
+            fi
+            sleep 5
+          done
+          test "$ok" = 1
+          echo "PUBLIC_HTTP_PASS url=$URL sha=$GITHUB_SHA"
