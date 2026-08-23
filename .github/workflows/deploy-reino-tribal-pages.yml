@@ -22,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate release before deploy
+        id: release
         shell: bash
         run: |
           set -euo pipefail
@@ -29,8 +30,19 @@ jobs:
           test -f JOGAR_REINOS_TRIBAIS.html
           test -f PRODUCT_RELEASE.json
           grep -q '<title>Reino Tribal</title>' index.html
-          grep -q '"public_version": "1.0.1"' PRODUCT_RELEASE.json
           cmp -s index.html JOGAR_REINOS_TRIBAIS.html
+          VERSION=$(python - <<'PY'
+          import json,re
+          r=json.load(open('PRODUCT_RELEASE.json',encoding='utf-8'))
+          assert r.get('product_name')=='Reino Tribal'
+          v=str(r.get('public_version',''))
+          assert re.fullmatch(r'\d+\.\d+\.\d+',v)
+          print(v)
+          PY
+          )
+          grep -q "reino-tribal-branding.js?v=$VERSION" rt79-village-ui.js
+          grep -q 'rt85-auth-bridge.js?v=85.1' rt79-village-ui.js
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Force Pages to GitHub Actions mode
         id: enable
         shell: bash
@@ -58,16 +70,19 @@ jobs:
         shell: bash
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
           URL="${PAGE_URL:-https://kaalflash12.github.io/reinos-tribais-online/}"
-          echo "Checking $URL"
+          echo "Checking $URL version=$VERSION"
           ok=0
           final_code=000
           for i in $(seq 1 36); do
-            final_code=$(curl -L -sS -o /tmp/page.html -w '%{http_code}' --connect-timeout 10 --max-time 30 "$URL?health=v1.0.1-$GITHUB_SHA" || true)
-            echo "attempt=$i http=$final_code"
-            if [ "$final_code" = "200" ] && grep -q '<title>Reino Tribal</title>' /tmp/page.html && grep -q 'reino-tribal-branding.js?v=1.0.1' /tmp/page.html; then
+            final_code=$(curl -L -sS -o /tmp/page.html -w '%{http_code}' --connect-timeout 10 --max-time 30 "$URL?health=$VERSION-$GITHUB_SHA" || true)
+            loader_code=$(curl -L -sS -o /tmp/loader.js -w '%{http_code}' --connect-timeout 10 --max-time 30 "${URL%/}/rt79-village-ui.js?health=$GITHUB_SHA" || true)
+            auth_code=$(curl -L -sS -o /tmp/auth.js -w '%{http_code}' --connect-timeout 10 --max-time 30 "${URL%/}/rt85-auth-bridge.js?health=$GITHUB_SHA" || true)
+            echo "attempt=$i root=$final_code loader=$loader_code auth=$auth_code"
+            if [ "$final_code" = "200" ] && [ "$loader_code" = "200" ] && [ "$auth_code" = "200" ] && grep -q '<title>Reino Tribal</title>' /tmp/page.html && grep -q "reino-tribal-branding.js?v=$VERSION" /tmp/loader.js && grep -q '__RT85_AUTH_BRIDGE__' /tmp/auth.js && ! grep -q 'recoverAdmin' /tmp/auth.js; then
               ok=1
               break
             fi
@@ -76,11 +91,12 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
           echo "http=$final_code" >> "$GITHUB_OUTPUT"
           test "$ok" = 1
-          echo "PUBLIC_HTTP_PASS url=$URL sha=$GITHUB_SHA"
+          echo "PUBLIC_HTTP_PASS url=$URL version=$VERSION sha=$GITHUB_SHA"
       - name: Persist deployment diagnosis
         if: always()
         shell: bash
         env:
+          VERSION: ${{ steps.release.outputs.version }}
           ENABLE_OUTCOME: ${{ steps.enable.outcome }}
           CONFIGURE_OUTCOME: ${{ steps.configure.outcome }}
           DEPLOY_OUTCOME: ${{ steps.deployment.outcome }}
@@ -97,9 +113,10 @@ jobs:
           raw=os.environ.get('HTTP_CODE','') or '0'
           try: code=int(raw)
           except: code=0
+          version=os.environ.get('VERSION') or json.load(open('PRODUCT_RELEASE.json',encoding='utf-8'))['public_version']
           data={
             'product':'Reino Tribal',
-            'public_version':'1.0.1',
+            'public_version':version,
             'status':'online' if verify=='success' and code==200 else 'failed',
             'http_status':code,
             'url':os.environ.get('PAGE_URL') or 'https://kaalflash12.github.io/reinos-tribais-online/',
@@ -118,5 +135,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add PUBLIC_DEPLOY_STATUS.json
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Reino Tribal v1.0.1: diagnóstico do deploy público [skip ci]'
+          git commit -m 'Reino Tribal: diagnóstico do deploy público atual [skip ci]'
           git push origin HEAD:main
