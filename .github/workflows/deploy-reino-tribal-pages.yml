@@ -1,10 +1,6 @@
 name: Deploy Reino Tribal Online
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - PUBLIC_DEPLOY_STATUS.json
   workflow_dispatch:
 
 permissions:
