@@ -19,9 +19,9 @@
   }
   function enhance(){
     const form=document.querySelector('#rt18-login-form');
-    if(!form||document.querySelector('[data-rt102-admin-recovery]'))return false;
+    if(!form||document.querySelector('[data-rt102-admin-recovery-ui]'))return false;
     const wrap=document.createElement('div');
-    wrap.setAttribute('data-rt102-admin-recovery','1');
+    wrap.setAttribute('data-rt102-admin-recovery-ui','1');
     wrap.style.marginTop='10px';
     wrap.innerHTML=`<button class="rt18-auth-btn secondary" type="button" data-rt102-open>Recuperar administrador</button><section data-rt102-panel hidden style="margin-top:10px;padding:10px;border:1px solid #9d7a43;border-radius:6px;background:rgba(255,250,232,.8)"><h3 style="margin-top:0">Recuperação administrativa</h3><p class="small">Conta: <b>reinos_admin</b>. Use um código de recuperação de uso único e escolha uma nova senha.</p><form data-rt102-form><label>Código de recuperação<input class="text-input" type="text" name="token" autocomplete="one-time-code" minlength="32" required></label><label>Nova senha<input class="text-input" type="password" name="password" autocomplete="new-password" minlength="12" required></label><label>Confirmar<input class="text-input" type="password" name="confirm" autocomplete="new-password" minlength="12" required></label><button class="rt18-auth-btn" type="submit">Trocar senha do administrador</button></form><p class="small" data-rt102-admin-status></p></section>`;
     form.insertAdjacentElement('afterend',wrap);
@@ -36,14 +36,6 @@
     return true;
   }
   const obs=new MutationObserver(()=>enhance());
-  const start=()=>{
-    obs.observe(document.documentElement,{childList:true,subtree:true});
-    enhance();
-    // A tela de autenticação é substituída por innerHTML em runtime. O pulso curto
-    // garante a montagem mesmo em navegadores que coalescem mutações agressivamente.
-    const pulse=setInterval(enhance,250);
-    setTimeout(()=>clearInterval(pulse),30000);
-    document.addEventListener('click',()=>setTimeout(enhance,0),true);
-  };
+  const start=()=>{obs.observe(document.documentElement,{childList:true,subtree:true});enhance();const pulse=setInterval(enhance,250);setTimeout(()=>clearInterval(pulse),30000);document.addEventListener('click',()=>setTimeout(enhance,0),true);};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
