@@ -35,6 +35,16 @@ jobs:
           if files[0].read_bytes()!=files[1].read_bytes():
               raise SystemExit('index.html e JOGAR_REINOS_TRIBAIS.html divergiram')
 
+          auth=Path('rt85-auth-bridge.js')
+          s=auth.read_text(encoding='utf-8')
+          marker='  window.__RT_TURSO_BRIDGE__=true;\n'
+          alias='  window.__RT85_AUTH_BRIDGE__=true; // marcador legado; backend continua Turso\n'
+          if alias not in s:
+              if marker not in s:
+                  raise SystemExit('rt85-auth-bridge.js: marcador Turso ausente')
+              s=s.replace(marker,marker+alias,1)
+              auth.write_text(s,encoding='utf-8')
+
           reino=Path('api/reino.js')
           s=reino.read_text(encoding='utf-8')
           old="""let connection;\nlet schemaPromise;\n\nfunction configured() {\n  return Boolean(process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN);\n}\n\nfunction db() {\n  if (!configured()) throw new Error('Turso não configurado no servidor.');\n  if (!connection) {\n    connection = connect({\n      url: process.env.TURSO_DATABASE_URL,\n      authToken: process.env.TURSO_AUTH_TOKEN,\n    });\n  }\n  return connection;\n}\n"""
@@ -61,9 +71,12 @@ jobs:
           set -euo pipefail
           grep -q 'rt85-auth-bridge.js?v=1.0.4-turso' index.html
           grep -q 'conta e save online via Turso' index.html
+          grep -q '__RT_TURSO_BRIDGE__' rt85-auth-bridge.js
+          grep -q '__RT85_AUTH_BRIDGE__' rt85-auth-bridge.js
           grep -q '__RT_SERVER_ACTIONS_ENABLED__' rt85-auth-bridge.js
           grep -q 'Promise.resolve(raw.prepare(sql))' api/reino.js
           grep -q 'Promise.resolve(raw.prepare(sql))' api/admin.js
+          node --check rt85-auth-bridge.js
           node --check api/reino.js
           node --check api/admin.js
           cmp -s index.html JOGAR_REINOS_TRIBAIS.html
@@ -73,7 +86,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html JOGAR_REINOS_TRIBAIS.html api/reino.js api/admin.js
+          git add index.html JOGAR_REINOS_TRIBAIS.html rt85-auth-bridge.js api/reino.js api/admin.js
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'RT Turso: aplicar ponte e compatibilidade do driver [turso-patched] [skip ci]'
           git push origin HEAD:rt-turso-migration
