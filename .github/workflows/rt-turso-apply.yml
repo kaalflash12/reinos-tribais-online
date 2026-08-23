@@ -15,11 +15,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: rt-turso-migration
-      - name: Patch both standalone game files
+      - name: Patch standalone game and Turso driver compatibility
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+
           files=[Path('index.html'),Path('JOGAR_REINOS_TRIBAIS.html')]
           bridge='<script src="rt85-auth-bridge.js?v=1.0.4-turso"></script>'
           for p in files:
@@ -33,22 +34,46 @@ jobs:
               p.write_text(s,encoding='utf-8')
           if files[0].read_bytes()!=files[1].read_bytes():
               raise SystemExit('index.html e JOGAR_REINOS_TRIBAIS.html divergiram')
+
+          reino=Path('api/reino.js')
+          s=reino.read_text(encoding='utf-8')
+          old="""let connection;\nlet schemaPromise;\n\nfunction configured() {\n  return Boolean(process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN);\n}\n\nfunction db() {\n  if (!configured()) throw new Error('Turso não configurado no servidor.');\n  if (!connection) {\n    connection = connect({\n      url: process.env.TURSO_DATABASE_URL,\n      authToken: process.env.TURSO_AUTH_TOKEN,\n    });\n  }\n  return connection;\n}\n"""
+          new="""let rawConnection;\nlet connection;\nlet schemaPromise;\n\nfunction configured() {\n  return Boolean(process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN);\n}\n\nfunction wrapConnection(raw) {\n  return {\n    prepare(sql) {\n      let statementPromise;\n      const statement = () => statementPromise ||= Promise.resolve(raw.prepare(sql));\n      return {\n        get: async (...args) => (await statement()).get(...args),\n        all: async (...args) => (await statement()).all(...args),\n        run: async (...args) => (await statement()).run(...args),\n        iterate: async function* (...args) { for await (const row of (await statement()).iterate(...args)) yield row; },\n      };\n    },\n    batch: (...args) => raw.batch(...args),\n    exec: (...args) => raw.exec(...args),\n    run: (...args) => raw.run(...args),\n    get: (...args) => raw.get(...args),\n    all: (...args) => raw.all(...args),\n    close: (...args) => raw.close?.(...args),\n  };\n}\n\nfunction db() {\n  if (!configured()) throw new Error('Turso não configurado no servidor.');\n  if (!connection) {\n    rawConnection = connect({\n      url: process.env.TURSO_DATABASE_URL,\n      authToken: process.env.TURSO_AUTH_TOKEN,\n    });\n    connection = wrapConnection(rawConnection);\n  }\n  return connection;\n}\n"""
+          if 'function wrapConnection(raw)' not in s:
+              if old not in s:
+                  raise SystemExit('api/reino.js: bloco de conexão esperado não encontrado')
+              s=s.replace(old,new,1)
+              reino.write_text(s,encoding='utf-8')
+
+          admin=Path('api/admin.js')
+          s=admin.read_text(encoding='utf-8')
+          old="const db=()=>connection||(connection=connect({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN}));"
+          new="""let rawConnection;\nfunction wrapConnection(raw){return {prepare(sql){let statementPromise;const statement=()=>statementPromise||=Promise.resolve(raw.prepare(sql));return {get:async(...args)=>(await statement()).get(...args),all:async(...args)=>(await statement()).all(...args),run:async(...args)=>(await statement()).run(...args)}},batch:(...args)=>raw.batch(...args),exec:(...args)=>raw.exec(...args),run:(...args)=>raw.run(...args),get:(...args)=>raw.get(...args),all:(...args)=>raw.all(...args),close:(...args)=>raw.close?.(...args)}}\nconst db=()=>connection||(rawConnection=connect({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN}),connection=wrapConnection(rawConnection));"""
+          if 'function wrapConnection(raw)' not in s:
+              if old not in s:
+                  raise SystemExit('api/admin.js: bloco de conexão esperado não encontrado')
+              s=s.replace(old,new,1)
+              admin.write_text(s,encoding='utf-8')
           PY
-      - name: Verify Turso bridge is active before bootstrap
+      - name: Verify Turso bridge and driver compatibility
         shell: bash
         run: |
           set -euo pipefail
           grep -q 'rt85-auth-bridge.js?v=1.0.4-turso' index.html
           grep -q 'conta e save online via Turso' index.html
           grep -q '__RT_SERVER_ACTIONS_ENABLED__' rt85-auth-bridge.js
+          grep -q 'Promise.resolve(raw.prepare(sql))' api/reino.js
+          grep -q 'Promise.resolve(raw.prepare(sql))' api/admin.js
+          node --check api/reino.js
+          node --check api/admin.js
           cmp -s index.html JOGAR_REINOS_TRIBAIS.html
-      - name: Commit patched standalone files
+      - name: Commit patched files
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html JOGAR_REINOS_TRIBAIS.html
+          git add index.html JOGAR_REINOS_TRIBAIS.html api/reino.js api/admin.js
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'RT Turso: ativar ponte antes do bootstrap [turso-patched] [skip ci]'
+          git commit -m 'RT Turso: aplicar ponte e compatibilidade do driver [turso-patched] [skip ci]'
           git push origin HEAD:rt-turso-migration
