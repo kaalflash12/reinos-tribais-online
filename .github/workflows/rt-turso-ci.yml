@@ -1,0 +1,68 @@
+name: RT Turso migration gate
+
+on:
+  push:
+    branches: [rt-turso-migration]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'backend/turso/**'
+      - 'rt85-auth-bridge.js'
+      - 'index.html'
+      - 'JOGAR_REINOS_TRIBAIS.html'
+      - 'package.json'
+      - 'vercel.json'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+        continue-on-error: true
+      - name: Install runtime dependency
+        run: npm install --no-audit --no-fund
+      - name: JavaScript syntax
+        run: |
+          node --check api/reino.js
+          node --check api/admin.js
+          node --check rt85-auth-bridge.js
+      - name: Verify Turso module resolves
+        run: |
+          node -e "import('@tursodatabase/serverless').then(m=>{if(typeof m.connect!=='function')process.exit(2);console.log('TURSO_MODULE_PASS')})"
+          node -e "Promise.all([import('./api/reino.js'),import('./api/admin.js')]).then(()=>console.log('API_IMPORT_PASS'))"
+      - name: Verify bridge ordering and isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp -s index.html JOGAR_REINOS_TRIBAIS.html
+          grep -q 'rt85-auth-bridge.js?v=1.0.4-turso' index.html
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          bridge=s.index('rt85-auth-bridge.js?v=1.0.4-turso')
+          core=s.index("'use strict';", bridge)
+          if not bridge < core:
+              raise SystemExit('bridge não carrega antes do core')
+          b=Path('rt85-auth-bridge.js').read_text(encoding='utf-8')
+          required=['__RT_TURSO_BRIDGE__','blockLegacySupabase:true','/api/reino','/api/admin']
+          missing=[x for x in required if x not in b]
+          if missing:
+              raise SystemExit('ponte incompleta: '+','.join(missing))
+          print('BRIDGE_ORDER_PASS')
+          PY
+      - name: Verify no Turso secret is committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -RIl --exclude-dir=.git --exclude='*.md' --exclude='*.sql' -E 'TURSO_AUTH_TOKEN\s*[=:]\s*["'"''][A-Za-z0-9._-]{20,}' .
+          echo 'SECRET_SCAN_PASS'
