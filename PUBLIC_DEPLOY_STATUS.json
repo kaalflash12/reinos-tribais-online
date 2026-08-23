@@ -1,15 +1,28 @@
 {
   "product": "Reino Tribal",
   "public_version": "1.0.1",
-  "status": "failed",
-  "http_status": 0,
+  "status": "online",
+  "http_status": 200,
   "url": "https://kaalflash12.github.io/reinos-tribais-online/",
-  "deployed_commit": "2e833a9ded810a78bc46967b26003be589d04043",
-  "steps": {
-    "enable_pages": "failure",
-    "configure_pages": "skipped",
-    "deploy_pages": "skipped",
-    "verify_http": "skipped"
+  "diagnosed_commit": "a07f6a4971502b36c779a092de7bef0b3a862288",
+  "pages_api_http": 200,
+  "pages": {
+    "url": "https://api.github.com/repos/kaalflash12/reinos-tribais-online/pages",
+    "status": "building",
+    "cname": null,
+    "custom_404": false,
+    "html_url": "https://kaalflash12.github.io/reinos-tribais-online/",
+    "build_type": "legacy",
+    "source": {
+      "branch": "main",
+      "path": "/"
+    },
+    "public": true,
+    "protected_domain_state": null,
+    "pending_domain_unverified_at": null,
+    "https_enforced": true
   },
-  "verified_at_utc": "2026-08-23T01:50:18.220652+00:00"
+  "title_ok": true,
+  "version_loader_ok": false,
+  "verified_at_utc": "2026-08-23T01:51:42.561793+00:00"
 }
