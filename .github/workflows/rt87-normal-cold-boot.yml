@@ -9,6 +9,9 @@ on:
       - 'index.html'
       - 'JOGAR_REINOS_TRIBAIS.html'
       - 'rt76-master-core.js'
+      - 'rt79-village-ui.js'
+      - 'rt85-auth-bridge.js'
+      - 'rt102-admin-recovery.js'
       - '.github/workflows/rt87-normal-cold-boot.yml'
 
 permissions:
@@ -31,7 +34,7 @@ jobs:
           tags=[
             'rt76-runtime.js?v=79.1','rt76-map-ai.js?v=79.1','rt76-master-plan.js?v=79.1',
             'rt79-suite.js?v=79.1','rt79-groups-addon.js?v=79.1','rt79-logistics-ai-addon.js?v=79.1',
-            'rt79-village-ui.js?v=79.1','rt79-admin-suite.js?v=79.1','rt79-admin-logistics-addon.js?v=79.1'
+            'rt79-village-ui.js?v=79.2','rt79-admin-suite.js?v=79.1','rt79-admin-logistics-addon.js?v=79.1'
           ]
           for src in tags:
               app=app.replace(f'<script src="{src}"></script>',f'<script defer src="{src}"></script>')
@@ -48,14 +51,19 @@ jobs:
           from pathlib import Path
           a=Path('index.html').read_text(encoding='utf-8'); b=Path('JOGAR_REINOS_TRIBAIS.html').read_text(encoding='utf-8')
           assert a==b and len(a.encode())>500000
-          tags=['rt76-runtime.js?v=79.1','rt76-map-ai.js?v=79.1','rt76-master-plan.js?v=79.1','rt79-suite.js?v=79.1','rt79-groups-addon.js?v=79.1','rt79-logistics-ai-addon.js?v=79.1','rt79-village-ui.js?v=79.1','rt79-admin-suite.js?v=79.1','rt79-admin-logistics-addon.js?v=79.1']
+          tags=['rt76-runtime.js?v=79.1','rt76-map-ai.js?v=79.1','rt76-master-plan.js?v=79.1','rt79-suite.js?v=79.1','rt79-groups-addon.js?v=79.1','rt79-logistics-ai-addon.js?v=79.1','rt79-village-ui.js?v=79.2','rt79-admin-suite.js?v=79.1','rt79-admin-logistics-addon.js?v=79.1']
           for src in tags: assert f'<script defer src="{src}"></script>' in a,src
           c=Path('rt76-master-core.js').read_text(encoding='utf-8')
           assert 'const m=ensure();if(!m)return false;let changed=false;' in c
           assert 'if(!S()){inject();return}Planner.processSupport' in c
+          v=Path('rt79-village-ui.js').read_text(encoding='utf-8')
+          assert "rt85-auth-bridge.js?v=85.1" in v
+          assert "rt102-admin-recovery.js?v=1.0.3" in v
           print({'html_bytes':len(a.encode()),'deferred_modules':len(tags)})
           PY
           node --check rt76-master-core.js
+          node --check rt85-auth-bridge.js
+          node --check rt102-admin-recovery.js
       - name: Persist RT87 patch to PR branch
         if: github.event_name == 'pull_request'
         shell: bash
@@ -99,10 +107,13 @@ jobs:
               WebDriverWait(d,5).until(lambda x: len(x.find_elements(By.CSS_SELECTOR,'input')) >= 4)
               out['online_auth_visible']=True
               out['auth_inputs']=len(d.find_elements(By.CSS_SELECTOR,'input'))
+              out['admin_recovery_loaded']=bool(d.execute_script('return !!window.__REINO_TRIBAL_ADMIN_RECOVERY_V102__'))
+              out['admin_recovery_button']=len(d.find_elements(By.CSS_SELECTOR,'[data-rt102-open]'))==1
               logs=d.get_log('browser'); severe=[x for x in logs if x.get('level')=='SEVERE' and 'favicon' not in x.get('message','').lower()]
               out['severe']=severe
               assert out['landing_visible_ms']<8000,out
               assert out['online_auth_visible'] and out['rt85_bridge_loaded']
+              assert out['admin_recovery_loaded'] and out['admin_recovery_button'],out
               assert not any('RT76 master scheduler' in x.get('message','') for x in severe),severe
               out['pass']=True
           finally:

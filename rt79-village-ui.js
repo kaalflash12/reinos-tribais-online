@@ -14,7 +14,7 @@
   loadScript('rt83-world-combat.js?v=83.0','rt83-world-combat','__RT83_WORLD_COMBAT__');
   loadScript('rt84-world-actions.js?v=84.0','rt84-world-actions','__RT84_WORLD_ACTIONS__');
   loadScript('rt84-offer-consistency.js?v=84.1','rt84-offer-consistency','__RT84_OFFER_CONSISTENCY__');
-  loadScript('rt85-auth-bridge.js?v=85.0','rt85-auth-bridge','__RT85_AUTH_BRIDGE__');
+  loadScript('rt85-auth-bridge.js?v=85.1','rt85-auth-bridge','__RT85_AUTH_BRIDGE__');
   loadScript('rt102-admin-recovery.js?v=1.0.3','rt102-admin-recovery','__REINO_TRIBAL_ADMIN_RECOVERY_V102__');
   loadScript('rt86-ai-director-ui.js?v=86.2','rt86-ai-director-ui','__RT86_AI_DIRECTOR_UI__');
   loadScript('rt86-ai-admin-nav.js?v=86.2','rt86-ai-admin-nav','__RT86_AI_ADMIN_NAV__');

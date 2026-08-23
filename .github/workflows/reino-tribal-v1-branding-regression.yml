@@ -17,13 +17,16 @@ jobs:
         run: |
           node --check reino-tribal-branding.js
           node --check rt102-admin-recovery.js
-          grep -q "reino-tribal-branding.js?v=1.0.2" rt79-village-ui.js
-          grep -q "rt102-admin-recovery.js?v=1.0.2" rt79-village-ui.js
+          node --check rt85-auth-bridge.js
+          grep -q "reino-tribal-branding.js?v=1.0.3" rt79-village-ui.js
+          grep -q "rt102-admin-recovery.js?v=1.0.3" rt79-village-ui.js
+          grep -q "rt85-auth-bridge.js?v=85.1" rt79-village-ui.js
           grep -q '"product_name": "Reino Tribal"' PRODUCT_RELEASE.json
-          grep -q '"public_version": "1.0.2"' PRODUCT_RELEASE.json
-          grep -q "'Reino Tribal','1.0.2'" backend/reino-tribal-public-version-1.0.2.sql
+          grep -q '"public_version": "1.0.3"' PRODUCT_RELEASE.json
+          grep -q "public_version='1.0.3'" backend/reino-tribal-public-version-1.0.3.sql
           grep -q "rt102_admin_recovery_consume" backend/reino-tribal-admin-recovery-v1.0.2.sql
-          grep -q "rt102_admin_recovery_consume" backend/edge/rt-admin-recovery-v102/index.ts
+          grep -q "rt58_admin_bootstrap_password" backend/edge/rt-admin-recovery-v102/index.ts
+          ! grep -q "recoverAdmin" rt85-auth-bridge.js
       - name: Install Selenium
         run: python -m pip install --quiet selenium
       - name: Start site
@@ -53,19 +56,24 @@ jobs:
               out['visible_revision_tokens']=sorted(set(re.findall(r'\bRT\s*\d+(?:\.\d+)*\b',body,re.I)))
               out['has_old_brand']='Reinos Tribais' in body
               out['has_new_brand']='Reino Tribal' in body
+              out['auth_bridge_loaded']=bool(d.execute_script('return !!window.__RT85_AUTH_BRIDGE__'))
               out['admin_recovery_loaded']=bool(d.execute_script('return !!window.__REINO_TRIBAL_ADMIN_RECOVERY_V102__'))
               entry=d.find_elements(By.CSS_SELECTOR,'[data-entry-online]')
               if entry: entry[0].click()
               WebDriverWait(d,5).until(lambda x: len(x.find_elements(By.ID,'rt18-login-form'))==1)
               WebDriverWait(d,5).until(lambda x: len(x.find_elements(By.CSS_SELECTOR,'[data-rt102-open]'))==1)
               out['login_form']=True
+              out['login_user_field']=len(d.find_elements(By.CSS_SELECTOR,'#rt18-login-form input[name="email"]'))==1
+              out['login_password_field']=len(d.find_elements(By.CSS_SELECTOR,'#rt18-login-form input[name="password"]'))==1
               out['admin_recovery_button']=True
               assert out['title']=='Reino Tribal',out
-              assert out['product']=={'name':'Reino Tribal','version':'1.0.2'},out
+              assert out['product']=={'name':'Reino Tribal','version':'1.0.3'},out
               assert not out['visible_revision_tokens'],out
               assert not out['has_old_brand'],out
               assert out['has_new_brand'],out
+              assert out['auth_bridge_loaded'],out
               assert out['admin_recovery_loaded'],out
+              assert out['login_form'] and out['login_user_field'] and out['login_password_field'],out
               assert out['admin_recovery_button'],out
               out['pass']=True
           finally:
