@@ -79,3 +79,22 @@ jobs:
               raise SystemExit('Possível token Turso commitado: '+', '.join(bad))
           print('SECRET_SCAN_PASS')
           PY
+      - name: Live Turso credential and SELECT probe
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${TURSO_DATABASE_URL:-}" ]; then echo '::error::TURSO_DATABASE_URL_MISSING'; exit 42; fi
+          if [ -z "${TURSO_AUTH_TOKEN:-}" ]; then echo '::error::TURSO_AUTH_TOKEN_MISSING'; exit 43; fi
+          echo 'TURSO_SECRETS_PRESENT'
+          node --input-type=module <<'NODE'
+          import { connect } from '@tursodatabase/serverless';
+          const db=connect({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN});
+          const stmt=await Promise.resolve(db.prepare('SELECT 1 AS ok'));
+          const row=await stmt.get();
+          if(Number(row?.ok)!==1) throw new Error('Turso live SELECT failed');
+          console.log('TURSO_LIVE_SELECT_PASS');
+          await db.close?.();
+          NODE
