@@ -16,17 +16,21 @@ jobs:
       - name: Static contract
         run: |
           node --check reino-tribal-branding.js
-          grep -q "reino-tribal-branding.js?v=1.0.1" rt79-village-ui.js
+          node --check rt102-admin-recovery.js
+          grep -q "reino-tribal-branding.js?v=1.0.2" rt79-village-ui.js
+          grep -q "rt102-admin-recovery.js?v=1.0.2" rt79-village-ui.js
           grep -q '"product_name": "Reino Tribal"' PRODUCT_RELEASE.json
-          grep -q '"public_version": "1.0.1"' PRODUCT_RELEASE.json
-          grep -q "'Reino Tribal','1.0.1'" backend/reino-tribal-public-version-1.0.1.sql
+          grep -q '"public_version": "1.0.2"' PRODUCT_RELEASE.json
+          grep -q "'Reino Tribal','1.0.2'" backend/reino-tribal-public-version-1.0.2.sql
+          grep -q "rt102_admin_recovery_consume" backend/reino-tribal-admin-recovery-v1.0.2.sql
+          grep -q "rt-admin-recovery-v102" backend/edge/rt-admin-recovery-v102/index.ts
       - name: Install Selenium
         run: python -m pip install --quiet selenium
       - name: Start site
         run: |
           python -m http.server 8765 >/tmp/reino-tribal-v1-http.log 2>&1 &
           sleep 2
-      - name: Browser branding proof
+      - name: Browser branding and admin recovery proof
         shell: python
         run: |
           import json,re,time
@@ -49,11 +53,17 @@ jobs:
               out['visible_revision_tokens']=sorted(set(re.findall(r'\bRT\s*\d+(?:\.\d+)*\b',body,re.I)))
               out['has_old_brand']='Reinos Tribais' in body
               out['has_new_brand']='Reino Tribal' in body
+              out['admin_recovery_loaded']=bool(d.execute_script('return !!window.__REINO_TRIBAL_ADMIN_RECOVERY_V102__'))
+              d.execute_script("if(window.renderAuthScreen) window.renderAuthScreen();")
+              time.sleep(.3)
+              out['admin_recovery_button']=len(d.find_elements(By.CSS_SELECTOR,'[data-rt102-open]'))==1
               assert out['title']=='Reino Tribal',out
-              assert out['product']=={'name':'Reino Tribal','version':'1.0.1'},out
+              assert out['product']=={'name':'Reino Tribal','version':'1.0.2'},out
               assert not out['visible_revision_tokens'],out
               assert not out['has_old_brand'],out
               assert out['has_new_brand'],out
+              assert out['admin_recovery_loaded'],out
+              assert out['admin_recovery_button'],out
               out['pass']=True
           finally:
               Path('REINO_TRIBAL_V1_BRANDING_PROOF.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
