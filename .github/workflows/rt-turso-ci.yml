@@ -13,6 +13,7 @@ on:
       - 'JOGAR_REINOS_TRIBAIS.html'
       - 'package.json'
       - 'vercel.json'
+      - '.github/workflows/rt-turso-ci.yml'
 
 permissions:
   contents: read
@@ -26,9 +27,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: package-lock.json
-        continue-on-error: true
       - name: Install runtime dependency
         run: npm install --no-audit --no-fund
       - name: JavaScript syntax
@@ -63,6 +61,21 @@ jobs:
       - name: Verify no Turso secret is committed
         shell: bash
         run: |
-          set -euo pipefail
-          ! grep -RIl --exclude-dir=.git --exclude='*.md' --exclude='*.sql' -E 'TURSO_AUTH_TOKEN\s*[=:]\s*["'"''][A-Za-z0-9._-]{20,}' .
-          echo 'SECRET_SCAN_PASS'
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          bad=[]
+          rx=re.compile(r'TURSO_AUTH_TOKEN\s*[=:]\s*[\"\x27]([A-Za-z0-9._-]{20,})[\"\x27]')
+          skip={'.git','.github/workflows/rt-turso-ci.yml'}
+          for p in Path('.').rglob('*'):
+              if not p.is_file() or '.git' in p.parts or str(p).replace('\\','/') in skip:
+                  continue
+              if p.suffix.lower() in {'.png','.jpg','.jpeg','.gif','.webp','.zip','.rar','.pdf'}:
+                  continue
+              try: text=p.read_text(encoding='utf-8',errors='ignore')
+              except Exception: continue
+              if rx.search(text): bad.append(str(p))
+          if bad:
+              raise SystemExit('Possível token Turso commitado: '+', '.join(bad))
+          print('SECRET_SCAN_PASS')
+          PY
