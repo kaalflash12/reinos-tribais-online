@@ -29,6 +29,7 @@ jobs:
         run: |
           set -u
           BASE="https://kaalflash12.github.io/reinos-tribais-online"
+          VERSION=$(python -c "import json; print(json.load(open('PRODUCT_RELEASE.json',encoding='utf-8'))['public_version'])")
           api_code=$(curl -L -sS -o /tmp/pages.json -w '%{http_code}' \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
@@ -38,18 +39,18 @@ jobs:
           release_code=$(curl -L -sS -o /tmp/release.json -w '%{http_code}' --connect-timeout 10 --max-time 30 "$BASE/PRODUCT_RELEASE.json?diag=$GITHUB_SHA" || true)
           loader_code=$(curl -L -sS -o /tmp/loader.js -w '%{http_code}' --connect-timeout 10 --max-time 30 "$BASE/rt79-village-ui.js?diag=$GITHUB_SHA" || true)
           auth_code=$(curl -L -sS -o /tmp/auth.js -w '%{http_code}' --connect-timeout 10 --max-time 30 "$BASE/rt85-auth-bridge.js?diag=$GITHUB_SHA" || true)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "api_code=$api_code" >> "$GITHUB_OUTPUT"
           echo "public_code=$public_code" >> "$GITHUB_OUTPUT"
           echo "release_code=$release_code" >> "$GITHUB_OUTPUT"
           echo "loader_code=$loader_code" >> "$GITHUB_OUTPUT"
           echo "auth_code=$auth_code" >> "$GITHUB_OUTPUT"
-          echo "Pages API HTTP=$api_code Public=$public_code Release=$release_code Loader=$loader_code Auth=$auth_code"
-          grep -o '<title>[^<]*</title>' /tmp/public.html | head -1 || true
-          cat /tmp/release.json || true
+          echo "Version=$VERSION Pages API HTTP=$api_code Public=$public_code Release=$release_code Loader=$loader_code Auth=$auth_code"
       - name: Persist diagnosis
         if: always()
         shell: bash
         env:
+          EXPECTED_VERSION: ${{ steps.inspect.outputs.version }}
           API_CODE: ${{ steps.inspect.outputs.api_code }}
           PUBLIC_CODE: ${{ steps.inspect.outputs.public_code }}
           RELEASE_CODE: ${{ steps.inspect.outputs.release_code }}
@@ -67,6 +68,7 @@ jobs:
           def code(name):
               try:return int(os.environ.get(name) or 0)
               except:return 0
+          expected=os.environ.get('EXPECTED_VERSION') or json.load(open('PRODUCT_RELEASE.json',encoding='utf-8'))['public_version']
           api_raw=read('/tmp/pages.json')
           try: api=json.loads(api_raw) if api_raw else None
           except: api={'raw':api_raw[:2000]}
@@ -80,15 +82,16 @@ jobs:
             'root_http_200':code('PUBLIC_CODE')==200,
             'title_reino_tribal':'<title>Reino Tribal</title>' in html,
             'release_http_200':code('RELEASE_CODE')==200,
-            'release_v1_0_1':isinstance(release,dict) and release.get('product_name')=='Reino Tribal' and release.get('public_version')=='1.0.1',
+            'release_current':isinstance(release,dict) and release.get('product_name')=='Reino Tribal' and release.get('public_version')==expected,
             'loader_http_200':code('LOADER_CODE')==200,
-            'loader_v1_0_1':'reino-tribal-branding.js?v=1.0.1' in loader,
+            'loader_current':f'reino-tribal-branding.js?v={expected}' in loader,
             'auth_http_200':code('AUTH_CODE')==200,
             'auth_bridge_present':'__RT85_AUTH_BRIDGE__' in auth or 'RT85Auth' in auth,
+            'auth_bridge_isolated':'recoverAdmin' not in auth,
           }
           data={
             'product':'Reino Tribal',
-            'public_version':'1.0.1',
+            'public_version':expected,
             'status':'online' if all(checks.values()) else 'failed',
             'http_status':code('PUBLIC_CODE'),
             'url':'https://kaalflash12.github.io/reinos-tribais-online/',
@@ -103,5 +106,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add PUBLIC_DEPLOY_STATUS.json
-          git commit -m 'Reino Tribal: prova pública v1.0.1 e auth [skip ci]' || exit 0
+          git commit -m "Reino Tribal: prova pública atual e auth [skip ci]" || exit 0
           git push origin HEAD:main
