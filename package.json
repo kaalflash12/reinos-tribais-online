@@ -7,6 +7,6 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@tursodatabase/serverless": "latest"
+    "@tursodatabase/serverless": "1.4.0"
   }
 }
