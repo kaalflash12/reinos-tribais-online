@@ -1,0 +1,47 @@
+name: RT HOME Hotfix Parse
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - 'CORRIGIR_E_EXECUTAR_REINO_TRIBAL.ps1'
+      - 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'
+      - '.github/workflows/rt-home-hotfix-parse.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'CORRIGIR_E_EXECUTAR_REINO_TRIBAL.ps1'
+      - 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'
+      - '.github/workflows/rt-home-hotfix-parse.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse launcher
+        shell: powershell
+        run: |
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'CORRIGIR_E_EXECUTAR_REINO_TRIBAL.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count){ $errors | % { Write-Error $_.Message }; exit 1 }
+          Write-Host 'LAUNCHER_PARSE_PASS'
+      - name: Apply HOME hotfix and parse transformed bootstrap
+        shell: powershell
+        run: |
+          $src = Get-Content 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1' -Raw
+          $rx = [regex]::new('\$home\b')
+          $before = $rx.Matches($src).Count
+          $fixed = $rx.Replace($src, '$vercelCliHome')
+          if($rx.IsMatch($fixed)){ throw 'HOME_HOTFIX_INCOMPLETE' }
+          $tmp = Join-Path $env:TEMP 'rt-fixed.ps1'
+          [IO.File]::WriteAllText($tmp,$fixed,(New-Object Text.UTF8Encoding($true)))
+          $tokens=$null; $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($tmp,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count){ $errors | % { Write-Error $_.Message }; exit 1 }
+          Write-Host "HOME_HOTFIX_PASS occurrences=$before"
+          Write-Host 'TRANSFORMED_BOOTSTRAP_PARSE_PASS'
