@@ -97,8 +97,8 @@ jobs:
           $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
           if(-not(Test-Path $out)){throw 'Bootstrap final não foi gerado'}
           $t=[IO.File]::ReadAllText($out)
-          foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'")){
-            if($t.Contains($forbidden)){throw "Bootstrap final contém fluxo antigo: $forbidden"}
+          foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'","'production','development'")){
+            if($t.Contains($forbidden)){throw "Bootstrap final contém fluxo antigo/frágil: $forbidden"}
           }
           foreach($needle in @(
             "'repo','clone',`$Repositorio,`$repoDir",
@@ -109,13 +109,14 @@ jobs:
             "'variable','get','DENO_DEPLOY_ORG'",
             "'deploy','env','list','--org',`$denoOrg,'--app',`$DenoApp",
             "'deploy','create','.'",
-            "'deploy','env','load',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp",
+            "'deploy','env','load','--replace',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp",
+            "'deploy','env','update-contexts',`$name,'--org',`$denoOrg,'--app',`$DenoApp",
             "'deploy','--org',`$denoOrg,'--app',`$DenoApp,'--prod'",
             "Set-GitHubVariable `$gh 'DENO_DEPLOY_ORG' `$denoOrg"
           )){
             if(-not $t.Contains($needle)){throw "Contrato final ausente: $needle"}
           }
-          Write-Host 'COMPATIBILITY_TO_FINAL_TRANSFORM_PASS'
+          Write-Host 'COMPATIBILITY_TO_FINAL_ENV_TRANSFORM_PASS'
       - name: Validate unique anti-stale launcher
         shell: powershell
         run: |
@@ -125,19 +126,18 @@ jobs:
           if(-not(Test-Path $out)){throw 'Unique launcher não gerou bootstrap final'}
           $t=[IO.File]::ReadAllText($out)
           foreach($needle in @(
-            'UNIQUE_DENO_ORG_TRANSFORM_PASS',
             "'variable','get','DENO_DEPLOY_ORG'",
             'https://console.deno.com',
             "'deploy','env','list','--org',`$denoOrg,'--app',`$DenoApp",
             "'deploy','create','.'",
             "'--org',`$denoOrg",
-            "'deploy','env','load',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp",
+            "'deploy','env','load','--replace',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp",
+            "'deploy','env','update-contexts',`$name,'--org',`$denoOrg,'--app',`$DenoApp",
             "'deploy','--org',`$denoOrg,'--app',`$DenoApp,'--prod'"
           )){
-            if($needle -eq 'UNIQUE_DENO_ORG_TRANSFORM_PASS'){continue}
-            if(-not $t.Contains($needle)){throw "Contrato Deno org ausente: $needle"}
+            if(-not $t.Contains($needle)){throw "Contrato Deno org/env ausente: $needle"}
           }
-          foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'")){
-            if($t.Contains($forbidden)){throw "Unique bootstrap contém fluxo antigo: $forbidden"}
+          foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'","'production','development'")){
+            if($t.Contains($forbidden)){throw "Unique bootstrap contém fluxo antigo/frágil: $forbidden"}
           }
-          Write-Host 'UNIQUE_ANTISTALE_GHCLONE_DENO_ORG_PASS'
+          Write-Host 'UNIQUE_ANTISTALE_GHCLONE_DENO_ORG_ENV_PASS'
