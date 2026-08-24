@@ -6,6 +6,11 @@ on:
     paths:
       - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
       - '.github/workflows/rt-flatten-final.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - '.github/workflows/rt-flatten-final.yml'
   workflow_dispatch:
 
 permissions:
@@ -39,7 +44,9 @@ jobs:
             '$env:DENO_DEPLOY_TOKEN = $denoToken',
             "Turso-Request -Method GET -Path '/v2/organizations'",
             '$dbItems = @(Convert-ToTursoDatabaseList $dbListRaw)',
-            '$denoOrg = $slugs | Sort-Object | Select-Object -First 1'
+            '$denoOrg = $slugs | Sort-Object | Select-Object -First 1',
+            '$existingRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase"',
+            'Banco Turso reutilizado apos conflito 409'
           )){
             if(-not $text.Contains($needle)){throw "Contrato final ausente: $needle"}
           }
@@ -54,7 +61,7 @@ jobs:
             if($text.Contains($forbidden)){throw "Bootstrap final ainda depende de camada antiga: $forbidden"}
           }
 
-          $header="# REINO TRIBAL - SCRIPT FINAL ACHATADO`r`n# Gerado automaticamente do FIX5B validado. Sem launcher intermediario.`r`n"
+          $header="# REINO TRIBAL - SCRIPT FINAL ACHATADO`r`n# Turso DB normalizado + recovery 409 + Deno device auth. Sem launcher intermediario.`r`n"
           $final=$header+$text
           $enc=New-Object Text.UTF8Encoding($true)
           foreach($dest in @(
