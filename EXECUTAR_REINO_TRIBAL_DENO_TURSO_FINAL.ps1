@@ -1,5 +1,5 @@
 ﻿# REINO TRIBAL - SCRIPT FINAL ACHATADO
-# Turso DB normalizado + recovery 409 + Deno device auth. Sem launcher intermediario.
+# Turso 409 + Deno device auth + GitHub API 5 arquivos low-resource. Sem git clone e sem launcher intermediario.
 param(
   [string]$Repositorio = 'kaalflash12/reinos-tribais-online',
   [string]$Branch = 'rt-turso-migration',
@@ -315,7 +315,7 @@ try {
   function Get-GitHubBranchFile {
     param([Parameter(Mandatory=$true)][string]$RelativePath)
     $escapedPath = (($RelativePath -split '/') | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
-    $fileUri = "https://api.github.com/repos/$Repositorio/contents/$escapedPath?ref=$escapedBranch"
+    $fileUri = ('https://api.github.com/repos/{0}/contents/{1}?ref={2}' -f $Repositorio,$escapedPath,$escapedBranch)
     try {
       $meta = Invoke-RestMethod -Method Get -Uri $fileUri -Headers $githubHeaders -TimeoutSec 60
     } catch {
@@ -354,7 +354,7 @@ try {
   }
   Ok 'Backend minimo obtido pela API GitHub autenticada: 5 arquivos, zero git.exe, zero clone, zero archive.'
   $check = Executar-Nativo -Exe $DenoExe -Args @('check','deno/main.js') -Diretorio $workPath -TimeoutSec 180 -Rotulo 'Deno check do backend'
-  Exigir-Sucesso $check 'Backend nÃ£o passou no deno check.'
+  Exigir-Sucesso $check 'Backend não passou no deno check.'
   Ok 'Backend Deno/Turso validado localmente.'
   Etapa 'Turso: organização isolada e banco exclusivo'
   $platformToken = [string]$env:TURSO_PLATFORM_API_TOKEN
@@ -501,7 +501,7 @@ try {
       Aviso "Turso informou conflito 409 ao criar $TursoDatabase; buscando o banco existente pelo nome."
       $existingRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase" -Token $platformToken
       $db = Convert-ToTursoDatabase $existingRaw
-      if (-not $db) { Falhar 'Turso retornou 409 na criacao, mas o banco existente nao pÃ´de ser carregado pelo nome.' }
+      if (-not $db) { Falhar 'Turso retornou 409 na criacao, mas o banco existente nao pôde ser carregado pelo nome.' }
       $existingName = Get-TursoDatabaseField $db 'Name'
       if ($existingName -and $existingName -ne $TursoDatabase) {
         Falhar "Turso retornou 409 e o detalhe carregado pertence a outro banco: $existingName"
