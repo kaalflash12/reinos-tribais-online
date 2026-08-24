@@ -5,7 +5,7 @@ Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Compatibilidade apenas. A lógica final vive no launcher único imutável abaixo.
-$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/ab0d40c5dbf1f82745730b95e4501ba6a1a65755/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/9cd91df8b7e2264921df59dcd90bdf1c1c530850/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 $LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 
 Write-Host '=== REINO TRIBAL - ENTRADA COMPATIVEL ===' -ForegroundColor Cyan
