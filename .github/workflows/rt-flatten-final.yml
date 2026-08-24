@@ -4,12 +4,12 @@ on:
   push:
     branches: [rt-turso-migration]
     paths:
-      - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - 'RT_REINO_TRIBAL_LOW_RESOURCE_FIX6.ps1'
       - '.github/workflows/rt-flatten-final.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - 'RT_REINO_TRIBAL_LOW_RESOURCE_FIX6.ps1'
       - '.github/workflows/rt-flatten-final.yml'
   workflow_dispatch:
 
@@ -30,8 +30,8 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1 -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "FIX5B ValidateOnly falhou: $LASTEXITCODE"}
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_LOW_RESOURCE_FIX6.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "FIX6 ValidateOnly falhou: $LASTEXITCODE"}
 
           $src=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
           if(-not(Test-Path $src)){throw 'Bootstrap final nao foi gerado'}
@@ -46,7 +46,10 @@ jobs:
             '$dbItems = @(Convert-ToTursoDatabaseList $dbListRaw)',
             '$denoOrg = $slugs | Sort-Object | Select-Object -First 1',
             '$existingRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase"',
-            'Banco Turso reutilizado apos conflito 409'
+            'Banco Turso reutilizado apos conflito 409',
+            'function Get-GitHubBranchFile',
+            '$fileUri = (''https://api.github.com/repos/{0}/contents/{1}?ref={2}'' -f $Repositorio,$escapedPath,$escapedBranch)',
+            'Backend minimo obtido pela API GitHub autenticada: 5 arquivos, zero git.exe, zero clone, zero archive.'
           )){
             if(-not $text.Contains($needle)){throw "Contrato final ausente: $needle"}
           }
@@ -56,12 +59,18 @@ jobs:
             'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5',
             'RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4',
             '$dbList.databases',
-            '@($slugs | Sort-Object | Select-Object -First 1)[0]'
+            '@($slugs | Sort-Object | Select-Object -First 1)[0]',
+            'Get-Command git.exe',
+            "'repo','clone'",
+            '--single-branch',
+            '/zipball/',
+            'Expand-Archive -Path $archiveZip',
+            '$fileUri = "https://api.github.com/repos/$Repositorio/contents/$escapedPath?ref=$escapedBranch"'
           )){
-            if($text.Contains($forbidden)){throw "Bootstrap final ainda depende de camada antiga: $forbidden"}
+            if($text.Contains($forbidden)){throw "Bootstrap final ainda depende de camada antiga/pesada: $forbidden"}
           }
 
-          $header="# REINO TRIBAL - SCRIPT FINAL ACHATADO`r`n# Turso DB normalizado + recovery 409 + Deno device auth. Sem launcher intermediario.`r`n"
+          $header="# REINO TRIBAL - SCRIPT FINAL ACHATADO`r`n# Turso 409 + Deno device auth + GitHub API 5 arquivos low-resource. Sem git clone e sem launcher intermediario.`r`n"
           $final=$header+$text
           $enc=New-Object Text.UTF8Encoding($true)
           foreach($dest in @(
@@ -75,6 +84,13 @@ jobs:
             if($errors.Count){throw "Parser falhou em $dest : $($errors[0].Message)"}
           }
 
+          $hashes=@(
+            (Get-FileHash .\REINO_TRIBAL_FINAL_UNICO.ps1 -Algorithm SHA256).Hash,
+            (Get-FileHash .\EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 -Algorithm SHA256).Hash,
+            (Get-FileHash .\IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1 -Algorithm SHA256).Hash
+          ) | Select-Object -Unique
+          if($hashes.Count -ne 1){throw 'Os tres executores finais nao sao byte-a-byte identicos.'}
+          Write-Host "FLATTEN_FINAL_IDENTICAL_SHA256=$($hashes[0])"
           Write-Host 'FLATTEN_FINAL_SCRIPT_PASS'
 
       - name: Commit flattened scripts to migration branch
@@ -85,7 +101,7 @@ jobs:
           git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
           git diff --cached --quiet
           if($LASTEXITCODE -eq 0){ Write-Host 'Nenhuma alteracao para commitar na migration.'; exit 0 }
-          git commit -m 'build: gerar script final achatado Reino Tribal'
+          git commit -m 'build: gerar script final achatado Reino Tribal low-resource'
           git push origin HEAD:rt-turso-migration
 
       - name: Publish canonical flattened scripts to main
@@ -117,7 +133,7 @@ jobs:
               if($LASTEXITCODE -eq 0){
                 Write-Host 'MAIN_CANONICAL_ALREADY_CURRENT'
               }else{
-                git commit -m 'build: publicar executor final achatado no main'
+                git commit -m 'build: publicar executor final low-resource no main'
                 git push origin HEAD:main
                 if($LASTEXITCODE -ne 0){throw "Falha publicando executores achatados no main: $LASTEXITCODE"}
                 Write-Host 'MAIN_CANONICAL_PUBLISH_PASS'
