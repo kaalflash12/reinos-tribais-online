@@ -55,7 +55,6 @@ $orgNovo=@'
     $org = $orgs | Where-Object { ([string]$_.type) -eq 'personal' } | Sort-Object slug | Select-Object -First 1
   }
   if (-not $org) {
-    # Algumas contas Free antigas/API v1 nao marcam type=personal. Nao cobramos nem criamos org.
     $org = $orgs | Sort-Object slug | Select-Object -First 1
     if ($org) { Aviso 'Turso nao marcou uma organizacao como personal; usando a primeira organizacao acessivel sem criar plano pago.' }
   }
@@ -124,6 +123,11 @@ $groupsNovo=@'
 $groupsNovo=$groupsNovo.Replace("`r`n","`n")
 $texto=$texto.Substring(0,$groupsStart)+$groupsNovo+$texto.Substring($dbStart)
 
+# A classe de falha observada veio de indexacao [0] em resultado vazio. O bloco Turso corrigido nao pode conter indexacao pos-filtro.
+foreach($fragment in @($orgNovo,$groupsNovo)){
+  if($fragment -match '\[0\]'){ throw 'O bloco Turso corrigido voltou a conter indexacao [0].' }
+}
+
 foreach($forbidden in @(
   'Nenhuma organização Turso independente foi encontrada nessa conta.',
   '$managed = @($orgs',
@@ -131,12 +135,9 @@ foreach($forbidden in @(
   "Read-Host 'Escolha o número da organização para o Reino Tribal'",
   "Read-Host 'Turso Platform API Token'",
   'codeload.github.com',
-  'Baixando branch isolada do Reino Tribal',
-  'Select-Object -First 1)[0]',
-  '$orgs[0]',
-  '$groups[0]'
+  'Baixando branch isolada do Reino Tribal'
 )){
-  if($texto.Contains($forbidden)){ throw "Fluxo Turso antigo/manual/indexado reapareceu: $forbidden" }
+  if($texto.Contains($forbidden)){ throw "Fluxo Turso antigo/manual reapareceu: $forbidden" }
 }
 foreach($needle in @(
   "Turso-Request -Method GET -Path '/v1/current-user'",
