@@ -1,0 +1,46 @@
+name: RT Bootstrap Env BOM Fix
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
+      - '.github/workflows/rt-bootstrap-env-bom-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[env-nobom]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rt-turso-migration
+      - name: Patch env file encoding
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1')
+          s=p.read_text(encoding='utf-8')
+          old="""  @(\n    \"TURSO_DATABASE_URL=$dbUrl\",\n    \"TURSO_AUTH_TOKEN=$dbToken\",\n    \"RT_ADMIN_PASSWORD=$adminPassword\",\n    \"RT_ADMIN_RECOVERY_KEY=$recoveryKey\",\n    'RT_ALLOWED_ORIGINS=https://kaalflash12.github.io'\n  ) | Set-Content -Path $envFile -Encoding UTF8\n"""
+          new="""  $envLines = @(\n    \"TURSO_DATABASE_URL=$dbUrl\",\n    \"TURSO_AUTH_TOKEN=$dbToken\",\n    \"RT_ADMIN_PASSWORD=$adminPassword\",\n    \"RT_ADMIN_RECOVERY_KEY=$recoveryKey\",\n    'RT_ALLOWED_ORIGINS=https://kaalflash12.github.io'\n  )\n  $envUtf8NoBom = New-Object Text.UTF8Encoding($false)\n  [IO.File]::WriteAllLines($envFile,$envLines,$envUtf8NoBom)\n"""
+          if old in s:
+              p.write_text(s.replace(old,new,1),encoding='utf-8')
+              print('ENV_NOBOM_PATCHED')
+          elif 'UTF8Encoding($false)' in s and 'WriteAllLines($envFile' in s:
+              print('ENV_NOBOM_ALREADY_CLEAN')
+          else:
+              raise SystemExit('Bloco de env inesperado; não alterado')
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'RT Deno/Turso: escrever env sem BOM [env-nobom]'
+          git push origin HEAD:rt-turso-migration
