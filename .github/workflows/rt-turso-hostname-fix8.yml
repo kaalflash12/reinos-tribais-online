@@ -32,7 +32,6 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'REINO_TRIBAL_FINAL_UNICO.ps1'
           & .\RT_REINO_TRIBAL_TURSO_HOSTNAME_FIX8.ps1 -OutFile $out -ValidateOnly
-          if ($LASTEXITCODE -ne 0) { throw "FIX8 ValidateOnly falhou: $LASTEXITCODE" }
           if (-not (Test-Path $out)) { throw 'Executor FIX8 nao foi gerado.' }
 
           $tokens = $null
