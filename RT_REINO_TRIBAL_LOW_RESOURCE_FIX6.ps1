@@ -18,7 +18,14 @@ $old='$fileUri = "https://api.github.com/repos/$Repositorio/contents/$escapedPat
 $new='$fileUri = (''https://api.github.com/repos/{0}/contents/{1}?ref={2}'' -f $Repositorio,$escapedPath,$escapedBranch)'
 if(-not $s.Contains($old)){throw 'FIX6 nao encontrou montagem antiga da URL Contents API.'}
 $s=$s.Replace($old,$new)
+
+$oldGate="'https://api.github.com/repos/`$Repositorio/contents/`$escapedPath?ref=`$escapedBranch'"
+$newGate="'`$fileUri = (''https://api.github.com/repos/{0}/contents/{1}?ref={2}'' -f `$Repositorio,`$escapedPath,`$escapedBranch)'"
+if(-not $s.Contains($oldGate)){throw 'FIX6 nao encontrou gate antigo da URL Contents API.'}
+$s=$s.Replace($oldGate,$newGate)
+
 if($s.Contains($old)){throw 'FIX6 ainda contem montagem ambigua da URL Contents API.'}
+if($s.Contains($oldGate)){throw 'FIX6 ainda contem gate antigo da URL Contents API.'}
 [IO.File]::WriteAllText($Patched,$s,$utf8Bom)
 
 $tokens=$null;$errors=$null
