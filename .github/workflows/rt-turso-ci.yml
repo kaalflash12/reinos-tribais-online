@@ -8,11 +8,12 @@ on:
     paths:
       - 'api/**'
       - 'backend/turso/**'
+      - 'deno/**'
+      - 'deno.json'
       - 'rt85-auth-bridge.js'
       - 'index.html'
       - 'JOGAR_REINOS_TRIBAIS.html'
       - 'package.json'
-      - 'vercel.json'
       - '.github/workflows/rt-turso-ci.yml'
 
 permissions:
@@ -27,13 +28,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
       - name: Install runtime dependency
         run: npm install --no-audit --no-fund
-      - name: JavaScript syntax
+      - name: JavaScript syntax and Deno adapter
         run: |
           node --check api/reino.js
           node --check api/admin.js
           node --check rt85-auth-bridge.js
+          deno check deno/main.js
       - name: Verify Turso module resolves
         run: |
           node -e "import('@tursodatabase/serverless').then(m=>{if(typeof m.connect!=='function')process.exit(2);console.log('TURSO_MODULE_PASS')})"
@@ -58,6 +63,27 @@ jobs:
               raise SystemExit('ponte incompleta: '+','.join(missing))
           print('BRIDGE_ORDER_PASS')
           PY
+      - name: Verify dedicated Deno infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f deno.json
+          test -f deno/main.js
+          test ! -f vercel.json
+          grep -q '"entrypoint": "./deno/main.js"' deno.json
+          grep -q "service: 'reino-tribal-api'" deno/main.js
+          python - <<'PY'
+          from pathlib import Path
+          targets=[Path('deno.json'),Path('deno/main.js')]
+          forbidden=['vercel','bw-v151','bacathegas','bacaworld','cloudflare','mongodb','neon']
+          bad=[]
+          for p in targets:
+              s=p.read_text(encoding='utf-8').lower()
+              for x in forbidden:
+                  if x in s: bad.append(f'{p}:{x}')
+          if bad: raise SystemExit('Infraestrutura cruzada: '+', '.join(bad))
+          print('DENO_ISOLATION_PASS')
+          PY
       - name: Verify no Turso secret is committed
         shell: bash
         run: |
@@ -66,9 +92,8 @@ jobs:
           from pathlib import Path
           bad=[]
           rx=re.compile(r'TURSO_AUTH_TOKEN\s*[=:]\s*[\"\x27]([A-Za-z0-9._-]{20,})[\"\x27]')
-          skip={'.git','.github/workflows/rt-turso-ci.yml'}
           for p in Path('.').rglob('*'):
-              if not p.is_file() or '.git' in p.parts or str(p).replace('\\','/') in skip:
+              if not p.is_file() or '.git' in p.parts:
                   continue
               if p.suffix.lower() in {'.png','.jpg','.jpeg','.gif','.webp','.zip','.rar','.pdf'}:
                   continue
