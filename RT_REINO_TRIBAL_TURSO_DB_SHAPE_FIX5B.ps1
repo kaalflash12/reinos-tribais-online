@@ -9,7 +9,7 @@ $Patched=Join-Path $env:TEMP 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B_INNER.ps1'
 $Final=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
 $utf8Bom=New-Object Text.UTF8Encoding($true)
 
-Write-Host '=== REINO TRIBAL FINAL - TURSO 409 + GITHUB ARCHIVE LOW RESOURCE ===' -ForegroundColor Cyan
+Write-Host '=== REINO TRIBAL FINAL - TURSO 409 + GITHUB MINIMAL FILES LOW RESOURCE ===' -ForegroundColor Cyan
 Remove-Item $Patched,$Final -Force -ErrorAction SilentlyContinue
 Invoke-WebRequest -UseBasicParsing -Uri $Pinned -OutFile $Patched -TimeoutSec 120
 if(-not(Test-Path $Patched)){throw 'Base pinada nao foi baixada.'}
@@ -73,69 +73,78 @@ $tokens=$null;$errors=$null
 [System.Management.Automation.Language.Parser]::ParseFile($Patched,[ref]$tokens,[ref]$errors)|Out-Null
 if($errors.Count){throw ('Inner parser falhou: '+(($errors|ForEach-Object{$_.Message}) -join '; '))}
 
-# 2) Sempre gera sem executar, para poder aplicar o patch low-resource no bootstrap real.
+# 2) Sempre gera sem executar, para aplicar o patch low-resource no bootstrap real.
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Patched -ValidateOnly
 $code=$LASTEXITCODE
 if($code -ne 0){throw "Gerador FIX5B ValidateOnly falhou. Codigo: $code"}
 if(-not(Test-Path $Final)){throw 'Bootstrap final nao foi gerado.'}
 
-# 3) Troca o git clone do bootstrap final por archive autenticado via GitHub API.
+# 3) Troca git clone por download autenticado somente dos 5 arquivos do backend.
 $t=[IO.File]::ReadAllText($Final).Replace("`r`n","`n")
 $branchPattern="(?s)  Etapa 'Obtendo branch.*?(?=  Etapa 'Turso:)"
 $branchMatch=[regex]::Match($t,$branchPattern)
 if(-not $branchMatch.Success){throw 'Bootstrap final nao contem bloco de obtencao da branch para patch low-resource.'}
 
 $newBranch=@'
-  Etapa 'Obtendo branch isolada via GitHub API autenticada'
+  Etapa 'Obtendo backend minimo via GitHub API autenticada'
   $repoDir = Join-Path $WorkRoot 'repo'
-  $archiveDir = Join-Path $WorkRoot 'archive'
-  $archiveZip = Join-Path $WorkRoot 'branch.zip'
-  Remove-Item $repoDir,$archiveDir,$archiveZip -Recurse -Force -ErrorAction SilentlyContinue
-  New-Item -ItemType Directory -Force -Path $archiveDir | Out-Null
+  Remove-Item $repoDir -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $repoDir | Out-Null
 
   $tokenResult = Executar-Nativo -Exe $gh -Args @('auth','token') -TimeoutSec 30 -Rotulo 'Obter credencial temporaria GitHub da sessao atual'
   Exigir-Sucesso $tokenResult 'GitHub CLI autenticado nao forneceu a credencial temporaria da sessao.'
   $githubToken = $tokenResult.Text.Trim()
   if ($githubToken.Length -lt 20) { Falhar 'Credencial temporaria GitHub veio vazia ou invalida.' }
 
-  $archiveHeaders = @{
+  $githubHeaders = @{
     Authorization = "Bearer $githubToken"
     Accept = 'application/vnd.github+json'
     'User-Agent' = 'Reino-Tribal-Bootstrap'
     'X-GitHub-Api-Version' = '2022-11-28'
   }
   $escapedBranch = [Uri]::EscapeDataString($Branch)
-  $archiveUri = "https://api.github.com/repos/$Repositorio/zipball/$escapedBranch"
+
+  function Get-GitHubBranchFile {
+    param([Parameter(Mandatory=$true)][string]$RelativePath)
+    $escapedPath = (($RelativePath -split '/') | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+    $fileUri = "https://api.github.com/repos/$Repositorio/contents/$escapedPath?ref=$escapedBranch"
+    try {
+      $meta = Invoke-RestMethod -Method Get -Uri $fileUri -Headers $githubHeaders -TimeoutSec 60
+    } catch {
+      Falhar "Falha baixando arquivo GitHub $RelativePath.`n$($_.Exception.Message)"
+    }
+    if ($null -eq $meta -or [string]$meta.type -ne 'file' -or -not $meta.content) {
+      Falhar "GitHub API nao retornou conteudo de arquivo para $RelativePath."
+    }
+    $base64 = ([string]$meta.content) -replace '\s',''
+    try { $bytes = [Convert]::FromBase64String($base64) }
+    catch { Falhar "Conteudo base64 invalido recebido do GitHub para $RelativePath." }
+    if ($bytes.Length -lt 1) { Falhar "Arquivo GitHub vazio: $RelativePath" }
+    $dest = Join-Path $repoDir ($RelativePath -replace '/','\')
+    $parent = Split-Path $dest -Parent
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    [IO.File]::WriteAllBytes($dest,$bytes)
+  }
+
+  $requiredFiles = @(
+    'deno.json',
+    'deno/main.js',
+    'api/reino.js',
+    'api/admin.js',
+    'backend/turso/schema.sql'
+  )
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri $archiveUri -Headers $archiveHeaders -OutFile $archiveZip -MaximumRedirection 5 -TimeoutSec 180
-  } catch {
-    Falhar "Falha baixando archive autenticado da branch $Branch sem git.exe.`n$($_.Exception.Message)"
+    foreach ($requiredFile in $requiredFiles) { Get-GitHubBranchFile $requiredFile }
   } finally {
     $githubToken = ''
-    $archiveHeaders.Authorization = ''
+    $githubHeaders.Authorization = ''
   }
 
-  if (-not (Test-Path $archiveZip)) { Falhar 'GitHub API nao gerou o ZIP da branch.' }
-  $archiveSize = (Get-Item $archiveZip).Length
-  if ($archiveSize -lt 1024) { Falhar "ZIP da branch veio pequeno/invalido: $archiveSize bytes." }
-
-  Expand-Archive -Path $archiveZip -DestinationPath $archiveDir -Force
-  Remove-Item $archiveZip -Force -ErrorAction SilentlyContinue
-
-  $candidateRoots = @(Get-ChildItem $archiveDir -Directory -ErrorAction Stop)
-  $workPath = $null
-  foreach ($candidateRoot in $candidateRoots) {
-    if (Test-Path (Join-Path $candidateRoot.FullName 'deno\main.js')) {
-      $workPath = $candidateRoot.FullName
-      break
-    }
-  }
-  if (-not $workPath) { Falhar 'Archive GitHub foi extraido, mas deno/main.js nao foi encontrado.' }
-
+  $workPath = $repoDir
   foreach ($required in @('deno.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')) {
-    if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente no archive da branch: $required" }
+    if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente apos download minimo: $required" }
   }
-  Ok 'Branch rt-turso-migration obtida pela API GitHub autenticada sem iniciar git.exe.'
+  Ok 'Backend minimo obtido pela API GitHub autenticada: 5 arquivos, zero git.exe, zero clone, zero archive.'
   $check = Executar-Nativo -Exe $DenoExe -Args @('check','deno/main.js') -Diretorio $workPath -TimeoutSec 180 -Rotulo 'Deno check do backend'
   Exigir-Sucesso $check 'Backend não passou no deno check.'
   Ok 'Backend Deno/Turso validado localmente.'
@@ -165,9 +174,11 @@ foreach($needle in @(
   "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/interactive'",
   '$env:DENO_DEPLOY_TOKEN = $denoToken',
   "`$tokenResult = Executar-Nativo -Exe `$gh -Args @('auth','token')",
-  'https://api.github.com/repos/$Repositorio/zipball/$escapedBranch',
-  'Expand-Archive -Path $archiveZip -DestinationPath $archiveDir -Force',
-  'obtida pela API GitHub autenticada sem iniciar git.exe'
+  'function Get-GitHubBranchFile',
+  'https://api.github.com/repos/$Repositorio/contents/$escapedPath?ref=$escapedBranch',
+  '[Convert]::FromBase64String($base64)',
+  '[IO.File]::WriteAllBytes($dest,$bytes)',
+  'Backend minimo obtido pela API GitHub autenticada: 5 arquivos, zero git.exe, zero clone, zero archive.'
 )){
   if(-not $t.Contains($needle)){throw "Contrato final ausente: $needle"}
 }
@@ -178,7 +189,9 @@ foreach($forbidden in @(
   'param($Db,[Parameter',
   'Get-Command git.exe',
   "'repo','clone'",
-  '--single-branch'
+  '--single-branch',
+  '/zipball/',
+  'Expand-Archive -Path $archiveZip'
 )){
   if($t.Contains($forbidden)){throw "Fluxo rigido/pesado reapareceu no bootstrap final: $forbidden"}
 }
@@ -227,9 +240,9 @@ if((Get-TestField $testDb 'Hostname') -ne 'reino-tribal-prod-test.turso.io'){thr
 
 Write-Host 'PASS: TURSO 409 = BANCO EXISTENTE RECUPERADO POR GET NOMINAL.' -ForegroundColor Green
 Write-Host 'PASS: TURSO DB SHAPES = ARRAY/DATABASES/DATABASE/ITEMS/DATA.' -ForegroundColor Green
-Write-Host 'PASS: GITHUB SOURCE = API AUTH + ZIP, ZERO GIT.EXE/CLONE.' -ForegroundColor Green
+Write-Host 'PASS: GITHUB SOURCE = 5 FILES VIA CONTENTS API AUTH; ZERO GIT/CLONE/ARCHIVE.' -ForegroundColor Green
 Write-Host 'PASS: DENO DEVICE AUTH = MANTIDO.' -ForegroundColor Green
-Write-Host 'TURSO_DB_409_GITHUB_ARCHIVE_VALIDATE_PASS' -ForegroundColor Green
+Write-Host 'TURSO_DB_409_GITHUB_MINIMAL_VALIDATE_PASS' -ForegroundColor Green
 
 if($ValidateOnly){return}
 
