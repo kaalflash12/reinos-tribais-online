@@ -1,0 +1,44 @@
+name: RT Turso Native CLI Probe
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - '.github/workflows/rt-turso-native-cli-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - name: Download official Turso Windows CLI
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $v='0.7.2'
+          $base="https://github.com/tursodatabase/turso/releases/download/v$v"
+          Invoke-WebRequest -UseBasicParsing "$base/turso_cli-x86_64-pc-windows-msvc.zip" -OutFile turso.zip
+          Invoke-WebRequest -UseBasicParsing "$base/turso_cli-x86_64-pc-windows-msvc.zip.sha256" -OutFile turso.zip.sha256
+          $expected=([regex]::Match((Get-Content turso.zip.sha256 -Raw),'[A-Fa-f0-9]{64}')).Value.ToLowerInvariant()
+          $actual=(Get-FileHash turso.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if(!$expected -or $actual -ne $expected){throw 'Turso Windows CLI SHA256 mismatch'}
+          Expand-Archive turso.zip -DestinationPath turso-native -Force
+          Get-ChildItem turso-native -Recurse | Format-Table FullName,Length
+      - name: Validate auth commands
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $exe=(Get-ChildItem turso-native -Filter *.exe -Recurse | Select-Object -First 1).FullName
+          if(!$exe){throw 'No Windows Turso CLI exe found'}
+          & $exe --version
+          if($LASTEXITCODE -ne 0){throw 'version failed'}
+          & $exe auth login --help
+          if($LASTEXITCODE -ne 0){throw 'auth login help failed'}
+          & $exe auth token --help
+          if($LASTEXITCODE -ne 0){throw 'auth token help failed'}
+          & $exe auth api-tokens mint --help
+          if($LASTEXITCODE -ne 0){throw 'api-tokens mint help failed'}
+          Write-Host 'TURSO_NATIVE_WINDOWS_AUTH_COMMANDS_PASS'
