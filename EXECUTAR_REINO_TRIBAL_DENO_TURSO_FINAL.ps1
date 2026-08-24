@@ -49,6 +49,12 @@ $novo = @'
     if ($createCode -ne 0) { Falhar 'Não foi possível criar o app Deno exclusivo do Reino Tribal após a única tentativa de recuperação.' }
 '@
 
+# raw.githubusercontent.com usa LF; Windows PowerShell pode construir here-strings com CRLF.
+# Normalize ambos antes da comparação para não confundir quebra de linha com mudança de contrato.
+$texto = $texto.Replace("`r`n","`n")
+$antigo = $antigo.Replace("`r`n","`n")
+$novo = $novo.Replace("`r`n","`n")
+
 $ocorrencias = ([regex]::Matches($texto,[regex]::Escape($antigo))).Count
 if ($ocorrencias -ne 1) {
   throw "Contrato inesperado do bootstrap: bloco Deno encontrado $ocorrencias vez(es). Nada foi executado."
