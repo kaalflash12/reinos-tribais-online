@@ -5,13 +5,12 @@ Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Compatibilidade apenas. A lógica final vive no launcher único imutável abaixo.
-$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/c16d93137fc827d352271656878d6b7eafe8176d/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/ab0d40c5dbf1f82745730b95e4501ba6a1a65755/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 $LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 
 Write-Host '=== REINO TRIBAL - ENTRADA COMPATIVEL ===' -ForegroundColor Cyan
-Write-Host 'Executor antigo aposentado. Encaminhando para GHCLONE + TURSO BROWSER.' -ForegroundColor Green
+Write-Host 'Executor antigo aposentado. Encaminhando para GHCLONE + TURSO BROWSER + DENO ORG.' -ForegroundColor Green
 
-# Remove somente arquivos antigos do fluxo Reino Tribal no TEMP.
 @(
   (Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'),
   (Join-Path $env:TEMP 'RT_BASE_LAUNCHER_VALIDADO.ps1'),
