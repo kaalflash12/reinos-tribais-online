@@ -69,7 +69,6 @@ if(-not $s.Contains($oldCreate)){throw 'Transform nao encontrou bloco de criacao
 $s=$s.Replace($oldCreate,$newCreate)
 
 if($s.Contains('param($Db,[Parameter')){throw 'Ainda contem parametro Db conflitante.'}
-if($s.Contains('$dbList.databases')){throw 'Ainda contem acesso rigido $dbList.databases.'}
 [IO.File]::WriteAllText($Patched,$s,$utf8Bom)
 
 $tokens=$null;$errors=$null
@@ -102,7 +101,7 @@ if($ValidateOnly){
     '$env:DENO_DEPLOY_TOKEN = $denoToken'
   )){if(-not $t.Contains($needle)){throw "Contrato final ausente: $needle"}}
   foreach($forbidden in @('$dbList.databases','$created.database','$detail.database.Hostname','param($Db,[Parameter')){
-    if($t.Contains($forbidden)){throw "Fluxo rigido/conflitante reapareceu: $forbidden"}
+    if($t.Contains($forbidden)){throw "Fluxo rigido/conflitante reapareceu no bootstrap final: $forbidden"}
   }
 
   function Convert-TestDatabaseList {
