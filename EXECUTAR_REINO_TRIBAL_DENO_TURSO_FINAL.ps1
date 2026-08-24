@@ -1,3 +1,5 @@
+param([switch]$ValidateOnly)
+
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -96,6 +98,11 @@ Write-Host 'PASS: ProcessId validado.' -ForegroundColor Green
 Write-Host 'PASS: env UTF-8 sem BOM validado.' -ForegroundColor Green
 Write-Host 'PASS: Deno limitado a tentativa inicial + uma recuperação.' -ForegroundColor Green
 Write-Host 'PASS: parser PowerShell validado.' -ForegroundColor Green
+
+if ($ValidateOnly) {
+  Write-Host 'FINAL_LAUNCHER_TRANSFORM_PASS' -ForegroundColor Green
+  return
+}
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Destino
 $codigo = $LASTEXITCODE
