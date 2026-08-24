@@ -100,10 +100,10 @@ jobs:
             "DenoApp = 'reino-tribal-api'",
             "TursoDatabase = 'reino-tribal-prod'",
             "@('deploy','env','load'",
-            "@('deploy','--app',$DenoApp,'--prod')",
+            '@(''deploy'',''--app'',$DenoApp,''--prod'')',
             'Health + registro + mundo + save/load + ADM passaram.',
-            "variable','set',$Nome",
-            "pr','merge"
+            'variable'',''set'',$Nome',
+            'pr'',''merge'
           )){
             if(-not $s.Contains($needle)){throw "Contrato ausente: $needle"}
           }
