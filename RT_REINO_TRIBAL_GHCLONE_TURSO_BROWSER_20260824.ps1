@@ -10,7 +10,6 @@ $RunPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_RUN.ps1'
 Write-Host '=== RT FINAL 20260824 - GHCLONE + TURSO BROWSER ===' -ForegroundColor Cyan
 Write-Host 'Este launcher usa nome novo para impedir execucao acidental de TEMP antigo.' -ForegroundColor Green
 
-# Remove somente launchers/bootstrap antigos do Reino Tribal no TEMP.
 foreach ($old in @(
   (Join-Path $env:TEMP 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'),
   (Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'),
@@ -40,8 +39,8 @@ if ($errors.Count -gt 0) {
 $source = [IO.File]::ReadAllText($RunPath)
 foreach ($needle in @(
   'Fonte da branch: GitHub CLI autenticado, sem codeload anonimo.',
-  "'repo','clone',$Repositorio,$repoDir",
-  "'--branch',$Branch,'--depth','1','--single-branch'",
+  '''repo'',''clone'',$Repositorio,$repoDir',
+  '''--branch'',$Branch,''--depth'',''1'',''--single-branch''',
   'Obter-TursoPlatformTokenBrowser'
 )) {
   if (-not $source.Contains($needle)) { throw "Launcher pinado perdeu contrato obrigatorio: $needle" }
