@@ -4,12 +4,12 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# Compatibilidade apenas. A lógica final vive no launcher único imutável abaixo.
-$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/9cd91df8b7e2264921df59dcd90bdf1c1c530850/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+# Compatibilidade apenas. Toda a lógica final vive no launcher único pinado abaixo.
+$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/6025282831782fd525ade961eb79b8302430979b/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 $LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 
 Write-Host '=== REINO TRIBAL - ENTRADA COMPATIVEL ===' -ForegroundColor Cyan
-Write-Host 'Executor antigo aposentado. Encaminhando para GHCLONE + TURSO BROWSER + DENO ORG.' -ForegroundColor Green
+Write-Host 'Executor antigo aposentado. Encaminhando para GHCLONE + TURSO BROWSER + DENO AUTO.' -ForegroundColor Green
 
 @(
   (Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'),
