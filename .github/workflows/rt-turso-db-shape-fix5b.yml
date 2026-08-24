@@ -1,0 +1,55 @@
+name: RT Turso DB Shape FIX5B
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - '.github/workflows/rt-turso-db-shape-fix5b.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - '.github/workflows/rt-turso-db-shape-fix5b.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-fix5b:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse FIX5B
+        shell: powershell
+        run: |
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;exit 1}
+          Write-Host 'TURSO_DB_SHAPE_FIX5B_PARSE_PASS'
+      - name: Validate FIX5B transform and synthetic shapes
+        shell: powershell
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "FIX5B ValidateOnly falhou: $LASTEXITCODE"}
+          $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
+          if(-not(Test-Path $out)){throw 'Bootstrap final FIX5B nao foi gerado'}
+          $t=[IO.File]::ReadAllText($out)
+          foreach($needle in @(
+            'param($DatabaseObject,[Parameter(Mandatory=$true)][string]$Name)',
+            '$DatabaseObject.PSObject.Properties',
+            '$Raw.PSObject.Properties[''databases'']',
+            '$Raw.PSObject.Properties[''database'']',
+            '$db = Convert-ToTursoDatabase $createdRaw',
+            '$detailDb = Convert-ToTursoDatabase $detailRaw',
+            "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/interactive'",
+            '$env:DENO_DEPLOY_TOKEN = $denoToken'
+          )){
+            if(-not $t.Contains($needle)){throw "FIX5B contrato ausente: $needle"}
+          }
+          foreach($forbidden in @('$dbList.databases','$created.database','$detail.database.Hostname','param($Db,[Parameter')){
+            if($t.Contains($forbidden)){throw "FIX5B ainda contem shape rigido/conflito: $forbidden"}
+          }
+          Write-Host 'TURSO_DB_SHAPE_FIX5B_TRANSFORM_PASS'
