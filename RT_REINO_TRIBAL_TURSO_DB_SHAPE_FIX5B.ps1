@@ -9,7 +9,7 @@ $Patched=Join-Path $env:TEMP 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B_INNER.ps1'
 $Final=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
 $utf8Bom=New-Object Text.UTF8Encoding($true)
 
-Write-Host '=== REINO TRIBAL FINAL - TURSO DB SHAPE + RECOVERY 409 ===' -ForegroundColor Cyan
+Write-Host '=== REINO TRIBAL FINAL - TURSO 409 + GITHUB ARCHIVE LOW RESOURCE ===' -ForegroundColor Cyan
 Remove-Item $Patched,$Final -Force -ErrorAction SilentlyContinue
 Invoke-WebRequest -UseBasicParsing -Uri $Pinned -OutFile $Patched -TimeoutSec 120
 if(-not(Test-Path $Patched)){throw 'Base pinada nao foi baixada.'}
@@ -68,6 +68,71 @@ $newCreate=$newCreate.Replace("`r`n","`n")
 if(-not $s.Contains($oldCreate)){throw 'Transform nao encontrou bloco de criacao Turso para adicionar recovery 409.'}
 $s=$s.Replace($oldCreate,$newCreate)
 
+$branchStartMarker="  Etapa 'Obtendo branch isolada via GitHub autenticado'"
+$tursoStartMarker="  Etapa 'Turso: organização isolada e banco exclusivo'"
+$branchStart=$s.IndexOf($branchStartMarker,[StringComparison]::Ordinal)
+$tursoStart=$s.IndexOf($tursoStartMarker,$branchStart,[StringComparison]::Ordinal)
+if($branchStart -lt 0 -or $tursoStart -le $branchStart){throw 'Transform nao encontrou bloco Git clone para trocar pelo archive autenticado.'}
+
+$newBranch=@'
+  Etapa 'Obtendo branch isolada via GitHub API autenticada'
+  $repoDir = Join-Path $WorkRoot 'repo'
+  $archiveDir = Join-Path $WorkRoot 'archive'
+  $archiveZip = Join-Path $WorkRoot 'branch.zip'
+  Remove-Item $repoDir,$archiveDir,$archiveZip -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $archiveDir | Out-Null
+
+  $tokenResult = Executar-Nativo -Exe $gh -Args @('auth','token') -TimeoutSec 30 -Rotulo 'Obter credencial temporaria GitHub da sessao atual'
+  Exigir-Sucesso $tokenResult 'GitHub CLI autenticado nao forneceu a credencial temporaria da sessao.'
+  $githubToken = $tokenResult.Text.Trim()
+  if ($githubToken.Length -lt 20) { Falhar 'Credencial temporaria GitHub veio vazia ou invalida.' }
+
+  $archiveHeaders = @{
+    Authorization = "Bearer $githubToken"
+    Accept = 'application/vnd.github+json'
+    'User-Agent' = 'Reino-Tribal-Bootstrap'
+    'X-GitHub-Api-Version' = '2022-11-28'
+  }
+  $escapedBranch = [Uri]::EscapeDataString($Branch)
+  $archiveUri = "https://api.github.com/repos/$Repositorio/zipball/$escapedBranch"
+  try {
+    Invoke-WebRequest -UseBasicParsing -Uri $archiveUri -Headers $archiveHeaders -OutFile $archiveZip -MaximumRedirection 5 -TimeoutSec 180
+  } catch {
+    Falhar "Falha baixando archive autenticado da branch $Branch sem git.exe.`n$($_.Exception.Message)"
+  } finally {
+    $githubToken = ''
+    $archiveHeaders.Authorization = ''
+  }
+
+  if (-not (Test-Path $archiveZip)) { Falhar 'GitHub API nao gerou o ZIP da branch.' }
+  $archiveSize = (Get-Item $archiveZip).Length
+  if ($archiveSize -lt 1024) { Falhar "ZIP da branch veio pequeno/invalido: $archiveSize bytes." }
+
+  Expand-Archive -Path $archiveZip -DestinationPath $archiveDir -Force
+  Remove-Item $archiveZip -Force -ErrorAction SilentlyContinue
+
+  $candidateRoots = @(Get-ChildItem $archiveDir -Directory -ErrorAction Stop)
+  $workPath = $null
+  foreach ($candidateRoot in $candidateRoots) {
+    if (Test-Path (Join-Path $candidateRoot.FullName 'deno\main.js')) {
+      $workPath = $candidateRoot.FullName
+      break
+    }
+  }
+  if (-not $workPath) { Falhar 'Archive GitHub foi extraido, mas deno/main.js nao foi encontrado.' }
+
+  foreach ($required in @('deno.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')) {
+    if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente no archive da branch: $required" }
+  }
+  Ok 'Branch rt-turso-migration obtida pela API GitHub autenticada sem iniciar git.exe.'
+  $check = Executar-Nativo -Exe $DenoExe -Args @('check','deno/main.js') -Diretorio $workPath -TimeoutSec 180 -Rotulo 'Deno check do backend'
+  Exigir-Sucesso $check 'Backend não passou no deno check.'
+  Ok 'Backend Deno/Turso validado localmente.'
+
+'@
+$newBranch=$newBranch.Replace("`r`n","`n")
+$s=$s.Substring(0,$branchStart)+$newBranch+$s.Substring($tursoStart)
+
 if($s.Contains('param($Db,[Parameter')){throw 'Ainda contem parametro Db conflitante.'}
 [IO.File]::WriteAllText($Patched,$s,$utf8Bom)
 
@@ -98,10 +163,22 @@ if($ValidateOnly){
     'Banco Turso reutilizado apos conflito 409',
     '$detailDb = Convert-ToTursoDatabase $detailRaw',
     "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/interactive'",
-    '$env:DENO_DEPLOY_TOKEN = $denoToken'
+    '$env:DENO_DEPLOY_TOKEN = $denoToken',
+    "`$tokenResult = Executar-Nativo -Exe `$gh -Args @('auth','token')",
+    'https://api.github.com/repos/$Repositorio/zipball/$escapedBranch',
+    'Expand-Archive -Path $archiveZip -DestinationPath $archiveDir -Force',
+    'obtida pela API GitHub autenticada sem iniciar git.exe'
   )){if(-not $t.Contains($needle)){throw "Contrato final ausente: $needle"}}
-  foreach($forbidden in @('$dbList.databases','$created.database','$detail.database.Hostname','param($Db,[Parameter')){
-    if($t.Contains($forbidden)){throw "Fluxo rigido/conflitante reapareceu no bootstrap final: $forbidden"}
+  foreach($forbidden in @(
+    '$dbList.databases',
+    '$created.database',
+    '$detail.database.Hostname',
+    'param($Db,[Parameter',
+    "Get-Command git.exe",
+    "'repo','clone'",
+    '--single-branch'
+  )){
+    if($t.Contains($forbidden)){throw "Fluxo rigido/pesado reapareceu no bootstrap final: $forbidden"}
   }
 
   function Convert-TestDatabaseList {
@@ -148,6 +225,7 @@ if($ValidateOnly){
 
   Write-Host 'PASS: TURSO 409 = BANCO EXISTENTE RECUPERADO POR GET NOMINAL.' -ForegroundColor Green
   Write-Host 'PASS: TURSO DB SHAPES = ARRAY/DATABASES/DATABASE/ITEMS/DATA.' -ForegroundColor Green
+  Write-Host 'PASS: GITHUB SOURCE = API AUTH + ZIP, ZERO GIT.EXE/CLONE.' -ForegroundColor Green
   Write-Host 'PASS: DENO DEVICE AUTH = MANTIDO.' -ForegroundColor Green
-  Write-Host 'TURSO_DB_409_RECOVERY_VALIDATE_PASS' -ForegroundColor Green
+  Write-Host 'TURSO_DB_409_GITHUB_ARCHIVE_VALIDATE_PASS' -ForegroundColor Green
 }
