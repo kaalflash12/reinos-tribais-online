@@ -47,7 +47,6 @@ foreach ($needle in @(
   if (-not $source.Contains($needle)) { throw "Launcher pinado perdeu contrato obrigatorio: $needle" }
 }
 
-# Gera o bootstrap totalmente transformado, sem provisionar nada.
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $RunPath -ValidateOnly
 if ($LASTEXITCODE -ne 0) { throw "Transformacao GHCLONE/Turso falhou: $LASTEXITCODE" }
 if (-not (Test-Path $BootstrapFinal)) { throw 'Bootstrap final nao foi gerado.' }
@@ -57,8 +56,6 @@ foreach ($forbidden in @('codeload.github.com','Baixando branch isolada do Reino
   if ($texto.Contains($forbidden)) { throw "Fluxo antigo reapareceu no bootstrap final: $forbidden" }
 }
 
-# Deno Deploy atual: autentica pelo navegador e lista as organizacoes via CLI/JSON.
-# Nao pede slug manual. Se ainda nao houver organizacao, abre o console e faz polling limitado.
 $denoStartMarker = "  Etapa 'Deno Deploy: app exclusivo do Reino Tribal'"
 $envMarker = "  `$envFile = Join-Path `$WorkRoot '.env.reino-tribal.production'"
 $denoStart = $texto.IndexOf($denoStartMarker,[StringComparison]::Ordinal)
@@ -99,12 +96,10 @@ $denoNovo = @'
   }
 
   if (-not $denoOrg) {
-    # Primeiro reutiliza a organizacao que ja contenha o app exclusivo.
     foreach ($candidate in ($slugs | Sort-Object)) {
       $existing = Executar-Nativo -Exe $DenoExe -Args @('deploy','apps','get','--org',$candidate,'--app',$DenoApp,'--json') -TimeoutSec 45 -Rotulo "Procurar $DenoApp em $candidate"
       if ($existing.Code -eq 0) { $denoOrg = $candidate; break }
     }
-    # Se o app ainda nao existir, prefere o slug da conta; senao usa o primeiro slug de forma deterministica.
     if (-not $denoOrg -and $slugs -contains 'kaalflash12') { $denoOrg = 'kaalflash12' }
     if (-not $denoOrg) { $denoOrg = @($slugs | Sort-Object | Select-Object -First 1)[0] }
   }
@@ -139,8 +134,6 @@ $denoNovo = @'
 $denoNovo = $denoNovo.Replace("`r`n","`n")
 $texto = $texto.Substring(0,$denoStart) + $denoNovo + $texto.Substring($envStart)
 
-# Env do Deno: --replace elimina prompt/hang em reexecucao. update-contexts sem nomes
-# define context_ids=null (All), evitando nomes de contexto dependentes da plataforma.
 $replacements = @(
   @("@('deploy','env','load',`$envFile,'--app',`$DenoApp)", "@('deploy','env','load','--replace',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp)"),
   @("@('deploy','env','update-contexts',`$name,'production','development','--app',`$DenoApp)", "@('deploy','env','update-contexts',`$name,'--org',`$denoOrg,'--app',`$DenoApp)"),
@@ -151,8 +144,7 @@ foreach ($pair in $replacements) {
   $texto = $texto.Replace($pair[0],$pair[1])
 }
 
-# URL de producao: usa a saida JSON oficial de apps get, nao regex do texto de deploy.
-$urlStartMarker = "  `$urls = [regex]::Matches(`$deploy.Text,'https://[A-Za-z0-9.-]+\\.deno\\.net')"
+$urlStartMarker = "  `$urls = [regex]::Matches(`$deploy.Text"
 $testsMarker = "  Etapa 'Testes reais: Turso + conta + save/load + ADM'"
 $urlStart = $texto.IndexOf($urlStartMarker,[StringComparison]::Ordinal)
 $testsStart = $texto.IndexOf($testsMarker,[StringComparison]::Ordinal)
