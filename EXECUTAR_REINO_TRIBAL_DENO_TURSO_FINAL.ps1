@@ -8,7 +8,7 @@ $Origem = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/0
 $Destino = Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
 
 Write-Host '=== REINO TRIBAL - DENO + TURSO + GITHUB PAGES ===' -ForegroundColor Cyan
-Write-Host 'Zero Vercel / Zero WSL / Zero infraestrutura de outro jogo.' -ForegroundColor Green
+Write-Host 'ZERO VERCEL / ZERO WSL / ZERO INFRAESTRUTURA DE OUTRO JOGO.' -ForegroundColor Green
 
 Remove-Item $Destino -Force -ErrorAction SilentlyContinue
 Invoke-WebRequest -UseBasicParsing -Uri $Origem -OutFile $Destino -TimeoutSec 120
@@ -16,70 +16,70 @@ if (-not (Test-Path $Destino) -or (Get-Item $Destino).Length -le 0) {
   throw 'Falha baixando o bootstrap final do Reino Tribal.'
 }
 
-$texto = [IO.File]::ReadAllText($Destino)
+$texto = [IO.File]::ReadAllText($Destino).Replace("`r`n","`n")
 $proibidos = @('ver'+'cel','bw-v151','bacathegas','bacaworld','cloudflare','mongodb','neon','supabase.co')
 foreach ($p in $proibidos) {
   if ($texto.IndexOf($p,[StringComparison]::OrdinalIgnoreCase) -ge 0) {
-    throw "Bootstrap contém infraestrutura proibida: $p. Nada foi executado."
+    throw "Bootstrap contem infraestrutura proibida: $p. Nada foi executado."
   }
 }
 
-$novo = @'
-    Aviso 'Se o Deno pedir autenticação, confirme somente no login oficial.'
-    Push-Location $workPath
-    try {
-      & $DenoExe deploy create . --app $DenoApp --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --no-wait
-      $createCode = $LASTEXITCODE
+# Todos os marcadores abaixo sao ASCII para funcionar igual no Windows PowerShell 5.1,
+# independentemente de BOM/encoding do proprio launcher.
+$secaoMarcador = "Etapa 'Deno Deploy: app exclusivo do Reino Tribal'"
+$envMarcador = '  $envFile = Join-Path $WorkRoot ''.env.reino-tribal.production'''
+$codigoMarcador = '      $createCode = $LASTEXITCODE'
+
+$secaoInicio = $texto.IndexOf($secaoMarcador,[StringComparison]::Ordinal)
+if ($secaoInicio -lt 0) { throw 'Secao Deno nao encontrada. Nada foi executado.' }
+$envInicio = $texto.IndexOf($envMarcador,$secaoInicio)
+if ($envInicio -lt 0) { throw 'Fim da secao Deno nao encontrado. Nada foi executado.' }
+$secaoOriginal = $texto.Substring($secaoInicio,$envInicio-$secaoInicio)
+if (([regex]::Matches($secaoOriginal,'deploy create \. --app \$DenoApp')).Count -ne 1) {
+  throw 'Secao Deno original nao contem exatamente uma criacao. Nada foi executado.'
+}
+
+$codigoInicio = $texto.IndexOf($codigoMarcador,$secaoInicio)
+if ($codigoInicio -lt 0 -or $codigoInicio -ge $envInicio) {
+  throw 'Ponto de insercao Deno nao encontrado. Nada foi executado.'
+}
+$linhaFim = $texto.IndexOf("`n",$codigoInicio)
+if ($linhaFim -lt 0 -or $linhaFim -ge $envInicio) {
+  throw 'Fim da linha de status Deno nao encontrado. Nada foi executado.'
+}
+$posInsercao = $linhaFim + 1
+
+$recuperacao = @'
       if ($createCode -ne 0) {
-        Aviso 'Se sua conta Deno Deploy ainda não tiver uma organização, crie ou selecione uma no console oficial que será aberto.'
+        Aviso 'Se a conta Deno ainda nao tiver organizacao, crie ou selecione uma no console oficial que sera aberto.'
         Start-Process 'https://console.deno.com'
-        [void](Read-Host 'Depois de criar/selecionar a organização Deno Deploy, pressione ENTER para UMA única nova tentativa')
+        [void](Read-Host 'Depois de criar/selecionar a organizacao Deno, pressione ENTER para UMA unica nova tentativa')
         & $DenoExe deploy create . --app $DenoApp --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --no-wait
         $createCode = $LASTEXITCODE
       }
-    } finally { Pop-Location }
-    if ($createCode -ne 0) { Falhar 'Não foi possível criar o app Deno exclusivo do Reino Tribal após a única tentativa de recuperação.' }
 '@
+$recuperacao = $recuperacao.Replace("`r`n","`n") + "`n"
+$texto = $texto.Substring(0,$posInsercao) + $recuperacao + $texto.Substring($posInsercao)
 
-$texto = $texto.Replace("`r`n","`n")
-$novo = $novo.Replace("`r`n","`n")
-$inicioMarcador = "    Aviso 'Se o Deno pedir autenticação, confirme somente no login oficial. Esta é a única etapa interativa do Deno.'"
-$fimMarcador = '    if ($createCode -ne 0) { Falhar ''Não foi possível criar o app Deno exclusivo do Reino Tribal.'' }'
-
-$inicio = $texto.IndexOf($inicioMarcador,[StringComparison]::Ordinal)
-if ($inicio -lt 0) {
-  throw 'Marcador inicial do bloco Deno não foi encontrado. Nada foi executado.'
+$envInicioDepois = $texto.IndexOf($envMarcador,$secaoInicio)
+$secaoFinal = $texto.Substring($secaoInicio,$envInicioDepois-$secaoInicio)
+if (([regex]::Matches($secaoFinal,'deploy create \. --app \$DenoApp')).Count -ne 2) {
+  throw 'Contrato Deno final nao possui exatamente tentativa inicial + uma recuperacao.'
 }
-$aposInicio = $texto.Substring($inicio)
-$fimRelativo = $aposInicio.IndexOf($fimMarcador,[StringComparison]::Ordinal)
-if ($fimRelativo -lt 0) {
-  throw 'Marcador final do bloco Deno não foi encontrado. Nada foi executado.'
-}
-$fim = $inicio + $fimRelativo + $fimMarcador.Length
-$trechoOriginal = $texto.Substring($inicio,$fim-$inicio)
-if (([regex]::Matches($trechoOriginal,'deploy create \. --app \$DenoApp')).Count -ne 1) {
-  throw 'O bloco Deno original não contém exatamente uma criação; contrato recusado.'
-}
-if (-not $trechoOriginal.Contains('Push-Location $workPath') -or -not $trechoOriginal.Contains('$createCode = $LASTEXITCODE')) {
-  throw 'O bloco Deno original perdeu estruturas obrigatórias; contrato recusado.'
-}
-
-$texto = $texto.Substring(0,$inicio) + $novo + $texto.Substring($fim)
-
-if (([regex]::Matches($texto,'deploy create \. --app \$DenoApp')).Count -ne 2) {
-  throw 'Contrato de tentativa única do Deno não foi preservado.'
-}
-if ($texto -match '(?is)Deno Deploy: app exclusivo.*?while\s*\(') {
+if ($secaoFinal -match '\bwhile\s*\(') {
   throw 'Loop de provisionamento Deno detectado. Nada foi executado.'
 }
+if (-not $secaoFinal.Contains("Start-Process 'https://console.deno.com'")) {
+  throw 'Recuperacao da organizacao Deno nao foi inserida.'
+}
 if ($texto -match '\$Pid\b') {
-  throw 'Variável PowerShell reservada $PID reapareceu. Nada foi executado.'
+  throw 'Variavel PowerShell reservada PID reapareceu. Nada foi executado.'
 }
 if (-not $texto.Contains('function Stop-Tree([int]$ProcessId)')) {
   throw 'Hotfix ProcessId ausente. Nada foi executado.'
 }
 if (-not $texto.Contains('UTF8Encoding($false)') -or -not $texto.Contains('WriteAllLines($envFile')) {
-  throw 'Proteção UTF-8 sem BOM ausente. Nada foi executado.'
+  throw 'Protecao UTF-8 sem BOM ausente. Nada foi executado.'
 }
 
 $utf8Bom = New-Object Text.UTF8Encoding($true)
@@ -90,14 +90,14 @@ $errors = $null
 [System.Management.Automation.Language.Parser]::ParseFile($Destino,[ref]$tokens,[ref]$errors) | Out-Null
 if ($errors.Count -gt 0) {
   $msg = ($errors | ForEach-Object { $_.Message + ' @ ' + $_.Extent.StartLineNumber + ':' + $_.Extent.StartColumnNumber }) -join "`n"
-  throw "Bootstrap transformado não passou no parser. Nada foi executado.`n$msg"
+  throw "Bootstrap transformado nao passou no parser. Nada foi executado.`n$msg"
 }
 
-Write-Host 'PASS: isolamento validado.' -ForegroundColor Green
-Write-Host 'PASS: ProcessId validado.' -ForegroundColor Green
-Write-Host 'PASS: env UTF-8 sem BOM validado.' -ForegroundColor Green
-Write-Host 'PASS: Deno limitado a tentativa inicial + uma recuperação.' -ForegroundColor Green
-Write-Host 'PASS: parser PowerShell validado.' -ForegroundColor Green
+Write-Host 'PASS: ISOLAMENTO VALIDADO.' -ForegroundColor Green
+Write-Host 'PASS: PROCESSID VALIDADO.' -ForegroundColor Green
+Write-Host 'PASS: ENV UTF-8 SEM BOM VALIDADO.' -ForegroundColor Green
+Write-Host 'PASS: DENO = TENTATIVA INICIAL + UMA RECUPERACAO.' -ForegroundColor Green
+Write-Host 'PASS: PARSER POWERSHELL VALIDADO.' -ForegroundColor Green
 
 if ($ValidateOnly) {
   Write-Host 'FINAL_LAUNCHER_TRANSFORM_PASS' -ForegroundColor Green
@@ -107,5 +107,5 @@ if ($ValidateOnly) {
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Destino
 $codigo = $LASTEXITCODE
 if ($codigo -ne 0) {
-  throw "Implantação parou no erro real. Código de saída: $codigo"
+  throw "Implantacao parou no erro real. Codigo de saida: $codigo"
 }
