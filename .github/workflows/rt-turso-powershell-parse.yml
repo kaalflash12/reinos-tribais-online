@@ -86,12 +86,12 @@ jobs:
         run: |
           foreach($file in @('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1','EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1')){
             $s=[IO.File]::ReadAllText((Resolve-Path $file))
-            if(-not $s.Contains('RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1')){throw "$file nao delega ao Turso pessoal gratuito"}
+            if(-not $s.Contains('RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1')){throw "$file nao delega ao Turso gratuito"}
             foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'",'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1')){
               if($s.Contains($forbidden)){throw "$file ainda aponta para fluxo antigo: $forbidden"}
             }
           }
-          Write-Host 'CANONICAL_TURSO_PERSONAL_DELEGATION_PASS'
+          Write-Host 'CANONICAL_TURSO_FREE_DELEGATION_PASS'
       - name: Validate canonical executor end-to-end transform
         shell: powershell
         run: |
@@ -109,9 +109,12 @@ jobs:
             '$managed = @($orgs',
             'Organizações Turso independentes:',
             "Read-Host 'Escolha o número da organização para o Reino Tribal'",
+            'Select-Object -First 1)[0]',
+            '$orgs[0]',
+            '$groups[0]',
             "'production','development'"
           )){
-            if($t.Contains($forbidden)){throw "Bootstrap canonico contém fluxo antigo/manual/pago: $forbidden"}
+            if($t.Contains($forbidden)){throw "Bootstrap canonico contém fluxo antigo/manual/indexado: $forbidden"}
           }
           foreach($needle in @(
             "'repo','clone',`$Repositorio,`$repoDir",
@@ -120,8 +123,8 @@ jobs:
             'AcceptTcpClientAsync',
             'Start-Process $authUrl',
             "Turso-Request -Method GET -Path '/v1/current-user'",
-            "([string]`$_.type) -eq 'personal'",
-            'Organizacao pessoal Turso selecionada automaticamente:',
+            '$org = $orgs | Select-Object -First 1',
+            'Organizacao Turso gratuita selecionada automaticamente:',
             "'deploy','orgs','list','--json'",
             "'deploy','apps','get','--org',`$denoOrg,'--app',`$DenoApp,'--json'",
             "'deploy','create','.'",
@@ -133,7 +136,7 @@ jobs:
           )){
             if(-not $t.Contains($needle)){throw "Contrato canonico final ausente: $needle"}
           }
-          Write-Host 'CANONICAL_TURSO_PERSONAL_END_TO_END_PASS'
+          Write-Host 'CANONICAL_TURSO_NO_INDEX_END_TO_END_PASS'
       - name: Validate unique anti-stale launcher
         shell: powershell
         run: |
@@ -172,26 +175,30 @@ jobs:
         shell: powershell
         run: |
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1 -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "Turso personal ValidateOnly falhou: $LASTEXITCODE"}
+          if($LASTEXITCODE -ne 0){throw "Turso free ValidateOnly falhou: $LASTEXITCODE"}
           $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
-          if(-not(Test-Path $out)){throw 'Turso personal launcher não gerou bootstrap final'}
+          if(-not(Test-Path $out)){throw 'Turso free launcher não gerou bootstrap final'}
           $t=[IO.File]::ReadAllText($out)
           foreach($needle in @(
             "Turso-Request -Method GET -Path '/v1/current-user'",
-            "([string]`$_.type) -eq 'personal'",
-            'Organizacao pessoal Turso selecionada automaticamente:',
+            '$org = $orgs | Select-Object -First 1',
+            'Organizacao Turso gratuita selecionada automaticamente:',
+            "`$dedicatedGroupName = 'reino-tribal-prod'",
             "'deploy','orgs','list','--json'",
             '$appMeta.productionUrl'
           )){
-            if(-not $t.Contains($needle)){throw "Contrato Turso pessoal ausente: $needle"}
+            if(-not $t.Contains($needle)){throw "Contrato Turso gratuito ausente: $needle"}
           }
           foreach($forbidden in @(
             'Nenhuma organização Turso independente foi encontrada nessa conta.',
             '$managed = @($orgs',
             'Organizações Turso independentes:',
             "Read-Host 'Escolha o número da organização para o Reino Tribal'",
-            "Read-Host 'Turso Platform API Token'"
+            "Read-Host 'Turso Platform API Token'",
+            'Select-Object -First 1)[0]',
+            '$orgs[0]',
+            '$groups[0]'
           )){
-            if($t.Contains($forbidden)){throw "Fluxo Turso pago/manual ainda existe: $forbidden"}
+            if($t.Contains($forbidden)){throw "Fluxo Turso pago/manual/indexado ainda existe: $forbidden"}
           }
-          Write-Host 'TURSO_PERSONAL_FREE_WINDOWS_PASS'
+          Write-Host 'TURSO_FREE_NO_INDEX_WINDOWS_PASS'
