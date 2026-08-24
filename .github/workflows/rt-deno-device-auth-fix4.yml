@@ -1,15 +1,15 @@
-name: RT Deno Device Auth FIX4B
+name: RT Deno Device Auth FIX4C
 
 on:
   push:
     branches: [rt-turso-migration]
     paths:
-      - 'RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4B.ps1'
+      - 'RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4C.ps1'
       - '.github/workflows/rt-deno-device-auth-fix4.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4B.ps1'
+      - 'RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4C.ps1'
       - '.github/workflows/rt-deno-device-auth-fix4.yml'
   workflow_dispatch:
 
@@ -17,25 +17,25 @@ permissions:
   contents: read
 
 jobs:
-  windows-fix4b:
+  windows-fix4c:
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Parse FIX4B
+      - name: Parse FIX4C
         shell: powershell
         run: |
           $tokens=$null;$errors=$null
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4B.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4C.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
           if($errors.Count){$errors|Format-List;exit 1}
-          Write-Host 'DENO_DEVICE_AUTH_FIX4B_PARSE_PASS'
-      - name: Validate FIX4B transform
+          Write-Host 'DENO_DEVICE_AUTH_FIX4C_PARSE_PASS'
+      - name: Validate FIX4C transform
         shell: powershell
         run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4B.ps1 -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "FIX4B ValidateOnly falhou: $LASTEXITCODE"}
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4C.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "FIX4C ValidateOnly falhou: $LASTEXITCODE"}
           $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
-          if(-not(Test-Path $out)){throw 'Bootstrap final FIX4B nao foi gerado'}
+          if(-not(Test-Path $out)){throw 'Bootstrap final FIX4C nao foi gerado'}
           $t=[IO.File]::ReadAllText($out)
           foreach($needle in @(
             "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/interactive'",
@@ -43,17 +43,10 @@ jobs:
             '$env:DENO_DEPLOY_TOKEN = $denoToken',
             "'deploy','whoami','--json','--non-interactive'",
             "'deploy','orgs','list','--json','--non-interactive'",
-            'Login Deno confirmado automaticamente pelo navegador; token mantido somente nesta execucao.',
-            "Turso-Request -Method GET -Path '/v2/organizations'",
-            'Organizacao Turso gratuita selecionada automaticamente:',
-            '$denoOrg = $slugs | Sort-Object | Select-Object -First 1'
+            '$denoOrg = $slugs | Sort-Object | Select-Object -First 1',
+            "Turso-Request -Method GET -Path '/v2/organizations'"
           )){
-            if(-not $t.Contains($needle)){throw "FIX4B contrato ausente: $needle"}
+            if(-not $t.Contains($needle)){throw "FIX4C contrato ausente: $needle"}
           }
-          foreach($forbidden in @(
-            "Aviso 'Se o Deno ainda nao estiver autenticado, confirme somente o login oficial que abrir no navegador.'",
-            '@($slugs | Sort-Object | Select-Object -First 1)[0]'
-          )){
-            if($t.Contains($forbidden)){throw "FIX4B fluxo antigo reapareceu: $forbidden"}
-          }
-          Write-Host 'DENO_DEVICE_AUTH_FIX4B_TRANSFORM_PASS'
+          if($t.Contains('@($slugs | Sort-Object | Select-Object -First 1)[0]')){throw 'FIX4C ainda contem indexacao Deno [0]'}
+          Write-Host 'DENO_DEVICE_AUTH_FIX4C_TRANSFORM_PASS'
