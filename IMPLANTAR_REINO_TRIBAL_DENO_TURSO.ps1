@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/049b2ddf368ff99e996380cc9baf50276b16860f/RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
+$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/f213f0e8a3e517e01dc3276ae1cd3f3cdb11bc9e/RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
 $LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
 
 Write-Host '=== REINO TRIBAL - BOOTSTRAP COMPATIVEL ===' -ForegroundColor Cyan
