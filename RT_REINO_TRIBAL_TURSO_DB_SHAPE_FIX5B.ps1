@@ -14,7 +14,7 @@ Remove-Item $Patched,$Final -Force -ErrorAction SilentlyContinue
 Invoke-WebRequest -UseBasicParsing -Uri $Pinned -OutFile $Patched -TimeoutSec 120
 if(-not(Test-Path $Patched)){throw 'Base pinada nao foi baixada.'}
 
-$s=[IO.File]::ReadAllText($Patched)
+$s=[IO.File]::ReadAllText($Patched).Replace("`r`n","`n")
 $replacements=@(
   @('param($Db,[Parameter(Mandatory=$true)][string]$Name)','param($DatabaseObject,[Parameter(Mandatory=$true)][string]$Name)'),
   @('if ($null -eq $Db) { return '''' }','if ($null -eq $DatabaseObject) { return '''' }'),
@@ -35,6 +35,7 @@ $oldCreate=@'
     Ok "Banco Turso reutilizado: $TursoDatabase"
   }
 '@
+$oldCreate=$oldCreate.Replace("`r`n","`n")
 
 $newCreate=@'
   if (-not $db) {
@@ -62,6 +63,7 @@ $newCreate=@'
     Ok "Banco Turso reutilizado: $TursoDatabase"
   }
 '@
+$newCreate=$newCreate.Replace("`r`n","`n")
 
 if(-not $s.Contains($oldCreate)){throw 'Transform nao encontrou bloco de criacao Turso para adicionar recovery 409.'}
 $s=$s.Replace($oldCreate,$newCreate)
@@ -103,7 +105,6 @@ if($ValidateOnly){
     if($t.Contains($forbidden)){throw "Fluxo rigido/conflitante reapareceu: $forbidden"}
   }
 
-  # Teste sintetico do caso real: listagem nao acha, POST devolve 409, GET por nome devolve banco existente.
   function Convert-TestDatabaseList {
     param($Raw)
     if ($null -eq $Raw) { return @() }
