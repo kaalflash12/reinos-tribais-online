@@ -97,8 +97,14 @@ jobs:
           $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
           if(-not(Test-Path $out)){throw 'Bootstrap final não foi gerado'}
           $t=[IO.File]::ReadAllText($out)
-          foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'","'production','development'")){
-            if($t.Contains($forbidden)){throw "Bootstrap final contém fluxo antigo/frágil: $forbidden"}
+          foreach($forbidden in @(
+            'codeload.github.com',
+            'Baixando branch isolada do Reino Tribal',
+            "Read-Host 'Turso Platform API Token'",
+            "Read-Host 'Cole somente o slug da organizacao Deno",
+            "'production','development'"
+          )){
+            if($t.Contains($forbidden)){throw "Bootstrap final contém fluxo antigo/manual: $forbidden"}
           }
           foreach($needle in @(
             "'repo','clone',`$Repositorio,`$repoDir",
@@ -106,17 +112,18 @@ jobs:
             'Obter-TursoPlatformTokenBrowser',
             'AcceptTcpClientAsync',
             'Start-Process $authUrl',
-            "'variable','get','DENO_DEPLOY_ORG'",
-            "'deploy','env','list','--org',`$denoOrg,'--app',`$DenoApp",
+            "'deploy','orgs','list','--json'",
+            "'deploy','apps','get','--org',`$denoOrg,'--app',`$DenoApp,'--json'",
             "'deploy','create','.'",
             "'deploy','env','load','--replace',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp",
             "'deploy','env','update-contexts',`$name,'--org',`$denoOrg,'--app',`$DenoApp",
             "'deploy','--org',`$denoOrg,'--app',`$DenoApp,'--prod'",
+            '$appMeta.productionUrl',
             "Set-GitHubVariable `$gh 'DENO_DEPLOY_ORG' `$denoOrg"
           )){
             if(-not $t.Contains($needle)){throw "Contrato final ausente: $needle"}
           }
-          Write-Host 'COMPATIBILITY_TO_FINAL_ENV_TRANSFORM_PASS'
+          Write-Host 'COMPATIBILITY_TO_FINAL_AUTO_ORG_PASS'
       - name: Validate unique anti-stale launcher
         shell: powershell
         run: |
@@ -126,18 +133,28 @@ jobs:
           if(-not(Test-Path $out)){throw 'Unique launcher não gerou bootstrap final'}
           $t=[IO.File]::ReadAllText($out)
           foreach($needle in @(
-            "'variable','get','DENO_DEPLOY_ORG'",
+            "'deploy','orgs','list','--json'",
             'https://console.deno.com',
-            "'deploy','env','list','--org',`$denoOrg,'--app',`$DenoApp",
+            "'deploy','apps','get','--org',`$candidate,'--app',`$DenoApp,'--json'",
+            "'deploy','apps','get','--org',`$denoOrg,'--app',`$DenoApp,'--json'",
             "'deploy','create','.'",
             "'--org',`$denoOrg",
             "'deploy','env','load','--replace',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp",
             "'deploy','env','update-contexts',`$name,'--org',`$denoOrg,'--app',`$DenoApp",
-            "'deploy','--org',`$denoOrg,'--app',`$DenoApp,'--prod'"
+            "'deploy','--org',`$denoOrg,'--app',`$DenoApp,'--prod'",
+            '$appMeta.productionUrl',
+            'Organizacao Deno selecionada automaticamente:'
           )){
-            if(-not $t.Contains($needle)){throw "Contrato Deno org/env ausente: $needle"}
+            if(-not $t.Contains($needle)){throw "Contrato Deno automático ausente: $needle"}
           }
-          foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'","'production','development'")){
-            if($t.Contains($forbidden)){throw "Unique bootstrap contém fluxo antigo/frágil: $forbidden"}
+          foreach($forbidden in @(
+            'codeload.github.com',
+            'Baixando branch isolada do Reino Tribal',
+            "Read-Host 'Turso Platform API Token'",
+            "Read-Host 'Cole somente o slug da organizacao Deno",
+            "'production','development'",
+            '[regex]::Matches($deploy.Text'
+          )){
+            if($t.Contains($forbidden)){throw "Unique bootstrap contém fluxo antigo/manual/frágil: $forbidden"}
           }
-          Write-Host 'UNIQUE_ANTISTALE_GHCLONE_DENO_ORG_ENV_PASS'
+          Write-Host 'UNIQUE_ANTISTALE_AUTO_ORG_PRODUCTION_URL_PASS'
