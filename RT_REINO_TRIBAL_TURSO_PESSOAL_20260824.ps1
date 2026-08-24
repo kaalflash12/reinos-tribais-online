@@ -9,8 +9,8 @@ $LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_TURSO_PESSOAL_BASE.ps1'
 $BootstrapFinal = Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
 $utf8Bom = New-Object Text.UTF8Encoding($true)
 
-Write-Host '=== REINO TRIBAL FINAL - TURSO PESSOAL FREE + DENO ===' -ForegroundColor Cyan
-Write-Host 'Sem organizacao Turso paga. Banco exclusivo na organizacao pessoal da conta.' -ForegroundColor Green
+Write-Host '=== REINO TRIBAL FINAL - TURSO FREE + DENO ===' -ForegroundColor Cyan
+Write-Host 'Organizacoes Turso v2 normalizadas + fallback v1; banco exclusivo; zero org paga.' -ForegroundColor Green
 
 @($LauncherPath,$BootstrapFinal) | ForEach-Object { Remove-Item $_ -Force -ErrorAction SilentlyContinue }
 Invoke-WebRequest -UseBasicParsing -Uri $PinnedLauncher -OutFile $LauncherPath -TimeoutSec 120
@@ -38,8 +38,29 @@ $dbStart=$texto.IndexOf($dbMarker,$groupsStart,[StringComparison]::Ordinal)
 if($dbStart -lt 0){ throw 'Fim do bloco de groups Turso nao encontrado.' }
 
 $orgNovo=@'
-  $orgs = @(Turso-Request -Method GET -Path '/v1/organizations' -Token $platformToken)
-  if ($orgs.Count -lt 1) { Falhar 'A conta Turso autenticada nao retornou nenhuma organizacao acessivel.' }
+  $orgs = @()
+  try {
+    $orgResponseV2 = Turso-Request -Method GET -Path '/v2/organizations' -Token $platformToken
+    if ($null -ne $orgResponseV2 -and $orgResponseV2.PSObject.Properties['organizations']) {
+      $orgs = @($orgResponseV2.organizations)
+    } elseif ($null -ne $orgResponseV2) {
+      $orgs = @($orgResponseV2)
+    }
+  } catch {
+    Aviso 'Listagem Turso v2 indisponivel; usando fallback v1.'
+    $orgs = @()
+  }
+
+  if ($orgs.Count -lt 1) {
+    $orgResponseV1 = Turso-Request -Method GET -Path '/v1/organizations' -Token $platformToken
+    if ($null -ne $orgResponseV1 -and $orgResponseV1.PSObject.Properties['organizations']) {
+      $orgs = @($orgResponseV1.organizations)
+    } elseif ($null -ne $orgResponseV1) {
+      $orgs = @($orgResponseV1)
+    }
+  }
+  $orgs = @($orgs | Where-Object { $_ -and ([string]$_.slug) })
+  if ($orgs.Count -lt 1) { Falhar 'A conta Turso autenticada nao retornou nenhuma organizacao com slug utilizavel.' }
 
   $me = Turso-Request -Method GET -Path '/v1/current-user' -Token $platformToken
   $username = [string]$me.user.username
@@ -58,9 +79,7 @@ $orgNovo=@'
     $org = $orgs | Sort-Object slug | Select-Object -First 1
     if ($org) { Aviso 'Turso nao marcou uma organizacao como personal; usando a primeira organizacao acessivel sem criar plano pago.' }
   }
-  if (-not $org) {
-    Falhar 'A conta Turso autenticada nao retornou organizacao utilizavel. Nenhuma organizacao paga sera criada automaticamente.'
-  }
+  if (-not $org) { Falhar 'A conta Turso autenticada nao retornou organizacao utilizavel.' }
 
   $orgSlug = [string]$org.slug
   if (-not $orgSlug) { Falhar 'A organizacao Turso selecionada nao possui slug.' }
@@ -123,11 +142,9 @@ $groupsNovo=@'
 $groupsNovo=$groupsNovo.Replace("`r`n","`n")
 $texto=$texto.Substring(0,$groupsStart)+$groupsNovo+$texto.Substring($dbStart)
 
-# A classe de falha observada veio de indexacao [0] em resultado vazio. O bloco Turso corrigido nao pode conter indexacao pos-filtro.
 foreach($fragment in @($orgNovo,$groupsNovo)){
   if($fragment -match '\[0\]'){ throw 'O bloco Turso corrigido voltou a conter indexacao [0].' }
 }
-
 foreach($forbidden in @(
   'Nenhuma organização Turso independente foi encontrada nessa conta.',
   '$managed = @($orgs',
@@ -140,13 +157,13 @@ foreach($forbidden in @(
   if($texto.Contains($forbidden)){ throw "Fluxo Turso antigo/manual reapareceu: $forbidden" }
 }
 foreach($needle in @(
+  "Turso-Request -Method GET -Path '/v2/organizations'",
+  "Turso-Request -Method GET -Path '/v1/organizations'",
+  "PSObject.Properties['organizations']",
   "Turso-Request -Method GET -Path '/v1/current-user'",
   '$orgs.Count -eq 1',
-  "([string]`$_.type) -eq 'personal'",
   'Organizacao Turso gratuita selecionada automaticamente:',
   "`$dedicatedGroupName = 'reino-tribal-prod'",
-  'Group Turso exclusivo',
-  "'/v1/organizations' -Token `$platformToken",
   "'deploy','orgs','list','--json'",
   '$appMeta.productionUrl'
 )){
@@ -156,16 +173,16 @@ foreach($needle in @(
 [IO.File]::WriteAllText($BootstrapFinal,$texto,$utf8Bom)
 $tokens=$null;$errors=$null
 [System.Management.Automation.Language.Parser]::ParseFile($BootstrapFinal,[ref]$tokens,[ref]$errors)|Out-Null
-if($errors.Count){ throw ('Bootstrap Turso pessoal nao passou no parser: '+(($errors|ForEach-Object{$_.Message+' @ '+$_.Extent.StartLineNumber+':'+$_.Extent.StartColumnNumber}) -join "`n")) }
+if($errors.Count){ throw ('Bootstrap Turso final nao passou no parser: '+(($errors|ForEach-Object{$_.Message+' @ '+$_.Extent.StartLineNumber+':'+$_.Extent.StartColumnNumber}) -join "`n")) }
 
-Write-Host 'PASS: TURSO = ORGANIZACAO GRATUITA SEM INDEXACAO INSEGURA.' -ForegroundColor Green
+Write-Host 'PASS: TURSO = ORGANIZACOES V2/V1 NORMALIZADAS.' -ForegroundColor Green
+Write-Host 'PASS: TURSO = ZERO INDEXACAO VAZIA NO BLOCO ORGANIZACAO/GROUP.' -ForegroundColor Green
 Write-Host 'PASS: TURSO = BANCO REINO TRIBAL EXCLUSIVO, SEM CRIAR ORGANIZACAO PAGA.' -ForegroundColor Green
-Write-Host 'PASS: TURSO = GROUP EXCLUSIVO QUANDO SUPORTADO, FALLBACK PARA GROUP EXISTENTE SEM COMPARTILHAR BANCO.' -ForegroundColor Green
-Write-Host 'PASS: TURSO = ZERO ESCOLHA MANUAL DE ORGANIZACAO.' -ForegroundColor Green
+Write-Host 'PASS: TURSO = GROUP EXCLUSIVO QUANDO SUPORTADO, FALLBACK PARA GROUP EXISTENTE.' -ForegroundColor Green
 Write-Host 'PASS: DENO = ORGANIZACAO AUTOMATICA + PRODUCTIONURL OFICIAL.' -ForegroundColor Green
 Write-Host 'PASS: PARSER FINAL VALIDADO.' -ForegroundColor Green
 
-if($ValidateOnly){ Write-Host 'TURSO_PERSONAL_FREE_NO_INDEX_VALIDATE_PASS' -ForegroundColor Green; return }
+if($ValidateOnly){ Write-Host 'TURSO_V2_V1_NO_INDEX_VALIDATE_PASS' -ForegroundColor Green; return }
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $BootstrapFinal
 $code=$LASTEXITCODE
