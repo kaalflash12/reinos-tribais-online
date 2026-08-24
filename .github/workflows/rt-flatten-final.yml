@@ -70,13 +70,55 @@ jobs:
 
           Write-Host 'FLATTEN_FINAL_SCRIPT_PASS'
 
-      - name: Commit flattened scripts
+      - name: Commit flattened scripts to migration branch
         shell: powershell
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
           git diff --cached --quiet
-          if($LASTEXITCODE -eq 0){ Write-Host 'Nenhuma alteracao para commitar.'; exit 0 }
+          if($LASTEXITCODE -eq 0){ Write-Host 'Nenhuma alteracao para commitar na migration.'; exit 0 }
           git commit -m 'build: gerar script final achatado Reino Tribal'
           git push origin HEAD:rt-turso-migration
+
+      - name: Publish canonical flattened scripts to main
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $publishRoot=Join-Path $env:TEMP ("rt-main-publish-" + $env:GITHUB_RUN_ID)
+          Remove-Item $publishRoot -Recurse -Force -ErrorAction SilentlyContinue
+          git fetch origin main
+          git worktree add $publishRoot origin/main
+          try {
+            foreach($name in @(
+              'REINO_TRIBAL_FINAL_UNICO.ps1',
+              'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1',
+              'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
+            )){
+              $source=Join-Path $PWD $name
+              $dest=Join-Path $publishRoot $name
+              if(-not(Test-Path $source)){throw "Executor achatado ausente antes da publicacao: $name"}
+              Copy-Item $source $dest -Force
+            }
+
+            Push-Location $publishRoot
+            try {
+              git config user.name 'github-actions[bot]'
+              git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+              git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
+              git diff --cached --quiet
+              if($LASTEXITCODE -eq 0){
+                Write-Host 'MAIN_CANONICAL_ALREADY_CURRENT'
+              }else{
+                git commit -m 'build: publicar executor final achatado no main'
+                git push origin HEAD:main
+                if($LASTEXITCODE -ne 0){throw "Falha publicando executores achatados no main: $LASTEXITCODE"}
+                Write-Host 'MAIN_CANONICAL_PUBLISH_PASS'
+              }
+            } finally {
+              Pop-Location
+            }
+          } finally {
+            git worktree remove $publishRoot --force 2>$null
+            Remove-Item $publishRoot -Recurse -Force -ErrorAction SilentlyContinue
+          }
