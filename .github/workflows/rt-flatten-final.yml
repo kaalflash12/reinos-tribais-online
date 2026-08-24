@@ -1,0 +1,82 @@
+name: RT Flatten Final Script
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - '.github/workflows/rt-flatten-final.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  flatten:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rt-turso-migration
+          persist-credentials: true
+
+      - name: Generate flattened final script
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "FIX5B ValidateOnly falhou: $LASTEXITCODE"}
+
+          $src=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
+          if(-not(Test-Path $src)){throw 'Bootstrap final nao foi gerado'}
+          $text=[IO.File]::ReadAllText($src)
+
+          foreach($needle in @(
+            'function Convert-ToTursoDatabaseList',
+            "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/interactive'",
+            "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/exchange'",
+            '$env:DENO_DEPLOY_TOKEN = $denoToken',
+            "Turso-Request -Method GET -Path '/v2/organizations'",
+            '$dbItems = @(Convert-ToTursoDatabaseList $dbListRaw)',
+            '$denoOrg = $slugs | Sort-Object | Select-Object -First 1'
+          )){
+            if(-not $text.Contains($needle)){throw "Contrato final ausente: $needle"}
+          }
+
+          foreach($forbidden in @(
+            'raw.githubusercontent.com/kaalflash12/reinos-tribais-online',
+            'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5',
+            'RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4',
+            '$dbList.databases',
+            '@($slugs | Sort-Object | Select-Object -First 1)[0]'
+          )){
+            if($text.Contains($forbidden)){throw "Bootstrap final ainda depende de camada antiga: $forbidden"}
+          }
+
+          $header="# REINO TRIBAL - SCRIPT FINAL ACHATADO`r`n# Gerado automaticamente do FIX5B validado. Sem launcher intermediario.`r`n"
+          $final=$header+$text
+          $enc=New-Object Text.UTF8Encoding($true)
+          foreach($dest in @(
+            '.\REINO_TRIBAL_FINAL_UNICO.ps1',
+            '.\EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1',
+            '.\IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
+          )){
+            [IO.File]::WriteAllText((Join-Path $PWD $dest),$final,$enc)
+            $tokens=$null;$errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $dest),[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count){throw "Parser falhou em $dest : $($errors[0].Message)"}
+          }
+
+          Write-Host 'FLATTEN_FINAL_SCRIPT_PASS'
+
+      - name: Commit flattened scripts
+        shell: powershell
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
+          git diff --cached --quiet
+          if($LASTEXITCODE -eq 0){ Write-Host 'Nenhuma alteracao para commitar.'; exit 0 }
+          git commit -m 'build: gerar script final achatado Reino Tribal'
+          git push origin HEAD:rt-turso-migration
