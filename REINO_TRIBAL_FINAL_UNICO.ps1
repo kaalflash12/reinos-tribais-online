@@ -513,13 +513,61 @@ try {
     Ok "Banco Turso reutilizado: $TursoDatabase"
   }
 
+  function Get-TursoHostnameFromInstances {
+    param($Raw)
+    if ($null -eq $Raw) { return '' }
+
+    $instances = @()
+    if ($Raw -is [System.Array]) {
+      $instances = @($Raw)
+    } elseif ($Raw.PSObject.Properties['instances']) {
+      $instances = @($Raw.instances)
+    } elseif ($Raw.PSObject.Properties['data']) {
+      $dataNode = $Raw.data
+      if ($null -ne $dataNode) {
+        if ($dataNode -is [System.Array]) {
+          $instances = @($dataNode)
+        } elseif ($dataNode.PSObject.Properties['instances']) {
+          $instances = @($dataNode.instances)
+        } elseif ($dataNode.PSObject.Properties['instance']) {
+          $instances = @($dataNode.instance)
+        }
+      }
+    } elseif ($Raw.PSObject.Properties['instance']) {
+      $instances = @($Raw.instance)
+    }
+
+    $instances = @($instances | Where-Object { $null -ne $_ })
+    if ($instances.Count -lt 1) { return '' }
+
+    $candidate = $instances | Where-Object {
+      $typeProp = $_.PSObject.Properties | Where-Object { $_.Name -ieq 'type' } | Select-Object -First 1
+      $typeProp -and ([string]$typeProp.Value) -ieq 'primary'
+    } | Select-Object -First 1
+    if (-not $candidate) { $candidate = $instances | Select-Object -First 1 }
+    if (-not $candidate) { return '' }
+
+    $hostnameProp = $candidate.PSObject.Properties | Where-Object { $_.Name -ieq 'hostname' } | Select-Object -First 1
+    if (-not $hostnameProp) { return '' }
+    return ([string]$hostnameProp.Value).Trim()
+  }
+
   $hostname = Get-TursoDatabaseField $db 'Hostname'
   if (-not $hostname) {
     $detailRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase" -Token $platformToken
     $detailDb = Convert-ToTursoDatabase $detailRaw
     $hostname = Get-TursoDatabaseField $detailDb 'Hostname'
   }
-  if (-not $hostname) { Falhar 'Turso nao retornou hostname do banco apos normalizacao da resposta.' }
+
+  if (-not $hostname) {
+    $instancesRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase/instances" -Token $platformToken
+    $hostname = Get-TursoHostnameFromInstances $instancesRaw
+    if ($hostname) { Ok "Hostname Turso obtido pela instancia primaria: $hostname" }
+  }
+
+  if (-not $hostname) {
+    Falhar 'Turso nao retornou hostname nem no detalhe do database nem na lista de instances.'
+  }
 
   $dbUrl = 'libsql://' + ($hostname -replace '^https?://','' -replace '^libsql://','')
   $dbTokenResp = Turso-Request -Method POST -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase/auth/tokens?expiration=never&authorization=full-access" -Token $platformToken -Body @{}
