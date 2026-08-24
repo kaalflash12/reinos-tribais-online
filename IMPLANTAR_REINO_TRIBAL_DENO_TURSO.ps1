@@ -5,12 +5,12 @@ Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Compatibilidade: este nome antigo não contém mais lógica de provisionamento.
-# Toda execução é encaminhada para o launcher único já validado no Windows CI.
-$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/c16d93137fc827d352271656878d6b7eafe8176d/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+# Toda execução é encaminhada para o launcher único validado com Deno org explícito.
+$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/ab0d40c5dbf1f82745730b95e4501ba6a1a65755/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 $LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 
 Write-Host '=== REINO TRIBAL - BOOTSTRAP COMPATIVEL APOSENTADO ===' -ForegroundColor Cyan
-Write-Host 'Encaminhando para GHCLONE + TURSO BROWSER.' -ForegroundColor Green
+Write-Host 'Encaminhando para GHCLONE + TURSO BROWSER + DENO ORG.' -ForegroundColor Green
 
 Remove-Item $LauncherPath -Force -ErrorAction SilentlyContinue
 Invoke-WebRequest -UseBasicParsing -Uri $LauncherUrl -OutFile $LauncherPath -TimeoutSec 120
