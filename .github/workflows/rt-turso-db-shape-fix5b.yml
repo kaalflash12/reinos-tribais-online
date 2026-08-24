@@ -19,7 +19,7 @@ permissions:
 jobs:
   windows-fix5b:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - name: Parse FIX5B
@@ -29,6 +29,7 @@ jobs:
           [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
           if($errors.Count){$errors|Format-List;exit 1}
           Write-Host 'TURSO_DB_SHAPE_FIX5B_PARSE_PASS'
+
       - name: Validate FIX5B transform and synthetic shapes
         shell: powershell
         run: |
@@ -45,11 +46,58 @@ jobs:
             '$db = Convert-ToTursoDatabase $createdRaw',
             '$detailDb = Convert-ToTursoDatabase $detailRaw',
             "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/interactive'",
-            '$env:DENO_DEPLOY_TOKEN = $denoToken'
+            '$env:DENO_DEPLOY_TOKEN = $denoToken',
+            "`$tokenResult = Executar-Nativo -Exe `$gh -Args @('auth','token')",
+            'https://api.github.com/repos/$Repositorio/zipball/$escapedBranch',
+            'Expand-Archive -Path $archiveZip -DestinationPath $archiveDir -Force',
+            'obtida pela API GitHub autenticada sem iniciar git.exe'
           )){
             if(-not $t.Contains($needle)){throw "FIX5B contrato ausente: $needle"}
           }
-          foreach($forbidden in @('$dbList.databases','$created.database','$detail.database.Hostname','param($Db,[Parameter')){
-            if($t.Contains($forbidden)){throw "FIX5B ainda contem shape rigido/conflito: $forbidden"}
+          foreach($forbidden in @(
+            '$dbList.databases',
+            '$created.database',
+            '$detail.database.Hostname',
+            'param($Db,[Parameter',
+            'Get-Command git.exe',
+            "'repo','clone'",
+            '--single-branch'
+          )){
+            if($t.Contains($forbidden)){throw "FIX5B ainda contem fluxo rigido/pesado: $forbidden"}
           }
           Write-Host 'TURSO_DB_SHAPE_FIX5B_TRANSFORM_PASS'
+
+      - name: Real authenticated archive download without git
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:TEMP ('rt-archive-ci-'+[Guid]::NewGuid().ToString('N'))
+          $zip=Join-Path $root 'branch.zip'
+          $extract=Join-Path $root 'extract'
+          New-Item -ItemType Directory -Force -Path $root,$extract|Out-Null
+          try {
+            $token=(gh auth token).Trim()
+            if($LASTEXITCODE -ne 0 -or $token.Length -lt 20){throw 'gh auth token indisponivel no runner'}
+            $headers=@{
+              Authorization="Bearer $token"
+              Accept='application/vnd.github+json'
+              'User-Agent'='Reino-Tribal-CI'
+              'X-GitHub-Api-Version'='2022-11-28'
+            }
+            $uri='https://api.github.com/repos/kaalflash12/reinos-tribais-online/zipball/rt-turso-migration'
+            Invoke-WebRequest -UseBasicParsing -Uri $uri -Headers $headers -OutFile $zip -MaximumRedirection 5 -TimeoutSec 180
+            if(-not(Test-Path $zip)){throw 'archive nao foi baixado'}
+            if((Get-Item $zip).Length -lt 1024){throw 'archive veio invalido'}
+            Expand-Archive -Path $zip -DestinationPath $extract -Force
+            $candidate=@(Get-ChildItem $extract -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'deno\main.js') } | Select-Object -First 1)
+            if($candidate.Count -ne 1){throw 'raiz do archive nao foi detectada'}
+            $work=$candidate[0].FullName
+            foreach($required in @('deno.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')){
+              if(-not(Test-Path (Join-Path $work $required))){throw "arquivo ausente no archive real: $required"}
+            }
+            Write-Host 'GITHUB_AUTH_ARCHIVE_REAL_PASS'
+          } finally {
+            Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
