@@ -4,12 +4,12 @@ on:
   push:
     branches: [rt-turso-migration]
     paths:
-      - 'RT_REINO_TRIBAL_LOW_RESOURCE_FIX6.ps1'
+      - 'RT_REINO_TRIBAL_DENO_DEP_FIX7.ps1'
       - '.github/workflows/rt-flatten-final.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'RT_REINO_TRIBAL_LOW_RESOURCE_FIX6.ps1'
+      - 'RT_REINO_TRIBAL_DENO_DEP_FIX7.ps1'
       - '.github/workflows/rt-flatten-final.yml'
   workflow_dispatch:
 
@@ -26,12 +26,12 @@ jobs:
           ref: rt-turso-migration
           persist-credentials: true
 
-      - name: Generate flattened final script
+      - name: Generate flattened final script from FIX7
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_LOW_RESOURCE_FIX6.ps1 -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "FIX6 ValidateOnly falhou: $LASTEXITCODE"}
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_DENO_DEP_FIX7.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "FIX7 ValidateOnly falhou: $LASTEXITCODE"}
 
           $src=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
           if(-not(Test-Path $src)){throw 'Bootstrap final nao foi gerado'}
@@ -49,7 +49,9 @@ jobs:
             'Banco Turso reutilizado apos conflito 409',
             'function Get-GitHubBranchFile',
             '$fileUri = (''https://api.github.com/repos/{0}/contents/{1}?ref={2}'' -f $Repositorio,$escapedPath,$escapedBranch)',
-            'Backend minimo obtido pela API GitHub autenticada: 5 arquivos, zero git.exe, zero clone, zero archive.'
+            "'package.json'",
+            "foreach (`$required in @('deno.json','package.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql'))",
+            'Backend minimo obtido pela API GitHub autenticada: 6 arquivos, incluindo package.json; zero git.exe, zero clone, zero archive.'
           )){
             if(-not $text.Contains($needle)){throw "Contrato final ausente: $needle"}
           }
@@ -65,12 +67,13 @@ jobs:
             '--single-branch',
             '/zipball/',
             'Expand-Archive -Path $archiveZip',
-            '$fileUri = "https://api.github.com/repos/$Repositorio/contents/$escapedPath?ref=$escapedBranch"'
+            '$fileUri = "https://api.github.com/repos/$Repositorio/contents/$escapedPath?ref=$escapedBranch"',
+            'Backend minimo obtido pela API GitHub autenticada: 5 arquivos'
           )){
             if($text.Contains($forbidden)){throw "Bootstrap final ainda depende de camada antiga/pesada: $forbidden"}
           }
 
-          $header="# REINO TRIBAL - SCRIPT FINAL ACHATADO`r`n# Turso 409 + Deno device auth + GitHub API 5 arquivos low-resource. Sem git clone e sem launcher intermediario.`r`n"
+          $header="# REINO TRIBAL - SCRIPT FINAL ACHATADO`r`n# Turso 409 + Deno device auth + GitHub API 6 arquivos com package.json. Sem git clone e sem launcher intermediario.`r`n"
           $final=$header+$text
           $enc=New-Object Text.UTF8Encoding($true)
           foreach($dest in @(
@@ -101,7 +104,7 @@ jobs:
           git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
           git diff --cached --quiet
           if($LASTEXITCODE -eq 0){ Write-Host 'Nenhuma alteracao para commitar na migration.'; exit 0 }
-          git commit -m 'build: gerar script final achatado Reino Tribal low-resource'
+          git commit -m 'build: gerar script final achatado Reino Tribal 6-files'
           git push origin HEAD:rt-turso-migration
 
       - name: Publish canonical flattened scripts to main
@@ -133,7 +136,7 @@ jobs:
               if($LASTEXITCODE -eq 0){
                 Write-Host 'MAIN_CANONICAL_ALREADY_CURRENT'
               }else{
-                git commit -m 'build: publicar executor final low-resource no main'
+                git commit -m 'build: publicar executor final 6-files no main'
                 git push origin HEAD:main
                 if($LASTEXITCODE -ne 0){throw "Falha publicando executores achatados no main: $LASTEXITCODE"}
                 Write-Host 'MAIN_CANONICAL_PUBLISH_PASS'
