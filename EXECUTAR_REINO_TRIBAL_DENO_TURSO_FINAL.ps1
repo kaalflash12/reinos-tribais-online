@@ -22,16 +22,6 @@ foreach ($p in $proibidos) {
   }
 }
 
-$antigo = @'
-    Aviso 'Se o Deno pedir autenticação, confirme somente no login oficial. Esta é a única etapa interativa do Deno.'
-    Push-Location $workPath
-    try {
-      & $DenoExe deploy create . --app $DenoApp --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --no-wait
-      $createCode = $LASTEXITCODE
-    } finally { Pop-Location }
-    if ($createCode -ne 0) { Falhar 'Não foi possível criar o app Deno exclusivo do Reino Tribal.' }
-'@
-
 $novo = @'
     Aviso 'Se o Deno pedir autenticação, confirme somente no login oficial.'
     Push-Location $workPath
@@ -49,17 +39,30 @@ $novo = @'
     if ($createCode -ne 0) { Falhar 'Não foi possível criar o app Deno exclusivo do Reino Tribal após a única tentativa de recuperação.' }
 '@
 
-# raw.githubusercontent.com usa LF; Windows PowerShell pode construir here-strings com CRLF.
-# Normalize ambos antes da comparação para não confundir quebra de linha com mudança de contrato.
 $texto = $texto.Replace("`r`n","`n")
-$antigo = $antigo.Replace("`r`n","`n")
 $novo = $novo.Replace("`r`n","`n")
+$inicioMarcador = "    Aviso 'Se o Deno pedir autenticação, confirme somente no login oficial. Esta é a única etapa interativa do Deno.'"
+$fimMarcador = '    if ($createCode -ne 0) { Falhar ''Não foi possível criar o app Deno exclusivo do Reino Tribal.'' }'
 
-$ocorrencias = ([regex]::Matches($texto,[regex]::Escape($antigo))).Count
-if ($ocorrencias -ne 1) {
-  throw "Contrato inesperado do bootstrap: bloco Deno encontrado $ocorrencias vez(es). Nada foi executado."
+$inicio = $texto.IndexOf($inicioMarcador,[StringComparison]::Ordinal)
+if ($inicio -lt 0) {
+  throw 'Marcador inicial do bloco Deno não foi encontrado. Nada foi executado.'
 }
-$texto = $texto.Replace($antigo,$novo)
+$aposInicio = $texto.Substring($inicio)
+$fimRelativo = $aposInicio.IndexOf($fimMarcador,[StringComparison]::Ordinal)
+if ($fimRelativo -lt 0) {
+  throw 'Marcador final do bloco Deno não foi encontrado. Nada foi executado.'
+}
+$fim = $inicio + $fimRelativo + $fimMarcador.Length
+$trechoOriginal = $texto.Substring($inicio,$fim-$inicio)
+if (([regex]::Matches($trechoOriginal,'deploy create \. --app \$DenoApp')).Count -ne 1) {
+  throw 'O bloco Deno original não contém exatamente uma criação; contrato recusado.'
+}
+if (-not $trechoOriginal.Contains('Push-Location $workPath') -or -not $trechoOriginal.Contains('$createCode = $LASTEXITCODE')) {
+  throw 'O bloco Deno original perdeu estruturas obrigatórias; contrato recusado.'
+}
+
+$texto = $texto.Substring(0,$inicio) + $novo + $texto.Substring($fim)
 
 if (([regex]::Matches($texto,'deploy create \. --app \$DenoApp')).Count -ne 2) {
   throw 'Contrato de tentativa única do Deno não foi preservado.'
