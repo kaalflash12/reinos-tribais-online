@@ -21,19 +21,29 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - name: Fetch FIX5B script without git
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $scriptPath=Join-Path $env:RUNNER_TEMP 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+          $uri="https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_SHA/RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1"
+          Invoke-WebRequest -UseBasicParsing -Uri $uri -OutFile $scriptPath -TimeoutSec 120
+          if(-not(Test-Path $scriptPath)){throw 'FIX5B nao foi baixado do commit do workflow'}
+          "FIX5B_PATH=$scriptPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host 'FIX5B_RAW_FETCH_PASS'
+
       - name: Parse FIX5B
         shell: powershell
         run: |
           $tokens=$null;$errors=$null
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
+          [System.Management.Automation.Language.Parser]::ParseFile($env:FIX5B_PATH,[ref]$tokens,[ref]$errors)|Out-Null
           if($errors.Count){$errors|Format-List;exit 1}
           Write-Host 'TURSO_DB_SHAPE_FIX5B_PARSE_PASS'
 
       - name: Validate FIX5B transform and synthetic shapes
         shell: powershell
         run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1 -ValidateOnly
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $env:FIX5B_PATH -ValidateOnly
           if($LASTEXITCODE -ne 0){throw "FIX5B ValidateOnly falhou: $LASTEXITCODE"}
           $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
           if(-not(Test-Path $out)){throw 'Bootstrap final FIX5B nao foi gerado'}
