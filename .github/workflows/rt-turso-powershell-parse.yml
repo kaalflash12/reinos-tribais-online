@@ -10,6 +10,7 @@ on:
       - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
       - 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
       - 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+      - 'RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   pull_request:
     branches: [main]
@@ -20,6 +21,7 @@ on:
       - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
       - 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
       - 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+      - 'RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   workflow_dispatch:
 
@@ -62,7 +64,7 @@ jobs:
 
   powershell:
     runs-on: windows-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Parse all current Windows entrypoints
@@ -71,7 +73,8 @@ jobs:
           foreach($file in @(
             'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1',
             'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1',
-            'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+            'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1',
+            'RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
           )){
             $tokens=$null;$errors=$null
             [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
@@ -158,3 +161,30 @@ jobs:
             if($t.Contains($forbidden)){throw "Unique bootstrap contém fluxo antigo/manual/frágil: $forbidden"}
           }
           Write-Host 'UNIQUE_ANTISTALE_AUTO_ORG_PRODUCTION_URL_PASS'
+      - name: Validate Turso personal free launcher
+        shell: powershell
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "Turso personal ValidateOnly falhou: $LASTEXITCODE"}
+          $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
+          if(-not(Test-Path $out)){throw 'Turso personal launcher não gerou bootstrap final'}
+          $t=[IO.File]::ReadAllText($out)
+          foreach($needle in @(
+            "Turso-Request -Method GET -Path '/v1/current-user'",
+            "([string]`$_.type) -eq 'personal'",
+            'Organizacao pessoal Turso selecionada automaticamente:',
+            "'deploy','orgs','list','--json'",
+            '$appMeta.productionUrl'
+          )){
+            if(-not $t.Contains($needle)){throw "Contrato Turso pessoal ausente: $needle"}
+          }
+          foreach($forbidden in @(
+            'Nenhuma organização Turso independente foi encontrada nessa conta.',
+            '$managed = @($orgs',
+            'Organizações Turso independentes:',
+            "Read-Host 'Escolha o número da organização para o Reino Tribal'",
+            "Read-Host 'Turso Platform API Token'"
+          )){
+            if($t.Contains($forbidden)){throw "Fluxo Turso pago/manual ainda existe: $forbidden"}
+          }
+          Write-Host 'TURSO_PERSONAL_FREE_WINDOWS_PASS'
