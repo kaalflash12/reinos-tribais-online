@@ -159,6 +159,9 @@ jobs:
               } finally { Pop-Location }
               if ($createCode -ne 0) { Falhar 'Não foi possível criar o app Deno exclusivo do Reino Tribal após a única tentativa de recuperação.' }
           '@
+          $texto=$texto.Replace("`r`n","`n")
+          $antigo=$antigo.Replace("`r`n","`n")
+          $novo=$novo.Replace("`r`n","`n")
           if(([regex]::Matches($texto,[regex]::Escape($antigo))).Count -ne 1){throw 'Bloco fonte não bate com launcher.'}
           $texto=$texto.Replace($antigo,$novo)
           if(([regex]::Matches($texto,'deploy create \. --app \$DenoApp')).Count -ne 2){throw 'Não há exatamente duas tentativas Deno.'}
