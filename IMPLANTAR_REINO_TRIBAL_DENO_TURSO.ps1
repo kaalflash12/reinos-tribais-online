@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 
 # Compatibilidade: este nome antigo não contém mais lógica de provisionamento.
 # Toda execução é encaminhada para o launcher único validado com Deno automático.
-$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/6025282831782fd525ade961eb79b8302430979b/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/dfca9197c7feae252eef4bbcb1035ac4237f1938/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 $LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
 
 Write-Host '=== REINO TRIBAL - BOOTSTRAP COMPATIVEL APOSENTADO ===' -ForegroundColor Cyan
