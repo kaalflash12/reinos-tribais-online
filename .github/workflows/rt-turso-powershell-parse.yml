@@ -81,22 +81,22 @@ jobs:
             if($errors.Count){$errors|ForEach-Object{Write-Error($file+': '+$_.Message)};exit 1}
             Write-Host "POWERSHELL_PARSE_PASS $file"
           }
-      - name: Prove old names cannot execute old flow
+      - name: Prove canonical names delegate to personal free launcher
         shell: powershell
         run: |
           foreach($file in @('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1','EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1')){
             $s=[IO.File]::ReadAllText((Resolve-Path $file))
-            if(-not $s.Contains('RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1')){throw "$file não delega ao launcher único"}
-            foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'")){
-              if($s.Contains($forbidden)){throw "$file ainda contém fluxo antigo: $forbidden"}
+            if(-not $s.Contains('RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1')){throw "$file nao delega ao Turso pessoal gratuito"}
+            foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'",'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1')){
+              if($s.Contains($forbidden)){throw "$file ainda aponta para fluxo antigo: $forbidden"}
             }
           }
-          Write-Host 'OLD_ENTRYPOINTS_RETIRED_PASS'
-      - name: Validate compatibility executor end-to-end transform
+          Write-Host 'CANONICAL_TURSO_PERSONAL_DELEGATION_PASS'
+      - name: Validate canonical executor end-to-end transform
         shell: powershell
         run: |
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "Compatibility ValidateOnly falhou: $LASTEXITCODE"}
+          if($LASTEXITCODE -ne 0){throw "Canonical ValidateOnly falhou: $LASTEXITCODE"}
           $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
           if(-not(Test-Path $out)){throw 'Bootstrap final não foi gerado'}
           $t=[IO.File]::ReadAllText($out)
@@ -105,9 +105,13 @@ jobs:
             'Baixando branch isolada do Reino Tribal',
             "Read-Host 'Turso Platform API Token'",
             "Read-Host 'Cole somente o slug da organizacao Deno",
+            'Nenhuma organização Turso independente foi encontrada nessa conta.',
+            '$managed = @($orgs',
+            'Organizações Turso independentes:',
+            "Read-Host 'Escolha o número da organização para o Reino Tribal'",
             "'production','development'"
           )){
-            if($t.Contains($forbidden)){throw "Bootstrap final contém fluxo antigo/manual: $forbidden"}
+            if($t.Contains($forbidden)){throw "Bootstrap canonico contém fluxo antigo/manual/pago: $forbidden"}
           }
           foreach($needle in @(
             "'repo','clone',`$Repositorio,`$repoDir",
@@ -115,6 +119,9 @@ jobs:
             'Obter-TursoPlatformTokenBrowser',
             'AcceptTcpClientAsync',
             'Start-Process $authUrl',
+            "Turso-Request -Method GET -Path '/v1/current-user'",
+            "([string]`$_.type) -eq 'personal'",
+            'Organizacao pessoal Turso selecionada automaticamente:',
             "'deploy','orgs','list','--json'",
             "'deploy','apps','get','--org',`$denoOrg,'--app',`$DenoApp,'--json'",
             "'deploy','create','.'",
@@ -124,9 +131,9 @@ jobs:
             '$appMeta.productionUrl',
             "Set-GitHubVariable `$gh 'DENO_DEPLOY_ORG' `$denoOrg"
           )){
-            if(-not $t.Contains($needle)){throw "Contrato final ausente: $needle"}
+            if(-not $t.Contains($needle)){throw "Contrato canonico final ausente: $needle"}
           }
-          Write-Host 'COMPATIBILITY_TO_FINAL_AUTO_ORG_PASS'
+          Write-Host 'CANONICAL_TURSO_PERSONAL_END_TO_END_PASS'
       - name: Validate unique anti-stale launcher
         shell: powershell
         run: |
