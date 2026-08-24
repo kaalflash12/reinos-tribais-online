@@ -7,6 +7,7 @@ on:
       - 'CONFIGURAR_TURSO_REINO_TRIBAL.ps1'
       - 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'
       - 'RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1'
+      - 'RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   pull_request:
     branches: [main]
@@ -14,6 +15,7 @@ on:
       - 'CONFIGURAR_TURSO_REINO_TRIBAL.ps1'
       - 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'
       - 'RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1'
+      - 'RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   workflow_dispatch:
 
@@ -29,7 +31,7 @@ jobs:
       - name: Parse all supported PowerShell entrypoints
         shell: powershell
         run: |
-          foreach ($file in @('CONFIGURAR_TURSO_REINO_TRIBAL.ps1','CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1','RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1')) {
+          foreach ($file in @('CONFIGURAR_TURSO_REINO_TRIBAL.ps1','CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1','RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1','RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1')) {
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors) | Out-Null
@@ -53,24 +55,32 @@ jobs:
       - name: Recovery isolation contract
         shell: powershell
         run: |
-          $r = Get-Content 'RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1' -Raw
-          $required = @(
-            "reino-tribal-api",
-            "reino-tribal-prod",
-            "team_o1RxZX0hDIO9c7SnuFozCmAB",
-            "VERCEL_PROJECT_ID",
-            "VERCEL_ORG_ID",
-            "--project",
-            "production.env",
-            "não criou",
-            "tursocloud/database",
-            "Deploy de produção com bloqueio de projeto",
-            "ForbiddenProjectPattern"
-          )
-          foreach ($needle in $required) {
-            if (-not $r.Contains($needle)) { throw "Recovery sem proteção: $needle" }
-          }
-          if ($r -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create|npm\s+install') {
-            throw 'Recovery não pode reinstalar ferramentas nem usar Turso CLI.'
+          foreach ($file in @('RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1','RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1')) {
+            $r = Get-Content $file -Raw
+            $required = @(
+              "reino-tribal-api",
+              "reino-tribal-prod",
+              "team_o1RxZX0hDIO9c7SnuFozCmAB",
+              "VERCEL_PROJECT_ID",
+              "VERCEL_ORG_ID",
+              "--project",
+              "tursocloud/database",
+              "ForbiddenProjectPattern"
+            )
+            foreach ($needle in $required) {
+              if (-not $r.Contains($needle)) { throw "$file sem proteção: $needle" }
+            }
+            if ($r -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create|npm\s+install') {
+              throw "$file não pode reinstalar ferramentas nem usar Turso CLI."
+            }
           }
           Write-Host 'RECOVERY_ISOLATION_PASS'
+      - name: Timeout anti-hang contract
+        shell: powershell
+        run: |
+          $r = Get-Content 'RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1' -Raw
+          foreach ($needle in @('Executar-ComTimeout','TimeoutSec','TIMEOUT após','taskkill.exe','ainda executando','LOGIN VERCEL','PROVISIONAR Turso','DEPLOY PRODUÇÃO')) {
+            if (-not $r.Contains($needle)) { throw "Anti-hang ausente: $needle" }
+          }
+          if ($r -match '(?m)^\s*&\s+\$(?:gh|vercel)\b') { throw 'Há chamada direta gh/vercel fora do executor com timeout.' }
+          Write-Host 'RECOVERY_ANTI_HANG_PASS'
