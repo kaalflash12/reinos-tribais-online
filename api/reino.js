@@ -129,7 +129,6 @@ function corsOrigin(req) {
   const allowed = new Set([...defaults, ...configuredOrigins]);
   if (!origin) return '*';
   if (allowed.has(origin)) return origin;
-  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return origin;
   return '';
 }
 

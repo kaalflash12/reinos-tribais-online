@@ -14,7 +14,7 @@ const db=()=>connection||(rawConnection=connect({url:process.env.TURSO_DATABASE_
 function cors(req,res){
   const origin=String(req.headers.origin||'');
   const allowed=new Set(['https://kaalflash12.github.io','http://localhost:3000','http://127.0.0.1:3000']);
-  if(!origin||allowed.has(origin)||/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin))res.setHeader('Access-Control-Allow-Origin',origin||'*');
+    if(!origin||allowed.has(origin))res.setHeader('Access-Control-Allow-Origin',origin||'*');
   res.setHeader('Vary','Origin');res.setHeader('Access-Control-Allow-Headers','authorization,content-type,x-admin-token');res.setHeader('Access-Control-Allow-Methods','POST,OPTIONS');res.setHeader('Cache-Control','no-store');
 }
 function token(req){const a=String(req.headers.authorization||'');if(a.toLowerCase().startsWith('bearer '))return a.slice(7).trim();return String(req.headers['x-admin-token']||'').trim()}
