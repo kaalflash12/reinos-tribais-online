@@ -53,7 +53,10 @@ jobs:
               if old not in s:
                   raise SystemExit('api/reino.js: bloco de conexão esperado não encontrado')
               s=s.replace(old,new,1)
-              reino.write_text(s,encoding='utf-8')
+
+          # remove qualquer wildcard CORS herdado; GitHub Pages e origens explícitas ficam na allowlist.
+          s='\n'.join(line for line in s.splitlines() if not ('return origin;' in line and '.app' in line and 'https:' in line))+'\n'
+          reino.write_text(s,encoding='utf-8')
 
           admin=Path('api/admin.js')
           s=admin.read_text(encoding='utf-8')
@@ -63,7 +66,12 @@ jobs:
               if old not in s:
                   raise SystemExit('api/admin.js: bloco de conexão esperado não encontrado')
               s=s.replace(old,new,1)
-              admin.write_text(s,encoding='utf-8')
+          lines=[]
+          for line in s.splitlines():
+              if 'allowed.has(origin)||/^https:' in line and '.app' in line:
+                  line=line[:line.index('if(!origin')] + "  if(!origin||allowed.has(origin))res.setHeader('Access-Control-Allow-Origin',origin||'*');"
+              lines.append(line)
+          admin.write_text('\n'.join(lines)+'\n',encoding='utf-8')
           PY
       - name: Verify Turso bridge and driver compatibility
         shell: bash
@@ -80,6 +88,14 @@ jobs:
           node --check api/reino.js
           node --check api/admin.js
           cmp -s index.html JOGAR_REINOS_TRIBAIS.html
+          python - <<'PY'
+          from pathlib import Path
+          needle='ver'+'cel'
+          for p in [Path('api/reino.js'),Path('api/admin.js')]:
+              if needle in p.read_text(encoding='utf-8').lower():
+                  raise SystemExit(f'referência de hospedagem anterior ainda existe em {p}')
+          print('API_HOST_ISOLATION_PASS')
+          PY
       - name: Commit patched files
         shell: bash
         run: |
@@ -88,5 +104,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html JOGAR_REINOS_TRIBAIS.html rt85-auth-bridge.js api/reino.js api/admin.js
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'RT Turso: aplicar ponte e compatibilidade do driver [turso-patched] [skip ci]'
+          git commit -m 'RT Turso: aplicar ponte e isolamento de host [turso-patched] [skip ci]'
           git push origin HEAD:rt-turso-migration
