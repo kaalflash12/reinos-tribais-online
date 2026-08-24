@@ -57,8 +57,8 @@ foreach ($forbidden in @('codeload.github.com','Baixando branch isolada do Reino
   if ($texto.Contains($forbidden)) { throw "Fluxo antigo reapareceu no bootstrap final: $forbidden" }
 }
 
-# Deno Deploy atual exige contexto de organizacao. Substitui a secao antiga por uma versao
-# que reutiliza DENO_DEPLOY_ORG/repo variable e so pede o slug uma unica vez se ele nao existir.
+# Deno Deploy atual exige contexto de organizacao. Reutiliza a variável da sessão/repo
+# e pede o slug uma única vez apenas quando ainda não existe configuração persistida.
 $denoStartMarker = "  Etapa 'Deno Deploy: app exclusivo do Reino Tribal'"
 $envMarker = "  `$envFile = Join-Path `$WorkRoot '.env.reino-tribal.production'"
 $denoStart = $texto.IndexOf($denoStartMarker,[StringComparison]::Ordinal)
@@ -109,9 +109,11 @@ $denoNovo = @'
 $denoNovo = $denoNovo.Replace("`r`n","`n")
 $texto = $texto.Substring(0,$denoStart) + $denoNovo + $texto.Substring($envStart)
 
+# Env do Deno: --replace elimina prompt/hang em reexecução. update-contexts sem nomes
+# define context_ids=null (All), evitando nomes de contexto dependentes da plataforma.
 $replacements = @(
-  @("@('deploy','env','load',`$envFile,'--app',`$DenoApp)", "@('deploy','env','load',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp)"),
-  @("@('deploy','env','update-contexts',`$name,'production','development','--app',`$DenoApp)", "@('deploy','env','update-contexts',`$name,'production','development','--org',`$denoOrg,'--app',`$DenoApp)"),
+  @("@('deploy','env','load',`$envFile,'--app',`$DenoApp)", "@('deploy','env','load','--replace',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp)"),
+  @("@('deploy','env','update-contexts',`$name,'production','development','--app',`$DenoApp)", "@('deploy','env','update-contexts',`$name,'--org',`$denoOrg,'--app',`$DenoApp)"),
   @("@('deploy','--app',`$DenoApp,'--prod')", "@('deploy','--org',`$denoOrg,'--app',`$DenoApp,'--prod')")
 )
 foreach ($pair in $replacements) {
@@ -129,11 +131,15 @@ foreach ($needle in @(
   "'deploy','env','list','--org',`$denoOrg,'--app',`$DenoApp",
   "'deploy','create','.'",
   "'--org',`$denoOrg",
-  "'deploy','env','load',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp",
+  "'deploy','env','load','--replace',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp",
+  "'deploy','env','update-contexts',`$name,'--org',`$denoOrg,'--app',`$DenoApp",
   "'deploy','--org',`$denoOrg,'--app',`$DenoApp,'--prod'",
   "Set-GitHubVariable `$gh 'DENO_DEPLOY_ORG' `$denoOrg"
 )) {
   if (-not $texto.Contains($needle)) { throw "Contrato final ausente: $needle" }
+}
+foreach ($badContext in @("'production','development'", "'development','production'")) {
+  if ($texto.Contains($badContext)) { throw "Contexto Deno antigo reapareceu: $badContext" }
 }
 if ($texto -match '\$Pid\b') { throw 'Variavel PowerShell reservada PID reapareceu.' }
 
@@ -149,10 +155,11 @@ Write-Host 'PASS: launcher unico carregado.' -ForegroundColor Green
 Write-Host 'PASS: fonte = GitHub CLI autenticado.' -ForegroundColor Green
 Write-Host 'PASS: Turso = login no navegador/callback.' -ForegroundColor Green
 Write-Host 'PASS: Deno = organizacao explicita em probe/create/env/deploy.' -ForegroundColor Green
+Write-Host 'PASS: Deno env = replace deterministico + contextos All.' -ForegroundColor Green
 Write-Host 'PASS: nenhum fluxo codeload/token manual reapareceu.' -ForegroundColor Green
 
 if ($ValidateOnly) {
-  Write-Host 'UNIQUE_DENO_ORG_TRANSFORM_PASS' -ForegroundColor Green
+  Write-Host 'UNIQUE_DENO_ORG_ENV_TRANSFORM_PASS' -ForegroundColor Green
   return
 }
 
