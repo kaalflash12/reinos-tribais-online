@@ -6,6 +6,11 @@ on:
     paths:
       - 'RT_REINO_TRIBAL_TURSO_HOSTNAME_FIX8.ps1'
       - '.github/workflows/rt-turso-hostname-fix8.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'RT_REINO_TRIBAL_TURSO_HOSTNAME_FIX8.ps1'
+      - '.github/workflows/rt-turso-hostname-fix8.yml'
   workflow_dispatch:
 
 permissions:
@@ -14,24 +19,33 @@ permissions:
 jobs:
   windows-fix8:
     runs-on: windows-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Parse, patch and regression-test Turso hostname fallback
+      - name: Generate, parse and regression-test Turso hostname fallback
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $out = Join-Path $env:RUNNER_TEMP 'REINO_TRIBAL_FINAL_UNICO.ps1'
           & .\RT_REINO_TRIBAL_TURSO_HOSTNAME_FIX8.ps1 -OutFile $out -ValidateOnly
-          if ($LASTEXITCODE -ne 0) { throw "FIX8 falhou: $LASTEXITCODE" }
+          if ($LASTEXITCODE -ne 0) { throw "FIX8 ValidateOnly falhou: $LASTEXITCODE" }
+          if (-not (Test-Path $out)) { throw 'Executor FIX8 nao foi gerado.' }
 
           $tokens = $null
           $errors = $null
           $ast = [System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors)
           if ($errors.Count -gt 0) { $errors | Format-List; throw 'Final FIX8 nao passa no parser.' }
+
+          $raw = [IO.File]::ReadAllText($out)
+          foreach($required in @('/instances','Get-TursoHostnameFromInstances','package.json','auth/interactive','DENO_DEPLOY_TOKEN')) {
+            if ($raw.IndexOf($required,[StringComparison]::OrdinalIgnoreCase) -lt 0) {
+              throw "Contrato obrigatorio ausente: $required"
+            }
+          }
 
           $fn = $ast.Find({
             param($node)
@@ -40,37 +54,72 @@ jobs:
           if (-not $fn) { throw 'Helper Get-TursoHostnameFromInstances ausente.' }
           Invoke-Expression $fn.Extent.Text
 
-          $fixture1 = [pscustomobject]@{
-            instances = @(
+          $primary = 'reino-tribal-prod-enigmatic-aquarius-u3.turso.io'
+          $fixtures = @(
+            [pscustomobject]@{ instances = @(
               [pscustomobject]@{ type='replica'; hostname='replica.example.turso.io' },
-              [pscustomobject]@{ type='primary'; hostname='reino-tribal-prod-enigmatic-aquarius-u3.turso.io' }
-            )
+              [pscustomobject]@{ type='primary'; hostname=$primary }
+            ) },
+            [pscustomobject]@{ data = [pscustomobject]@{ instances = @(
+              [pscustomobject]@{ type='primary'; hostname=$primary }
+            ) } },
+            [pscustomobject]@{ instance = [pscustomobject]@{ type='primary'; hostname=$primary } },
+            @([pscustomobject]@{ type='primary'; hostname=$primary })
+          )
+          foreach($fixture in $fixtures) {
+            $got = Get-TursoHostnameFromInstances $fixture
+            if ($got -ne $primary) { throw "Normalizacao de instances falhou. Obtido: [$got]" }
           }
-          $h1 = Get-TursoHostnameFromInstances $fixture1
-          if ($h1 -ne 'reino-tribal-prod-enigmatic-aquarius-u3.turso.io') { throw "Fixture primary falhou: $h1" }
+          $withoutHost = [pscustomobject]@{ instances = @([pscustomobject]@{ type='primary' }) }
+          if ((Get-TursoHostnameFromInstances $withoutHost) -ne '') { throw 'Helper fabricou hostname inexistente.' }
 
-          $fixture2 = [pscustomobject]@{
-            data = [pscustomobject]@{
-              instances = @([pscustomobject]@{ type='primary'; hostname='nested-primary.turso.io' })
+          $start = $raw.IndexOf('  function Get-TursoHostnameFromInstances {',[StringComparison]::Ordinal)
+          $endMarker = "  `$dbUrl = 'libsql://' + (`$hostname -replace '^https?://','' -replace '^libsql://','')"
+          $end = $raw.IndexOf($endMarker,$start,[StringComparison]::Ordinal)
+          if ($start -lt 0 -or $end -lt 0) { throw 'Bloco final de resolucao de hostname nao encontrado.' }
+          $end += $endMarker.Length
+          $block = $raw.Substring($start,$end-$start)
+
+          $script:called = @()
+          function Get-TursoDatabaseField { param($Database,[string]$Field) return '' }
+          function Convert-ToTursoDatabase { param($Raw) return [pscustomobject]@{ Name='reino-tribal-prod' } }
+          function Turso-Request {
+            param([string]$Method,[string]$Path,[string]$Token)
+            $script:called += $Path
+            if ($Path -like '*/instances') {
+              return [pscustomobject]@{ instances = @(
+                [pscustomobject]@{ type='replica'; hostname='replica.example.turso.io' },
+                [pscustomobject]@{ type='primary'; hostname=$primary }
+              ) }
             }
+            return [pscustomobject]@{ database = [pscustomobject]@{ name='reino-tribal-prod' } }
           }
-          $h2 = Get-TursoHostnameFromInstances $fixture2
-          if ($h2 -ne 'nested-primary.turso.io') { throw "Fixture data.instances falhou: $h2" }
+          function Ok { param([string]$Texto) Write-Host "PASS: $Texto" }
+          function Falhar { param([string]$Texto) throw $Texto }
 
-          $fixture3 = [pscustomobject]@{ instance = [pscustomobject]@{ type='primary'; hostname='single-primary.turso.io' } }
-          $h3 = Get-TursoHostnameFromInstances $fixture3
-          if ($h3 -ne 'single-primary.turso.io') { throw "Fixture instance falhou: $h3" }
+          $db = [pscustomobject]@{ Name='reino-tribal-prod' }
+          $orgSlug = 'enigmatic-aquarius-u3'
+          $TursoDatabase = 'reino-tribal-prod'
+          $platformToken = 'ci-placeholder'
+          $hostname = ''
+          $dbUrl = ''
+          Invoke-Expression $block
 
-          $raw = Get-Content $out -Raw
-          if ($raw -notmatch '/instances') { throw 'Final nao consulta endpoint /instances.' }
-          if ($raw -notmatch 'package\.json') { throw 'FIX8 removeu regressao dos 6 arquivos.' }
-          if ($raw -notmatch 'auth/interactive') { throw 'FIX8 removeu auth Deno.' }
+          if ($hostname -ne $primary) { throw "Fluxo 409/existente sem hostname nao resolveu primary: [$hostname]" }
+          if ($dbUrl -ne "libsql://$primary") { throw "dbUrl incorreta: [$dbUrl]" }
+          $detailPath = "/v1/organizations/$orgSlug/databases/$TursoDatabase"
+          $instancesPath = "$detailPath/instances"
+          if ($script:called -notcontains $detailPath) { throw 'GET detalhe do database nao foi executado.' }
+          if ($script:called -notcontains $instancesPath) { throw 'Fallback GET /instances nao foi executado.' }
+
+          Write-Host 'TURSO_409_EXISTING_DB_NO_HOSTNAME_TO_PRIMARY_INSTANCE_PASS'
           Write-Host 'TURSO_HOSTNAME_FIX8_REGRESSION_PASS'
 
           Copy-Item $out (Join-Path $env:RUNNER_TEMP 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1') -Force
           Copy-Item $out (Join-Path $env:RUNNER_TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1') -Force
 
       - name: Publish tested canonical executors to main
+        if: github.event_name == 'push'
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
