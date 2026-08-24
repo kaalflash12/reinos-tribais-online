@@ -6,12 +6,14 @@ on:
     paths:
       - 'CONFIGURAR_TURSO_REINO_TRIBAL.ps1'
       - 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'
+      - 'RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   pull_request:
     branches: [main]
     paths:
       - 'CONFIGURAR_TURSO_REINO_TRIBAL.ps1'
       - 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'
+      - 'RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   workflow_dispatch:
 
@@ -27,7 +29,7 @@ jobs:
       - name: Parse PowerShell without executing external actions
         shell: powershell
         run: |
-          foreach ($file in @('CONFIGURAR_TURSO_REINO_TRIBAL.ps1','CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1')) {
+          foreach ($file in @('CONFIGURAR_TURSO_REINO_TRIBAL.ps1','CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1','RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1')) {
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile(
@@ -69,3 +71,27 @@ jobs:
             throw 'Configurador contém referência proibida a infraestrutura de outro jogo.'
           }
           Write-Host 'POWERSHELL_NO_INSTALL_LOOP_PASS'
+      - name: Recovery isolation contract
+        shell: powershell
+        run: |
+          $r = Get-Content 'RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1' -Raw
+          $required = @(
+            "reino-tribal-api",
+            "reino-tribal-prod",
+            "team_o1RxZX0hDIO9c7SnuFozCmAB",
+            "VERCEL_PROJECT_ID",
+            "VERCEL_ORG_ID",
+            "--project",
+            "production.env",
+            "não criou",
+            "tursocloud/database",
+            "Deploy de produção com bloqueio de projeto"
+          )
+          foreach ($needle in $required) {
+            if (-not $r.Contains($needle)) { throw "Recovery sem proteção: $needle" }
+          }
+          if ($r -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create') {
+            throw 'Recovery não pode instalar ferramentas nem usar Turso CLI.'
+          }
+          if ($r -notmatch 'ForbiddenProjectPattern') { throw 'Recovery sem bloqueio de projeto cruzado.' }
+          Write-Host 'RECOVERY_ISOLATION_PASS'
