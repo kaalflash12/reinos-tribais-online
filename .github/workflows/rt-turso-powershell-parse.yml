@@ -91,29 +91,6 @@ jobs:
             }
             Write-Host "POWERSHELL_PARSE_PASS $file"
           }
-      - name: Validate native Windows Turso auth CLI
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          $v='0.7.2'
-          $base="https://github.com/tursodatabase/turso/releases/download/v$v"
-          Invoke-WebRequest -UseBasicParsing "$base/turso_cli-x86_64-pc-windows-msvc.zip" -OutFile turso.zip
-          Invoke-WebRequest -UseBasicParsing "$base/turso_cli-x86_64-pc-windows-msvc.zip.sha256" -OutFile turso.zip.sha256
-          $expected=([regex]::Match((Get-Content turso.zip.sha256 -Raw),'[A-Fa-f0-9]{64}')).Value.ToLowerInvariant()
-          $actual=(Get-FileHash turso.zip -Algorithm SHA256).Hash.ToLowerInvariant()
-          if(!$expected -or $actual -ne $expected){throw 'Turso Windows CLI SHA256 mismatch'}
-          Expand-Archive turso.zip -DestinationPath turso-native -Force
-          $exe=(Get-ChildItem turso-native -Filter *.exe -Recurse | Select-Object -First 1).FullName
-          if(!$exe){throw 'No Turso Windows exe found'}
-          & $exe --version
-          if($LASTEXITCODE -ne 0){throw 'Turso version failed'}
-          & $exe auth login --help
-          if($LASTEXITCODE -ne 0){throw 'Turso auth login help failed'}
-          & $exe auth token --help
-          if($LASTEXITCODE -ne 0){throw 'Turso auth token help failed'}
-          & $exe auth api-tokens mint --help
-          if($LASTEXITCODE -ne 0){throw 'Turso api-tokens mint help failed'}
-          Write-Host 'TURSO_NATIVE_WINDOWS_BROWSER_AUTH_PASS'
       - name: Validate bootstrap contract
         shell: powershell
         run: |
@@ -145,3 +122,19 @@ jobs:
         run: |
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 -ValidateOnly
           if($LASTEXITCODE -ne 0){throw "Launcher ValidateOnly falhou: $LASTEXITCODE"}
+          $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
+          if(-not (Test-Path $out)){throw 'Bootstrap transformado nao foi gerado'}
+          $t=[IO.File]::ReadAllText($out)
+          if($t.Contains("Read-Host 'Turso Platform API Token'")){throw 'Prompt manual de token Turso ainda existe'}
+          foreach($needle in @(
+            'function Obter-TursoPlatformTokenBrowser',
+            'AcceptTcpClientAsync',
+            'https://api.turso.tech?port=',
+            'redirect=true&type=cli&state=',
+            "Start-Process `$authUrl",
+            "Path '/v1/auth/validate'",
+            'Login Turso confirmado automaticamente pelo callback local.'
+          )){
+            if(-not $t.Contains($needle)){throw "Contrato browser Turso ausente: $needle"}
+          }
+          Write-Host 'TURSO_BROWSER_CALLBACK_TRANSFORM_PASS'
