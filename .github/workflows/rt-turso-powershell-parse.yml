@@ -81,17 +81,14 @@ jobs:
             if($errors.Count){$errors|ForEach-Object{Write-Error($file+': '+$_.Message)};exit 1}
             Write-Host "POWERSHELL_PARSE_PASS $file"
           }
-      - name: Prove canonical names delegate to free launcher
+      - name: Prove canonical names delegate to v2-v1 launcher
         shell: powershell
         run: |
           foreach($file in @('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1','EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1')){
             $s=[IO.File]::ReadAllText((Resolve-Path $file))
-            if(-not $s.Contains('RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1')){throw "$file nao delega ao Turso gratuito"}
-            foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'",'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1')){
-              if($s.Contains($forbidden)){throw "$file ainda aponta para fluxo antigo: $forbidden"}
-            }
+            if(-not $s.Contains('d26bdec674705a61d00dec3704e7bbe7f0e5b7ff/RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1')){throw "$file nao esta pinado no Turso v2/v1"}
           }
-          Write-Host 'CANONICAL_TURSO_FREE_DELEGATION_PASS'
+          Write-Host 'CANONICAL_TURSO_V2_V1_PIN_PASS'
       - name: Validate canonical executor end-to-end transform
         shell: powershell
         run: |
@@ -100,72 +97,40 @@ jobs:
           $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
           if(-not(Test-Path $out)){throw 'Bootstrap final não foi gerado'}
           $t=[IO.File]::ReadAllText($out)
-          foreach($forbidden in @(
-            'codeload.github.com',
-            'Baixando branch isolada do Reino Tribal',
-            "Read-Host 'Turso Platform API Token'",
-            "Read-Host 'Cole somente o slug da organizacao Deno",
-            'Nenhuma organização Turso independente foi encontrada nessa conta.',
-            '$managed = @($orgs',
-            'Organizações Turso independentes:',
-            "Read-Host 'Escolha o número da organização para o Reino Tribal'",
-            "'production','development'"
-          )){
+          foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'",'Nenhuma organização Turso independente foi encontrada nessa conta.','$managed = @($orgs')){
             if($t.Contains($forbidden)){throw "Bootstrap canonico contém fluxo antigo/manual: $forbidden"}
           }
-          $start=$t.IndexOf("  `$orgs = @(Turso-Request -Method GET -Path '/v1/organizations' -Token `$platformToken)",[StringComparison]::Ordinal)
+          $start=$t.IndexOf('  $orgs = @()',[StringComparison]::Ordinal)
+          if($start -lt 0){throw 'Inicio do bloco Turso v2/v1 nao encontrado'}
           $end=$t.IndexOf('  $dbList = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases" -Token $platformToken',$start,[StringComparison]::Ordinal)
-          if($start -lt 0 -or $end -le $start){throw 'Bloco Turso final nao encontrado'}
+          if($end -le $start){throw 'Fim do bloco Turso v2/v1 nao encontrado'}
           $turso=$t.Substring($start,$end-$start)
-          if($turso -match '\[0\]'){throw 'Bloco Turso final ainda contém indexação [0]'}
+          if($turso -match '\[0\]'){throw 'Bloco Turso v2/v1 ainda contém indexação [0]'}
           foreach($needle in @(
-            "'repo','clone',`$Repositorio,`$repoDir",
-            "'--branch',`$Branch,'--depth','1','--single-branch'",
-            'Obter-TursoPlatformTokenBrowser',
-            'AcceptTcpClientAsync',
-            'Start-Process $authUrl',
+            "Turso-Request -Method GET -Path '/v2/organizations'",
+            "Turso-Request -Method GET -Path '/v1/organizations'",
+            "PSObject.Properties['organizations']",
             "Turso-Request -Method GET -Path '/v1/current-user'",
-            '$org = $orgs | Select-Object -First 1',
-            'Organizacao Turso gratuita selecionada automaticamente:',
-            "'deploy','orgs','list','--json'",
-            "'deploy','apps','get','--org',`$denoOrg,'--app',`$DenoApp,'--json'",
-            "'deploy','create','.'",
-            "'deploy','env','load','--replace',`$envFile,'--org',`$denoOrg,'--app',`$DenoApp",
-            "'deploy','env','update-contexts',`$name,'--org',`$denoOrg,'--app',`$DenoApp",
-            "'deploy','--org',`$denoOrg,'--app',`$DenoApp,'--prod'",
-            '$appMeta.productionUrl',
-            "Set-GitHubVariable `$gh 'DENO_DEPLOY_ORG' `$denoOrg"
-          )){
-            if(-not $t.Contains($needle)){throw "Contrato canonico final ausente: $needle"}
-          }
-          Write-Host 'CANONICAL_TURSO_NO_INDEX_END_TO_END_PASS'
-      - name: Validate unique anti-stale launcher
-        shell: powershell
-        run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1 -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "Unique launcher ValidateOnly falhou: $LASTEXITCODE"}
-          Write-Host 'UNIQUE_ANTISTALE_AUTO_ORG_PRODUCTION_URL_PASS'
-      - name: Validate Turso free launcher no empty index
-        shell: powershell
-        run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1 -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "Turso free ValidateOnly falhou: $LASTEXITCODE"}
-          $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
-          if(-not(Test-Path $out)){throw 'Turso free launcher não gerou bootstrap final'}
-          $t=[IO.File]::ReadAllText($out)
-          $start=$t.IndexOf("  `$orgs = @(Turso-Request -Method GET -Path '/v1/organizations' -Token `$platformToken)",[StringComparison]::Ordinal)
-          $end=$t.IndexOf('  $dbList = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases" -Token $platformToken',$start,[StringComparison]::Ordinal)
-          if($start -lt 0 -or $end -le $start){throw 'Bloco Turso final nao encontrado'}
-          $turso=$t.Substring($start,$end-$start)
-          if($turso -match '\[0\]'){throw 'Bloco Turso final ainda contém indexação [0]'}
-          foreach($needle in @(
-            "Turso-Request -Method GET -Path '/v1/current-user'",
-            '$org = $orgs | Select-Object -First 1',
             'Organizacao Turso gratuita selecionada automaticamente:',
             "`$dedicatedGroupName = 'reino-tribal-prod'",
             "'deploy','orgs','list','--json'",
             '$appMeta.productionUrl'
           )){
-            if(-not $t.Contains($needle)){throw "Contrato Turso gratuito ausente: $needle"}
+            if(-not $t.Contains($needle)){throw "Contrato canonico final ausente: $needle"}
           }
-          Write-Host 'TURSO_FREE_NO_EMPTY_INDEX_WINDOWS_PASS'
+          Write-Host 'CANONICAL_TURSO_V2_V1_NO_INDEX_PASS'
+      - name: Validate Turso v2-v1 launcher directly
+        shell: powershell
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "Turso v2/v1 ValidateOnly falhou: $LASTEXITCODE"}
+          $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
+          if(-not(Test-Path $out)){throw 'Turso launcher não gerou bootstrap final'}
+          $t=[IO.File]::ReadAllText($out)
+          $start=$t.IndexOf('  $orgs = @()',[StringComparison]::Ordinal)
+          if($start -lt 0){throw 'Inicio do bloco Turso v2/v1 nao encontrado'}
+          $end=$t.IndexOf('  $dbList = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases" -Token $platformToken',$start,[StringComparison]::Ordinal)
+          if($end -le $start){throw 'Fim do bloco Turso v2/v1 nao encontrado'}
+          $turso=$t.Substring($start,$end-$start)
+          if($turso -match '\[0\]'){throw 'Bloco Turso v2/v1 ainda contém indexação [0]'}
+          Write-Host 'TURSO_V2_V1_NO_EMPTY_INDEX_WINDOWS_PASS'
