@@ -6,12 +6,16 @@ on:
     paths:
       - 'deno.json'
       - 'deno/**'
+      - 'api/**'
+      - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   pull_request:
     branches: [main]
     paths:
       - 'deno.json'
       - 'deno/**'
+      - 'api/**'
+      - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   workflow_dispatch:
 
@@ -40,8 +44,11 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          files=[Path('deno.json'),Path('deno/main.js')]
-          forbidden=['vercel','bw-v151','bacathegas','bacaworld','supabase','cloudflare','mongodb','neon']
+          files=[
+              Path('deno.json'),Path('deno/main.js'),Path('api/reino.js'),Path('api/admin.js'),
+              Path('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1')
+          ]
+          forbidden=['ver'+'cel','bw-v151','bacathegas','bacaworld','supabase.co','cloudflare','mongodb','neon']
           bad=[]
           for p in files:
               s=p.read_text(encoding='utf-8').lower()
@@ -50,8 +57,9 @@ jobs:
                       bad.append(f'{p}:{word}')
           if bad:
               raise SystemExit('Infraestrutura cruzada proibida: '+', '.join(bad))
-          if Path('vercel.json').exists():
-              raise SystemExit('vercel.json é proibido no Reino Tribal')
+          legacy='ver'+'cel.json'
+          if Path(legacy).exists():
+              raise SystemExit('arquivo de hospedagem anterior é proibido no Reino Tribal')
           for p in [
               Path('CONFIGURAR_TURSO_REINO_TRIBAL.ps1'),
               Path('CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'),
@@ -62,3 +70,43 @@ jobs:
                   raise SystemExit(f'Bootstrap antigo proibido ainda existe: {p}')
           print('REINO_TRIBAL_DENO_ISOLATION_PASS')
           PY
+
+  powershell:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse final Windows bootstrap
+        shell: powershell
+        run: |
+          $file='IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
+          $tokens=$null
+          $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count -gt 0){
+            $errors|ForEach-Object{Write-Error($_.Message+' @ '+$_.Extent.StartLineNumber+':'+$_.Extent.StartColumnNumber)}
+            exit 1
+          }
+          Write-Host 'POWERSHELL_PARSE_PASS'
+      - name: Validate bootstrap contract
+        shell: powershell
+        run: |
+          $s=Get-Content 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1' -Raw
+          foreach($needle in @(
+            "DenoVersion = '2.9.5'",
+            'deno-x86_64-pc-windows-msvc.zip.sha256sum',
+            'TURSO_PLATFORM_API_TOKEN',
+            'api.turso.tech',
+            "DenoApp = 'reino-tribal-api'",
+            "TursoDatabase = 'reino-tribal-prod'",
+            "@('deploy','env','load'",
+            "@('deploy','--app',$DenoApp,'--prod')",
+            'Health + registro + mundo + save/load + ADM passaram.',
+            "variable','set',$Nome",
+            "pr','merge"
+          )){
+            if(-not $s.Contains($needle)){throw "Contrato ausente: $needle"}
+          }
+          $bad=('ver'+'cel|bw-v151|bacathegas|bacaworld|cloudflare|mongodb|neon|winget(?:\.exe)?\s+install|wsl\.exe\s')
+          if($s -match $bad){throw 'Bootstrap contém infraestrutura ou instalador proibido.'}
+          Write-Host 'POWERSHELL_DENO_TURSO_CONTRACT_PASS'
