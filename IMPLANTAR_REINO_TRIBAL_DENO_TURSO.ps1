@@ -29,8 +29,8 @@ function Quote-Arg([string]$Value) {
   return '"' + ($Value -replace '(\\*)"','$1$1\"' -replace '(\\+)$','$1$1') + '"'
 }
 
-function Stop-Tree([int]$Pid) {
-  try { & "$env:SystemRoot\System32\taskkill.exe" /PID $Pid /T /F *> $null } catch {}
+function Stop-Tree([int]$ProcessId) {
+  try { & "$env:SystemRoot\System32\taskkill.exe" /PID $ProcessId /T /F *> $null } catch {}
 }
 
 function Executar-Nativo {
