@@ -294,56 +294,65 @@ try {
   $grepo = Executar-Nativo -Exe $gh -Args @('repo','view',$Repositorio) -TimeoutSec 30 -Rotulo 'Validar repositório'
   Exigir-Sucesso $grepo "Conta GitHub não acessa $Repositorio."
 
-  Etapa 'Obtendo branch isolada via GitHub API autenticada'
+  Etapa 'Obtendo backend minimo via GitHub API autenticada'
   $repoDir = Join-Path $WorkRoot 'repo'
-  $archiveDir = Join-Path $WorkRoot 'archive'
-  $archiveZip = Join-Path $WorkRoot 'branch.zip'
-  Remove-Item $repoDir,$archiveDir,$archiveZip -Recurse -Force -ErrorAction SilentlyContinue
-  New-Item -ItemType Directory -Force -Path $archiveDir | Out-Null
+  Remove-Item $repoDir -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $repoDir | Out-Null
 
   $tokenResult = Executar-Nativo -Exe $gh -Args @('auth','token') -TimeoutSec 30 -Rotulo 'Obter credencial temporaria GitHub da sessao atual'
   Exigir-Sucesso $tokenResult 'GitHub CLI autenticado nao forneceu a credencial temporaria da sessao.'
   $githubToken = $tokenResult.Text.Trim()
   if ($githubToken.Length -lt 20) { Falhar 'Credencial temporaria GitHub veio vazia ou invalida.' }
 
-  $archiveHeaders = @{
+  $githubHeaders = @{
     Authorization = "Bearer $githubToken"
     Accept = 'application/vnd.github+json'
     'User-Agent' = 'Reino-Tribal-Bootstrap'
     'X-GitHub-Api-Version' = '2022-11-28'
   }
   $escapedBranch = [Uri]::EscapeDataString($Branch)
-  $archiveUri = "https://api.github.com/repos/$Repositorio/zipball/$escapedBranch"
+
+  function Get-GitHubBranchFile {
+    param([Parameter(Mandatory=$true)][string]$RelativePath)
+    $escapedPath = (($RelativePath -split '/') | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+    $fileUri = "https://api.github.com/repos/$Repositorio/contents/$escapedPath?ref=$escapedBranch"
+    try {
+      $meta = Invoke-RestMethod -Method Get -Uri $fileUri -Headers $githubHeaders -TimeoutSec 60
+    } catch {
+      Falhar "Falha baixando arquivo GitHub $RelativePath.`n$($_.Exception.Message)"
+    }
+    if ($null -eq $meta -or [string]$meta.type -ne 'file' -or -not $meta.content) {
+      Falhar "GitHub API nao retornou conteudo de arquivo para $RelativePath."
+    }
+    $base64 = ([string]$meta.content) -replace '\s',''
+    try { $bytes = [Convert]::FromBase64String($base64) }
+    catch { Falhar "Conteudo base64 invalido recebido do GitHub para $RelativePath." }
+    if ($bytes.Length -lt 1) { Falhar "Arquivo GitHub vazio: $RelativePath" }
+    $dest = Join-Path $repoDir ($RelativePath -replace '/','\')
+    $parent = Split-Path $dest -Parent
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    [IO.File]::WriteAllBytes($dest,$bytes)
+  }
+
+  $requiredFiles = @(
+    'deno.json',
+    'deno/main.js',
+    'api/reino.js',
+    'api/admin.js',
+    'backend/turso/schema.sql'
+  )
   try {
-    Invoke-WebRequest -UseBasicParsing -Uri $archiveUri -Headers $archiveHeaders -OutFile $archiveZip -MaximumRedirection 5 -TimeoutSec 180
-  } catch {
-    Falhar "Falha baixando archive autenticado da branch $Branch sem git.exe.`n$($_.Exception.Message)"
+    foreach ($requiredFile in $requiredFiles) { Get-GitHubBranchFile $requiredFile }
   } finally {
     $githubToken = ''
-    $archiveHeaders.Authorization = ''
+    $githubHeaders.Authorization = ''
   }
 
-  if (-not (Test-Path $archiveZip)) { Falhar 'GitHub API nao gerou o ZIP da branch.' }
-  $archiveSize = (Get-Item $archiveZip).Length
-  if ($archiveSize -lt 1024) { Falhar "ZIP da branch veio pequeno/invalido: $archiveSize bytes." }
-
-  Expand-Archive -Path $archiveZip -DestinationPath $archiveDir -Force
-  Remove-Item $archiveZip -Force -ErrorAction SilentlyContinue
-
-  $candidateRoots = @(Get-ChildItem $archiveDir -Directory -ErrorAction Stop)
-  $workPath = $null
-  foreach ($candidateRoot in $candidateRoots) {
-    if (Test-Path (Join-Path $candidateRoot.FullName 'deno\main.js')) {
-      $workPath = $candidateRoot.FullName
-      break
-    }
-  }
-  if (-not $workPath) { Falhar 'Archive GitHub foi extraido, mas deno/main.js nao foi encontrado.' }
-
+  $workPath = $repoDir
   foreach ($required in @('deno.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')) {
-    if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente no archive da branch: $required" }
+    if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente apos download minimo: $required" }
   }
-  Ok 'Branch rt-turso-migration obtida pela API GitHub autenticada sem iniciar git.exe.'
+  Ok 'Backend minimo obtido pela API GitHub autenticada: 5 arquivos, zero git.exe, zero clone, zero archive.'
   $check = Executar-Nativo -Exe $DenoExe -Args @('check','deno/main.js') -Diretorio $workPath -TimeoutSec 180 -Rotulo 'Deno check do backend'
   Exigir-Sucesso $check 'Backend nÃ£o passou no deno check.'
   Ok 'Backend Deno/Turso validado localmente.'
