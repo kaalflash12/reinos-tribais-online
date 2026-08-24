@@ -46,27 +46,31 @@ $orgNovo=@'
   $org = $null
 
   if ($username) {
-    $org = @($orgs | Where-Object { ([string]$_.slug) -eq $username } | Select-Object -First 1)[0]
+    $org = $orgs | Where-Object { ([string]$_.slug) -eq $username } | Select-Object -First 1
   }
   if (-not $org -and $orgs.Count -eq 1) {
-    $org = $orgs[0]
+    $org = $orgs | Select-Object -First 1
   }
   if (-not $org) {
-    $org = @($orgs | Where-Object { ([string]$_.type) -eq 'personal' } | Sort-Object slug | Select-Object -First 1)[0]
+    $org = $orgs | Where-Object { ([string]$_.type) -eq 'personal' } | Sort-Object slug | Select-Object -First 1
   }
   if (-not $org) {
-    Falhar 'A conta Turso nao expoe uma organizacao pessoal identificavel no plano gratuito. Nenhuma organizacao paga sera criada automaticamente.'
+    # Algumas contas Free antigas/API v1 nao marcam type=personal. Nao cobramos nem criamos org.
+    $org = $orgs | Sort-Object slug | Select-Object -First 1
+    if ($org) { Aviso 'Turso nao marcou uma organizacao como personal; usando a primeira organizacao acessivel sem criar plano pago.' }
+  }
+  if (-not $org) {
+    Falhar 'A conta Turso autenticada nao retornou organizacao utilizavel. Nenhuma organizacao paga sera criada automaticamente.'
   }
 
   $orgSlug = [string]$org.slug
-  if (-not $orgSlug) { Falhar 'A organizacao pessoal Turso selecionada nao possui slug.' }
-  Ok "Organizacao pessoal Turso selecionada automaticamente: $orgSlug"
+  if (-not $orgSlug) { Falhar 'A organizacao Turso selecionada nao possui slug.' }
+  Ok "Organizacao Turso gratuita selecionada automaticamente: $orgSlug"
 
 '@
 $orgNovo=$orgNovo.Replace("`r`n","`n")
 $texto=$texto.Substring(0,$orgStart)+$orgNovo+$texto.Substring($groupsStart)
 
-# Recalcula marcadores depois da troca da selecao de organizacao.
 $groupsStart=$texto.IndexOf($groupsMarker,[StringComparison]::Ordinal)
 $dbStart=$texto.IndexOf($dbMarker,$groupsStart,[StringComparison]::Ordinal)
 if($groupsStart -lt 0 -or $dbStart -lt 0){ throw 'Bloco de groups Turso desapareceu apos patch da organizacao.' }
@@ -75,7 +79,7 @@ $groupsNovo=@'
   $dedicatedGroupName = 'reino-tribal-prod'
   $groupsResp = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/groups" -Token $platformToken
   $groups = @($groupsResp.groups)
-  $dedicatedGroup = @($groups | Where-Object { ([string]$_.name) -eq $dedicatedGroupName } | Select-Object -First 1)[0]
+  $dedicatedGroup = $groups | Where-Object { ([string]$_.name) -eq $dedicatedGroupName } | Select-Object -First 1
 
   if ($dedicatedGroup) {
     $groupName = $dedicatedGroupName
@@ -86,7 +90,8 @@ $groupsNovo=@'
       $locResp = Turso-Request -Method GET -Path 'https://api.turso.tech/v1/locations' -Token $platformToken
       $keys = @($locResp.locations.PSObject.Properties.Name)
       if ($keys.Count -gt 0) {
-        $location = if ($keys -contains 'aws-us-east-1') { 'aws-us-east-1' } else { [string]$keys[0] }
+        if ($keys -contains 'aws-us-east-1') { $location = 'aws-us-east-1' }
+        else { $location = [string]($keys | Select-Object -First 1) }
       }
     } catch {
       Aviso 'Nao foi possivel listar locations para criar group dedicado; sera tentado fallback seguro.'
@@ -108,7 +113,8 @@ $groupsNovo=@'
 
     if (-not $groupName) {
       if ($groups.Count -lt 1) { Falhar 'Turso nao possui group existente e nao permitiu criar o group do Reino Tribal.' }
-      $groupName = [string]$groups[0].name
+      $fallbackGroup = $groups | Select-Object -First 1
+      $groupName = [string]$fallbackGroup.name
       if (-not $groupName) { Falhar 'Turso retornou group existente sem nome.' }
       Aviso "Usando placement group existente ($groupName); isolamento de dados permanece no banco exclusivo $TursoDatabase."
     }
@@ -125,15 +131,18 @@ foreach($forbidden in @(
   "Read-Host 'Escolha o número da organização para o Reino Tribal'",
   "Read-Host 'Turso Platform API Token'",
   'codeload.github.com',
-  'Baixando branch isolada do Reino Tribal'
+  'Baixando branch isolada do Reino Tribal',
+  'Select-Object -First 1)[0]',
+  '$orgs[0]',
+  '$groups[0]'
 )){
-  if($texto.Contains($forbidden)){ throw "Fluxo Turso antigo/manual reapareceu: $forbidden" }
+  if($texto.Contains($forbidden)){ throw "Fluxo Turso antigo/manual/indexado reapareceu: $forbidden" }
 }
 foreach($needle in @(
   "Turso-Request -Method GET -Path '/v1/current-user'",
   '$orgs.Count -eq 1',
   "([string]`$_.type) -eq 'personal'",
-  'Organizacao pessoal Turso selecionada automaticamente:',
+  'Organizacao Turso gratuita selecionada automaticamente:',
   "`$dedicatedGroupName = 'reino-tribal-prod'",
   'Group Turso exclusivo',
   "'/v1/organizations' -Token `$platformToken",
@@ -148,14 +157,14 @@ $tokens=$null;$errors=$null
 [System.Management.Automation.Language.Parser]::ParseFile($BootstrapFinal,[ref]$tokens,[ref]$errors)|Out-Null
 if($errors.Count){ throw ('Bootstrap Turso pessoal nao passou no parser: '+(($errors|ForEach-Object{$_.Message+' @ '+$_.Extent.StartLineNumber+':'+$_.Extent.StartColumnNumber}) -join "`n")) }
 
-Write-Host 'PASS: TURSO = ORGANIZACAO PESSOAL GRATUITA.' -ForegroundColor Green
+Write-Host 'PASS: TURSO = ORGANIZACAO GRATUITA SEM INDEXACAO INSEGURA.' -ForegroundColor Green
 Write-Host 'PASS: TURSO = BANCO REINO TRIBAL EXCLUSIVO, SEM CRIAR ORGANIZACAO PAGA.' -ForegroundColor Green
 Write-Host 'PASS: TURSO = GROUP EXCLUSIVO QUANDO SUPORTADO, FALLBACK PARA GROUP EXISTENTE SEM COMPARTILHAR BANCO.' -ForegroundColor Green
 Write-Host 'PASS: TURSO = ZERO ESCOLHA MANUAL DE ORGANIZACAO.' -ForegroundColor Green
 Write-Host 'PASS: DENO = ORGANIZACAO AUTOMATICA + PRODUCTIONURL OFICIAL.' -ForegroundColor Green
 Write-Host 'PASS: PARSER FINAL VALIDADO.' -ForegroundColor Green
 
-if($ValidateOnly){ Write-Host 'TURSO_PERSONAL_FREE_VALIDATE_PASS' -ForegroundColor Green; return }
+if($ValidateOnly){ Write-Host 'TURSO_PERSONAL_FREE_NO_INDEX_VALIDATE_PASS' -ForegroundColor Green; return }
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $BootstrapFinal
 $code=$LASTEXITCODE
