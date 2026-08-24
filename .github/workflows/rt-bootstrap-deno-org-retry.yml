@@ -1,0 +1,79 @@
+name: RT Bootstrap Deno Org Retry
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
+      - '.github/workflows/rt-bootstrap-deno-org-retry.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[deno-org-retry]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rt-turso-migration
+      - name: Add one-time Deno organization recovery
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1')
+          s=p.read_text(encoding='utf-8')
+          old="""    Aviso 'Se o Deno pedir autenticação, confirme somente no login oficial. Esta é a única etapa interativa do Deno.'
+    Push-Location $workPath
+    try {
+      & $DenoExe deploy create . --app $DenoApp --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --no-wait
+      $createCode = $LASTEXITCODE
+    } finally { Pop-Location }
+    if ($createCode -ne 0) { Falhar 'Não foi possível criar o app Deno exclusivo do Reino Tribal.' }
+"""
+          new="""    Aviso 'Se o Deno pedir autenticação, confirme somente no login oficial.'
+    Push-Location $workPath
+    try {
+      & $DenoExe deploy create . --app $DenoApp --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --no-wait
+      $createCode = $LASTEXITCODE
+      if ($createCode -ne 0) {
+        Aviso 'Se sua conta Deno Deploy ainda não tiver uma organização, crie ou selecione uma no console oficial que será aberto.'
+        Start-Process 'https://console.deno.com'
+        [void](Read-Host 'Depois de criar/selecionar a organização Deno Deploy, pressione ENTER para UMA única nova tentativa')
+        & $DenoExe deploy create . --app $DenoApp --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --no-wait
+        $createCode = $LASTEXITCODE
+      }
+    } finally { Pop-Location }
+    if ($createCode -ne 0) { Falhar 'Não foi possível criar o app Deno exclusivo do Reino Tribal após a única tentativa de recuperação.' }
+"""
+          if old in s:
+              p.write_text(s.replace(old,new,1),encoding='utf-8')
+              print('DENO_ORG_RETRY_PATCHED')
+          elif 'UMA única nova tentativa' in s and "Start-Process 'https://console.deno.com'" in s:
+              print('DENO_ORG_RETRY_ALREADY_PRESENT')
+          else:
+              raise SystemExit('Bloco Deno create inesperado; nada alterado')
+          PY
+      - name: Validate no retry loop
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1').read_text(encoding='utf-8')
+          if s.count('deploy create . --app $DenoApp') != 2:
+              raise SystemExit('Esperadas exatamente duas chamadas: inicial + uma recuperação')
+          if 'while' in s[s.index("Etapa 'Deno Deploy: app exclusivo do Reino Tribal'"):s.index("$envFile =",s.index("Etapa 'Deno Deploy: app exclusivo do Reino Tribal'"))]:
+              raise SystemExit('Loop detectado no provisionamento Deno')
+          print('DENO_ORG_SINGLE_RETRY_PASS')
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'RT Deno/Turso: recuperar organização Deno uma vez [deno-org-retry]'
+          git push origin HEAD:rt-turso-migration
