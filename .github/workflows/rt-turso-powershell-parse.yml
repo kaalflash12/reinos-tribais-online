@@ -9,6 +9,7 @@ on:
       - 'api/**'
       - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
       - 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
+      - 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   pull_request:
     branches: [main]
@@ -18,6 +19,7 @@ on:
       - 'api/**'
       - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
       - 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
+      - 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   workflow_dispatch:
 
@@ -81,7 +83,11 @@ jobs:
       - name: Parse final Windows files
         shell: powershell
         run: |
-          foreach($file in @('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1','EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1')){
+          foreach($file in @(
+            'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1',
+            'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1',
+            'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+          )){
             $tokens=$null
             $errors=$null
             [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
@@ -138,3 +144,20 @@ jobs:
             if(-not $t.Contains($needle)){throw "Contrato browser Turso ausente: $needle"}
           }
           Write-Host 'TURSO_BROWSER_CALLBACK_TRANSFORM_PASS'
+      - name: Validate unique anti-stale launcher
+        shell: powershell
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "Unique launcher ValidateOnly falhou: $LASTEXITCODE"}
+          $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
+          if(-not (Test-Path $out)){throw 'Bootstrap final do unique launcher não foi gerado'}
+          $t=[IO.File]::ReadAllText($out)
+          if($t.Contains('codeload.github.com')){throw 'codeload reapareceu no bootstrap final'}
+          foreach($needle in @(
+            "'repo','clone',`$Repositorio,`$repoDir",
+            "'--branch',`$Branch,'--depth','1','--single-branch'",
+            'Obter-TursoPlatformTokenBrowser'
+          )){
+            if(-not $t.Contains($needle)){throw "Contrato GH clone/Turso browser ausente: $needle"}
+          }
+          Write-Host 'UNIQUE_ANTISTALE_GHCLONE_PASS'
