@@ -4,35 +4,26 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# Compatibilidade: este nome antigo não contém mais lógica de provisionamento.
-# Toda execução é encaminhada para o launcher único validado com Deno automático.
-$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/dfca9197c7feae252eef4bbcb1035ac4237f1938/RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
-$LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
+$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/049b2ddf368ff99e996380cc9baf50276b16860f/RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
+$LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
 
-Write-Host '=== REINO TRIBAL - BOOTSTRAP COMPATIVEL APOSENTADO ===' -ForegroundColor Cyan
-Write-Host 'Encaminhando para GHCLONE + TURSO BROWSER + DENO AUTO.' -ForegroundColor Green
+Write-Host '=== REINO TRIBAL - BOOTSTRAP COMPATIVEL ===' -ForegroundColor Cyan
+Write-Host 'Encaminhando para Turso pessoal gratuito + banco exclusivo + Deno automatico.' -ForegroundColor Green
 
 Remove-Item $LauncherPath -Force -ErrorAction SilentlyContinue
 Invoke-WebRequest -UseBasicParsing -Uri $LauncherUrl -OutFile $LauncherPath -TimeoutSec 120
-if (-not (Test-Path $LauncherPath) -or (Get-Item $LauncherPath).Length -le 0) {
-  throw 'Falha baixando o launcher único validado do Reino Tribal.'
-}
+if (-not (Test-Path $LauncherPath) -or (Get-Item $LauncherPath).Length -le 0) { throw 'Falha baixando launcher final do Reino Tribal.' }
 
 $txt=[IO.File]::ReadAllText($LauncherPath)
 [IO.File]::WriteAllText($LauncherPath,$txt,(New-Object Text.UTF8Encoding($true)))
+$tokens=$null;$errors=$null
+[System.Management.Automation.Language.Parser]::ParseFile($LauncherPath,[ref]$tokens,[ref]$errors)|Out-Null
+if($errors.Count){ throw ('Launcher final nao passou no parser: '+(($errors|ForEach-Object{$_.Message}) -join '; ')) }
 
-$tokens=$null
-$errors=$null
-[System.Management.Automation.Language.Parser]::ParseFile($LauncherPath,[ref]$tokens,[ref]$errors) | Out-Null
-if ($errors.Count -gt 0) {
-  $msg=($errors | ForEach-Object { $_.Message + ' @ ' + $_.Extent.StartLineNumber + ':' + $_.Extent.StartColumnNumber }) -join "`n"
-  throw "Launcher único não passou no parser.`n$msg"
-}
-
-if ($ValidateOnly) {
+if($ValidateOnly){
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $LauncherPath -ValidateOnly
-} else {
+}else{
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $LauncherPath
 }
 $code=$LASTEXITCODE
-if ($code -ne 0) { throw "Launcher único parou no erro real. Código: $code" }
+if($code -ne 0){ throw "Launcher final parou no erro real. Codigo: $code" }
