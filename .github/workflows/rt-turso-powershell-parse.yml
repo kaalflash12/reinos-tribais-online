@@ -28,59 +28,39 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Parse all supported PowerShell entrypoints
+      - name: Parse all PowerShell entrypoints
         shell: powershell
         run: |
           foreach ($file in @('CONFIGURAR_TURSO_REINO_TRIBAL.ps1','CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1','RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1','RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1')) {
-            $tokens = $null
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors) | Out-Null
-            if ($errors.Count -gt 0) {
-              $errors | ForEach-Object { Write-Error ($file + ': ' + $_.Message + ' @ ' + $_.Extent.StartLineNumber + ':' + $_.Extent.StartColumnNumber) }
-              exit 1
-            }
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count -gt 0){$errors|ForEach-Object{Write-Error($file+': '+$_.Message+' @ '+$_.Extent.StartLineNumber+':'+$_.Extent.StartColumnNumber)};exit 1}
             Write-Host "POWERSHELL_PARSE_PASS $file"
           }
-      - name: Legacy entrypoints must delegate only to recovery
+      - name: Legacy entrypoints delegate to anti-hang recovery
         shell: powershell
         run: |
-          foreach ($file in @('CONFIGURAR_TURSO_REINO_TRIBAL.ps1','CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1')) {
-            $s = Get-Content $file -Raw
-            if (-not $s.Contains('RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1')) { throw "$file não delega ao recovery." }
-            if ($s -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create|npm\s+install') {
-              throw "$file voltou a instalar ferramentas."
-            }
+          foreach ($file in @('CONFIGURAR_TURSO_REINO_TRIBAL.ps1','CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1','RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1')) {
+            $s=Get-Content $file -Raw
+            if(-not $s.Contains('RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1')){throw "$file não delega ao anti-hang recovery."}
+            if($s -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create|npm\s+install'){throw "$file voltou a instalar ferramentas."}
           }
-          Write-Host 'LEGACY_ENTRYPOINTS_NO_INSTALL_PASS'
-      - name: Recovery isolation contract
+          Write-Host 'ALL_ENTRYPOINTS_ANTI_HANG_PASS'
+      - name: Anti-hang recovery isolation contract
         shell: powershell
         run: |
-          foreach ($file in @('RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1','RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1')) {
-            $r = Get-Content $file -Raw
-            $required = @(
-              "reino-tribal-api",
-              "reino-tribal-prod",
-              "team_o1RxZX0hDIO9c7SnuFozCmAB",
-              "VERCEL_PROJECT_ID",
-              "VERCEL_ORG_ID",
-              "--project",
-              "tursocloud/database",
-              "ForbiddenProjectPattern"
-            )
-            foreach ($needle in $required) {
-              if (-not $r.Contains($needle)) { throw "$file sem proteção: $needle" }
-            }
-            if ($r -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create|npm\s+install') {
-              throw "$file não pode reinstalar ferramentas nem usar Turso CLI."
-            }
+          $r=Get-Content 'RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1' -Raw
+          foreach($needle in @('reino-tribal-api','reino-tribal-prod','team_o1RxZX0hDIO9c7SnuFozCmAB','VERCEL_PROJECT_ID','VERCEL_ORG_ID','--project','tursocloud/database','ForbiddenProjectPattern')){
+            if(-not $r.Contains($needle)){throw "Recovery sem proteção: $needle"}
           }
+          if($r -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create|npm\s+install'){throw 'Recovery anti-hang não pode instalar ferramentas nem usar Turso CLI.'}
           Write-Host 'RECOVERY_ISOLATION_PASS'
       - name: Timeout anti-hang contract
         shell: powershell
         run: |
-          $r = Get-Content 'RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1' -Raw
-          foreach ($needle in @('Executar-ComTimeout','TimeoutSec','TIMEOUT após','taskkill.exe','ainda executando','LOGIN VERCEL','PROVISIONAR Turso','DEPLOY PRODUÇÃO')) {
-            if (-not $r.Contains($needle)) { throw "Anti-hang ausente: $needle" }
+          $r=Get-Content 'RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1' -Raw
+          foreach($needle in @('Executar-ComTimeout','TimeoutSec','TIMEOUT após','taskkill.exe','ainda executando','LOGIN VERCEL','PROVISIONAR Turso','DEPLOY PRODUÇÃO')){
+            if(-not $r.Contains($needle)){throw "Anti-hang ausente: $needle"}
           }
-          if ($r -match '(?m)^\s*&\s+\$(?:gh|vercel)\b') { throw 'Há chamada direta gh/vercel fora do executor com timeout.' }
+          if($r -match '(?m)^\s*&\s+\$(?:gh|vercel)\b'){throw 'Há chamada direta gh/vercel fora do executor com timeout.'}
           Write-Host 'RECOVERY_ANTI_HANG_PASS'
