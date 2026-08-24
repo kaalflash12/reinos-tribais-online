@@ -1,5 +1,5 @@
 ﻿# REINO TRIBAL - SCRIPT FINAL ACHATADO
-# Turso 409 + Deno device auth + GitHub API 5 arquivos low-resource. Sem git clone e sem launcher intermediario.
+# Turso 409 + Deno device auth + GitHub API 6 arquivos com package.json. Sem git clone e sem launcher intermediario.
 param(
   [string]$Repositorio = 'kaalflash12/reinos-tribais-online',
   [string]$Branch = 'rt-turso-migration',
@@ -336,6 +336,7 @@ try {
 
   $requiredFiles = @(
     'deno.json',
+    'package.json',
     'deno/main.js',
     'api/reino.js',
     'api/admin.js',
@@ -349,10 +350,10 @@ try {
   }
 
   $workPath = $repoDir
-  foreach ($required in @('deno.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')) {
+  foreach ($required in @('deno.json','package.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')) {
     if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente apos download minimo: $required" }
   }
-  Ok 'Backend minimo obtido pela API GitHub autenticada: 5 arquivos, zero git.exe, zero clone, zero archive.'
+  Ok 'Backend minimo obtido pela API GitHub autenticada: 6 arquivos, incluindo package.json; zero git.exe, zero clone, zero archive.'
   $check = Executar-Nativo -Exe $DenoExe -Args @('check','deno/main.js') -Diretorio $workPath -TimeoutSec 180 -Rotulo 'Deno check do backend'
   Exigir-Sucesso $check 'Backend não passou no deno check.'
   Ok 'Backend Deno/Turso validado localmente.'
