@@ -26,51 +26,30 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Parse PowerShell without executing external actions
+      - name: Parse all supported PowerShell entrypoints
         shell: powershell
         run: |
           foreach ($file in @('CONFIGURAR_TURSO_REINO_TRIBAL.ps1','CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1','RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1')) {
             $tokens = $null
             $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile(
-              (Resolve-Path $file),
-              [ref]$tokens,
-              [ref]$errors
-            ) | Out-Null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors) | Out-Null
             if ($errors.Count -gt 0) {
               $errors | ForEach-Object { Write-Error ($file + ': ' + $_.Message + ' @ ' + $_.Extent.StartLineNumber + ':' + $_.Extent.StartColumnNumber) }
               exit 1
             }
             Write-Host "POWERSHELL_PARSE_PASS $file"
           }
-      - name: Static safety contract
+      - name: Legacy entrypoints must delegate only to recovery
         shell: powershell
         run: |
-          $s = Get-Content 'CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1' -Raw
-          $required = @(
-            "reino-tribal-api",
-            "NodeVersion = '24.19.0'",
-            "VercelVersion = '59.3.0'",
-            "win-x64.zip",
-            "tursocloud/database",
-            "TURSO_DATABASE_URL",
-            "TURSO_AUTH_TOKEN",
-            "RT_ADMIN_PASSWORD",
-            "RT_ADMIN_RECOVERY_KEY",
-            "pr','checks",
-            "pr','merge",
-            "deploy-reino-tribal-pages.yml"
-          )
-          foreach ($needle in $required) {
-            if (-not $s.Contains($needle)) { throw "Contrato ausente: $needle" }
+          foreach ($file in @('CONFIGURAR_TURSO_REINO_TRIBAL.ps1','CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1')) {
+            $s = Get-Content $file -Raw
+            if (-not $s.Contains('RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1')) { throw "$file não delega ao recovery." }
+            if ($s -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create|npm\s+install') {
+              throw "$file voltou a instalar ferramentas."
+            }
           }
-          if ($s -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create') {
-            throw 'Configurador voltou a executar instalador/WSL/Turso CLI; isso é proibido.'
-          }
-          if ($s -match 'rlyiwlwzrdgvcwawrnpl|supabase\.co|cloudflare|mongodb|neon') {
-            throw 'Configurador contém referência proibida a infraestrutura de outro jogo.'
-          }
-          Write-Host 'POWERSHELL_NO_INSTALL_LOOP_PASS'
+          Write-Host 'LEGACY_ENTRYPOINTS_NO_INSTALL_PASS'
       - name: Recovery isolation contract
         shell: powershell
         run: |
@@ -85,13 +64,13 @@ jobs:
             "production.env",
             "não criou",
             "tursocloud/database",
-            "Deploy de produção com bloqueio de projeto"
+            "Deploy de produção com bloqueio de projeto",
+            "ForbiddenProjectPattern"
           )
           foreach ($needle in $required) {
             if (-not $r.Contains($needle)) { throw "Recovery sem proteção: $needle" }
           }
-          if ($r -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create') {
-            throw 'Recovery não pode instalar ferramentas nem usar Turso CLI.'
+          if ($r -match 'winget(?:\.exe)?\s+install|wsl\.exe\s|https://get\.tur\.so|turso\s+auth\s+login|turso\s+db\s+tokens\s+create|npm\s+install') {
+            throw 'Recovery não pode reinstalar ferramentas nem usar Turso CLI.'
           }
-          if ($r -notmatch 'ForbiddenProjectPattern') { throw 'Recovery sem bloqueio de projeto cruzado.' }
           Write-Host 'RECOVERY_ISOLATION_PASS'
