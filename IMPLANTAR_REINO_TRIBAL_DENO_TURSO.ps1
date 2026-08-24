@@ -1,5 +1,5 @@
 ﻿# REINO TRIBAL - SCRIPT FINAL ACHATADO
-# Gerado automaticamente do FIX5B validado. Sem launcher intermediario.
+# Turso DB normalizado + recovery 409 + Deno device auth. Sem launcher intermediario.
 param(
   [string]$Repositorio = 'kaalflash12/reinos-tribais-online',
   [string]$Branch = 'rt-turso-migration',
