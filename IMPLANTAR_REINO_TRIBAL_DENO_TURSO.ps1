@@ -315,13 +315,15 @@ try {
   }
 
   $envFile = Join-Path $WorkRoot '.env.reino-tribal.production'
-  @(
+  $envLines = @(
     "TURSO_DATABASE_URL=$dbUrl",
     "TURSO_AUTH_TOKEN=$dbToken",
     "RT_ADMIN_PASSWORD=$adminPassword",
     "RT_ADMIN_RECOVERY_KEY=$recoveryKey",
     'RT_ALLOWED_ORIGINS=https://kaalflash12.github.io'
-  ) | Set-Content -Path $envFile -Encoding UTF8
+  )
+  $envUtf8NoBom = New-Object Text.UTF8Encoding($false)
+  [IO.File]::WriteAllLines($envFile,$envLines,$envUtf8NoBom)
   try {
     $loadEnv = Executar-Nativo -Exe $DenoExe -Args @('deploy','env','load',$envFile,'--app',$DenoApp) -TimeoutSec 120 -Rotulo 'Carregar secrets no Deno Deploy'
     Exigir-Sucesso $loadEnv 'Falha carregando variáveis no Deno Deploy.'
