@@ -455,10 +455,26 @@ try {
   $db = $dbItems | Where-Object { (Get-TursoDatabaseField $_ 'Name') -eq $TursoDatabase } | Select-Object -First 1
 
   if (-not $db) {
-    $createdRaw = Turso-Request -Method POST -Path "/v1/organizations/$orgSlug/databases" -Token $platformToken -Body @{ name=$TursoDatabase; group=$groupName }
-    $db = Convert-ToTursoDatabase $createdRaw
-    if (-not $db) { Falhar 'Turso respondeu a criacao do banco sem objeto de database utilizavel.' }
-    Ok "Banco Turso criado: $TursoDatabase"
+    try {
+      $createdRaw = Turso-Request -Method POST -Path "/v1/organizations/$orgSlug/databases" -Token $platformToken -Body @{ name=$TursoDatabase; group=$groupName }
+      $db = Convert-ToTursoDatabase $createdRaw
+      if (-not $db) { Falhar 'Turso respondeu a criacao do banco sem objeto de database utilizavel.' }
+      Ok "Banco Turso criado: $TursoDatabase"
+    } catch {
+      $createError = [string]$_.Exception.Message
+      if ($createError -notmatch '(?i)(\b409\b|Conflict|Conflito)') { throw }
+
+      Aviso "Turso informou conflito 409 ao criar $TursoDatabase; buscando o banco existente pelo nome."
+      $existingRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase" -Token $platformToken
+      $db = Convert-ToTursoDatabase $existingRaw
+      if (-not $db) { Falhar 'Turso retornou 409 na criacao, mas o banco existente nao pÃ´de ser carregado pelo nome.' }
+
+      $existingName = Get-TursoDatabaseField $db 'Name'
+      if ($existingName -and $existingName -ne $TursoDatabase) {
+        Falhar "Turso retornou 409 e o detalhe carregado pertence a outro banco: $existingName"
+      }
+      Ok "Banco Turso reutilizado apos conflito 409: $TursoDatabase"
+    }
   } else {
     Ok "Banco Turso reutilizado: $TursoDatabase"
   }
