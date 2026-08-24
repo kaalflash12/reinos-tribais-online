@@ -4,11 +4,11 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/ed588a887b5bf01b7b34a655f836b900624abdd4/RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
+$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/d26bdec674705a61d00dec3704e7bbe7f0e5b7ff/RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
 $LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
 
 Write-Host '=== REINO TRIBAL - BOOTSTRAP COMPATIVEL ===' -ForegroundColor Cyan
-Write-Host 'Encaminhando para Turso gratuito + banco exclusivo + Deno automatico, sem indexacao vazia.' -ForegroundColor Green
+Write-Host 'Encaminhando para Turso v2/v1 normalizado + banco exclusivo + Deno automatico.' -ForegroundColor Green
 
 Remove-Item $LauncherPath -Force -ErrorAction SilentlyContinue
 Invoke-WebRequest -UseBasicParsing -Uri $LauncherUrl -OutFile $LauncherPath -TimeoutSec 120
