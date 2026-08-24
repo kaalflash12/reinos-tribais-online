@@ -4,11 +4,11 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/f213f0e8a3e517e01dc3276ae1cd3f3cdb11bc9e/RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
+$LauncherUrl = 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/baf881ca1fcb1e1de9a234714a1e62fab02dad90/RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
 $LauncherPath = Join-Path $env:TEMP 'RT_REINO_TRIBAL_TURSO_PESSOAL_20260824.ps1'
 
 Write-Host '=== REINO TRIBAL - ENTRADA FINAL ===' -ForegroundColor Cyan
-Write-Host 'Turso pessoal gratuito + banco exclusivo + Deno automatico.' -ForegroundColor Green
+Write-Host 'Turso gratuito + banco exclusivo + Deno automatico, sem indexacao insegura.' -ForegroundColor Green
 
 @(
   (Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'),
