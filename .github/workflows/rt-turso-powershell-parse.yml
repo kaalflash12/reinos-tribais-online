@@ -8,6 +8,7 @@ on:
       - 'deno/**'
       - 'api/**'
       - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
+      - 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   pull_request:
     branches: [main]
@@ -16,6 +17,7 @@ on:
       - 'deno/**'
       - 'api/**'
       - 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
+      - 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
       - '.github/workflows/rt-turso-powershell-parse.yml'
   workflow_dispatch:
 
@@ -76,18 +78,19 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Parse final Windows bootstrap
+      - name: Parse final Windows files
         shell: powershell
         run: |
-          $file='IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
-          $tokens=$null
-          $errors=$null
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
-          if($errors.Count -gt 0){
-            $errors|ForEach-Object{Write-Error($_.Message+' @ '+$_.Extent.StartLineNumber+':'+$_.Extent.StartColumnNumber)}
-            exit 1
+          foreach($file in @('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1','EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1')){
+            $tokens=$null
+            $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count -gt 0){
+              $errors|ForEach-Object{Write-Error($file+': '+$_.Message+' @ '+$_.Extent.StartLineNumber+':'+$_.Extent.StartColumnNumber)}
+              exit 1
+            }
+            Write-Host "POWERSHELL_PARSE_PASS $file"
           }
-          Write-Host 'POWERSHELL_PARSE_PASS'
       - name: Validate bootstrap contract
         shell: powershell
         run: |
@@ -103,10 +106,67 @@ jobs:
             '@(''deploy'',''--app'',$DenoApp,''--prod'')',
             'Health + registro + mundo + save/load + ADM passaram.',
             'variable'',''set'',$Nome',
-            'pr'',''merge'
+            'pr'',''merge',
+            'function Stop-Tree([int]$ProcessId)',
+            'UTF8Encoding($false)',
+            'WriteAllLines($envFile'
           )){
             if(-not $s.Contains($needle)){throw "Contrato ausente: $needle"}
           }
+          if($s -match '\$Pid\b'){throw 'Variável automática PID reapareceu.'}
           $bad=('ver'+'cel|bw-v151|bacathegas|bacaworld|cloudflare|mongodb|neon|winget(?:\.exe)?\s+install|wsl\.exe\s')
           if($s -match $bad){throw 'Bootstrap contém infraestrutura ou instalador proibido.'}
           Write-Host 'POWERSHELL_DENO_TURSO_CONTRACT_PASS'
+      - name: Validate launcher transformation without deployment
+        shell: powershell
+        run: |
+          $launcher=Get-Content 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1' -Raw
+          foreach($needle in @(
+            '0a957ab795202a9e7542f44f11d6174a121b8f0d',
+            'UMA única nova tentativa',
+            "Start-Process 'https://console.deno.com'",
+            'ProcessId validado.',
+            'env UTF-8 sem BOM validado.',
+            'Deno limitado a tentativa inicial + uma recuperação.'
+          )){
+            if(-not $launcher.Contains($needle)){throw "Launcher sem contrato: $needle"}
+          }
+          $src=Join-Path $env:TEMP 'rt-bootstrap-source.ps1'
+          Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/0a957ab795202a9e7542f44f11d6174a121b8f0d/IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1' -OutFile $src
+          $texto=[IO.File]::ReadAllText($src)
+          $antigo=@'
+              Aviso 'Se o Deno pedir autenticação, confirme somente no login oficial. Esta é a única etapa interativa do Deno.'
+              Push-Location $workPath
+              try {
+                & $DenoExe deploy create . --app $DenoApp --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --no-wait
+                $createCode = $LASTEXITCODE
+              } finally { Pop-Location }
+              if ($createCode -ne 0) { Falhar 'Não foi possível criar o app Deno exclusivo do Reino Tribal.' }
+          '@
+          $novo=@'
+              Aviso 'Se o Deno pedir autenticação, confirme somente no login oficial.'
+              Push-Location $workPath
+              try {
+                & $DenoExe deploy create . --app $DenoApp --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --no-wait
+                $createCode = $LASTEXITCODE
+                if ($createCode -ne 0) {
+                  Aviso 'Se sua conta Deno Deploy ainda não tiver uma organização, crie ou selecione uma no console oficial que será aberto.'
+                  Start-Process 'https://console.deno.com'
+                  [void](Read-Host 'Depois de criar/selecionar a organização Deno Deploy, pressione ENTER para UMA única nova tentativa')
+                  & $DenoExe deploy create . --app $DenoApp --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --no-wait
+                  $createCode = $LASTEXITCODE
+                }
+              } finally { Pop-Location }
+              if ($createCode -ne 0) { Falhar 'Não foi possível criar o app Deno exclusivo do Reino Tribal após a única tentativa de recuperação.' }
+          '@
+          if(([regex]::Matches($texto,[regex]::Escape($antigo))).Count -ne 1){throw 'Bloco fonte não bate com launcher.'}
+          $texto=$texto.Replace($antigo,$novo)
+          if(([regex]::Matches($texto,'deploy create \. --app \$DenoApp')).Count -ne 2){throw 'Não há exatamente duas tentativas Deno.'}
+          if($texto -match '\$Pid\b'){throw 'PID reservado reapareceu.'}
+          if(-not $texto.Contains('UTF8Encoding($false)')){throw 'UTF8 sem BOM ausente.'}
+          $out=Join-Path $env:TEMP 'rt-bootstrap-transformed.ps1'
+          [IO.File]::WriteAllText($out,$texto,(New-Object Text.UTF8Encoding($true)))
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|ForEach-Object{Write-Error $_.Message};exit 1}
+          Write-Host 'FINAL_LAUNCHER_TRANSFORM_PASS'
