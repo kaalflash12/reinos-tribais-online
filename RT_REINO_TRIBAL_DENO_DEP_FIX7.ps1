@@ -46,8 +46,9 @@ $newRequired=$newRequired.Replace("`r`n","`n")
 if(-not $t.Contains($oldRequired)){throw 'FIX7 nao encontrou lista de 5 arquivos para adicionar package.json.'}
 $t=$t.Replace($oldRequired,$newRequired)
 
-$oldVerify="foreach (`$required in @('deno.json','deno\\main.js','api\\reino.js','api\\admin.js','backend\\turso\\schema.sql'))"
-$newVerify="foreach (`$required in @('deno.json','package.json','deno\\main.js','api\\reino.js','api\\admin.js','backend\\turso\\schema.sql'))"
+# PowerShell nao usa barra invertida como escape; o texto gerado contem UMA barra por caminho.
+$oldVerify="foreach (`$required in @('deno.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql'))"
+$newVerify="foreach (`$required in @('deno.json','package.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql'))"
 if(-not $t.Contains($oldVerify)){throw 'FIX7 nao encontrou gate de arquivos obrigatorios.'}
 $t=$t.Replace($oldVerify,$newVerify)
 
@@ -62,14 +63,13 @@ if($errors.Count){throw ('FIX7 bootstrap final nao passou no parser: '+(($errors
 $t=[IO.File]::ReadAllText($Final)
 foreach($needle in @(
   "'package.json'",
-  "@tursodatabase/serverless",
   'Backend minimo obtido pela API GitHub autenticada: 6 arquivos, incluindo package.json; zero git.exe, zero clone, zero archive.',
   '$fileUri = (''https://api.github.com/repos/{0}/contents/{1}?ref={2}'' -f $Repositorio,$escapedPath,$escapedBranch)',
   'Banco Turso reutilizado apos conflito 409',
   "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/interactive'",
   '$env:DENO_DEPLOY_TOKEN = $denoToken'
 )){
-  if(-not $t.Contains($needle) -and $needle -ne '@tursodatabase/serverless'){
+  if(-not $t.Contains($needle)){
     throw "FIX7 contrato ausente: $needle"
   }
 }
@@ -83,7 +83,7 @@ foreach($forbidden in @(
 }
 
 Write-Host 'PASS: BACKEND MINIMO = 6 ARQUIVOS COM PACKAGE.JSON.' -ForegroundColor Green
-Write-Host 'PASS: DENO RESOLVE @tursodatabase/serverless PELO PACKAGE.JSON DA BRANCH.' -ForegroundColor Green
+Write-Host 'PASS: PACKAGE.JSON DA BRANCH SERA BAIXADO ANTES DO DENO CHECK.' -ForegroundColor Green
 Write-Host 'FIX7_VALIDATE_PASS' -ForegroundColor Green
 
 if($ValidateOnly){return}
