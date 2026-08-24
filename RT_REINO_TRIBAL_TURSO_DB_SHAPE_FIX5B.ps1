@@ -68,11 +68,10 @@ $newCreate=$newCreate.Replace("`r`n","`n")
 if(-not $s.Contains($oldCreate)){throw 'Transform nao encontrou bloco de criacao Turso para adicionar recovery 409.'}
 $s=$s.Replace($oldCreate,$newCreate)
 
-$branchStartMarker="  Etapa 'Obtendo branch isolada via GitHub autenticado'"
-$tursoStartMarker="  Etapa 'Turso: organização isolada e banco exclusivo'"
-$branchStart=$s.IndexOf($branchStartMarker,[StringComparison]::Ordinal)
-$tursoStart=$s.IndexOf($tursoStartMarker,$branchStart,[StringComparison]::Ordinal)
-if($branchStart -lt 0 -or $tursoStart -le $branchStart){throw 'Transform nao encontrou bloco Git clone para trocar pelo archive autenticado.'}
+$branchStart=$s.IndexOf("  Etapa 'Obtendo branch",[StringComparison]::Ordinal)
+if($branchStart -lt 0){throw 'Transform nao encontrou inicio do bloco de obtencao da branch.'}
+$tursoStart=$s.IndexOf("  Etapa 'Turso:",$branchStart,[StringComparison]::Ordinal)
+if($tursoStart -le $branchStart){throw 'Transform nao encontrou fim do bloco de obtencao da branch.'}
 
 $newBranch=@'
   Etapa 'Obtendo branch isolada via GitHub API autenticada'
