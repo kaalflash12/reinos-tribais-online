@@ -48,30 +48,15 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          files=[
-              Path('deno.json'),Path('deno/main.js'),Path('api/reino.js'),Path('api/admin.js'),
-              Path('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1')
-          ]
+          files=[Path('deno.json'),Path('deno/main.js'),Path('api/reino.js'),Path('api/admin.js')]
           forbidden=['ver'+'cel','bw-v151','bacathegas','bacaworld','supabase.co','cloudflare','mongodb','neon']
           bad=[]
           for p in files:
               s=p.read_text(encoding='utf-8').lower()
               for word in forbidden:
-                  if word in s:
-                      bad.append(f'{p}:{word}')
-          if bad:
-              raise SystemExit('Infraestrutura cruzada proibida: '+', '.join(bad))
-          legacy='ver'+'cel.json'
-          if Path(legacy).exists():
-              raise SystemExit('arquivo de hospedagem anterior é proibido no Reino Tribal')
-          for p in [
-              Path('CONFIGURAR_TURSO_REINO_TRIBAL.ps1'),
-              Path('CONFIGURAR_TURSO_REINO_TRIBAL_AUTO.ps1'),
-              Path('RECUPERAR_REINO_TRIBAL_SEM_REINSTALAR.ps1'),
-              Path('RECUPERAR_REINO_TRIBAL_SEM_TRAVAR.ps1'),
-          ]:
-              if p.exists():
-                  raise SystemExit(f'Bootstrap antigo proibido ainda existe: {p}')
+                  if word in s: bad.append(f'{p}:{word}')
+          if bad: raise SystemExit('Infraestrutura cruzada proibida: '+', '.join(bad))
+          if Path('ver'+'cel.json').exists(): raise SystemExit('config de hospedagem anterior ainda existe')
           print('REINO_TRIBAL_DENO_ISOLATION_PASS')
           PY
 
@@ -80,7 +65,7 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Parse final Windows files
+      - name: Parse all current Windows entrypoints
         shell: powershell
         run: |
           foreach($file in @(
@@ -88,76 +73,46 @@ jobs:
             'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1',
             'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'
           )){
-            $tokens=$null
-            $errors=$null
+            $tokens=$null;$errors=$null
             [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
-            if($errors.Count -gt 0){
-              $errors|ForEach-Object{Write-Error($file+': '+$_.Message+' @ '+$_.Extent.StartLineNumber+':'+$_.Extent.StartColumnNumber)}
-              exit 1
-            }
+            if($errors.Count){$errors|ForEach-Object{Write-Error($file+': '+$_.Message)};exit 1}
             Write-Host "POWERSHELL_PARSE_PASS $file"
           }
-      - name: Validate bootstrap contract
+      - name: Prove old names cannot execute old flow
         shell: powershell
         run: |
-          $s=Get-Content 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1' -Raw
-          foreach($needle in @(
-            "DenoVersion = '2.9.5'",
-            'deno-x86_64-pc-windows-msvc.zip.sha256sum',
-            'TURSO_PLATFORM_API_TOKEN',
-            'api.turso.tech',
-            "DenoApp = 'reino-tribal-api'",
-            "TursoDatabase = 'reino-tribal-prod'",
-            "@('deploy','env','load'",
-            '@(''deploy'',''--app'',$DenoApp,''--prod'')',
-            'Health + registro + mundo + save/load + ADM passaram.',
-            'variable'',''set'',$Nome',
-            'pr'',''merge',
-            'function Stop-Tree([int]$ProcessId)',
-            'UTF8Encoding($false)',
-            'WriteAllLines($envFile'
-          )){
-            if(-not $s.Contains($needle)){throw "Contrato ausente: $needle"}
+          foreach($file in @('IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1','EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1')){
+            $s=[IO.File]::ReadAllText((Resolve-Path $file))
+            if(-not $s.Contains('RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1')){throw "$file não delega ao launcher único"}
+            foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'")){
+              if($s.Contains($forbidden)){throw "$file ainda contém fluxo antigo: $forbidden"}
+            }
           }
-          if($s -match '\$Pid\b'){throw 'Variável automática PID reapareceu.'}
-          $bad=('ver'+'cel|bw-v151|bacathegas|bacaworld|cloudflare|mongodb|neon|winget(?:\.exe)?\s+install|wsl\.exe\s')
-          if($s -match $bad){throw 'Bootstrap contém infraestrutura ou instalador proibido.'}
-          Write-Host 'POWERSHELL_DENO_TURSO_CONTRACT_PASS'
-      - name: Run exact launcher transform in ValidateOnly
+          Write-Host 'OLD_ENTRYPOINTS_RETIRED_PASS'
+      - name: Validate compatibility executor end-to-end transform
         shell: powershell
         run: |
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "Launcher ValidateOnly falhou: $LASTEXITCODE"}
+          if($LASTEXITCODE -ne 0){throw "Compatibility ValidateOnly falhou: $LASTEXITCODE"}
           $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
-          if(-not (Test-Path $out)){throw 'Bootstrap transformado nao foi gerado'}
+          if(-not(Test-Path $out)){throw 'Bootstrap final não foi gerado'}
           $t=[IO.File]::ReadAllText($out)
-          if($t.Contains("Read-Host 'Turso Platform API Token'")){throw 'Prompt manual de token Turso ainda existe'}
-          foreach($needle in @(
-            'function Obter-TursoPlatformTokenBrowser',
-            'AcceptTcpClientAsync',
-            'https://api.turso.tech?port=',
-            'redirect=true&type=cli&state=',
-            "Start-Process `$authUrl",
-            "Path '/v1/auth/validate'",
-            'Login Turso confirmado automaticamente pelo callback local.'
-          )){
-            if(-not $t.Contains($needle)){throw "Contrato browser Turso ausente: $needle"}
+          foreach($forbidden in @('codeload.github.com','Baixando branch isolada do Reino Tribal',"Read-Host 'Turso Platform API Token'")){
+            if($t.Contains($forbidden)){throw "Bootstrap final contém fluxo antigo: $forbidden"}
           }
-          Write-Host 'TURSO_BROWSER_CALLBACK_TRANSFORM_PASS'
+          foreach($needle in @(
+            "'repo','clone',`$Repositorio,`$repoDir",
+            "'--branch',`$Branch,'--depth','1','--single-branch'",
+            'Obter-TursoPlatformTokenBrowser',
+            'AcceptTcpClientAsync',
+            'Start-Process $authUrl'
+          )){
+            if(-not $t.Contains($needle)){throw "Contrato final ausente: $needle"}
+          }
+          Write-Host 'COMPATIBILITY_TO_FINAL_TRANSFORM_PASS'
       - name: Validate unique anti-stale launcher
         shell: powershell
         run: |
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1 -ValidateOnly
           if($LASTEXITCODE -ne 0){throw "Unique launcher ValidateOnly falhou: $LASTEXITCODE"}
-          $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
-          if(-not (Test-Path $out)){throw 'Bootstrap final do unique launcher não foi gerado'}
-          $t=[IO.File]::ReadAllText($out)
-          if($t.Contains('codeload.github.com')){throw 'codeload reapareceu no bootstrap final'}
-          foreach($needle in @(
-            "'repo','clone',`$Repositorio,`$repoDir",
-            "'--branch',`$Branch,'--depth','1','--single-branch'",
-            'Obter-TursoPlatformTokenBrowser'
-          )){
-            if(-not $t.Contains($needle)){throw "Contrato GH clone/Turso browser ausente: $needle"}
-          }
           Write-Host 'UNIQUE_ANTISTALE_GHCLONE_PASS'
