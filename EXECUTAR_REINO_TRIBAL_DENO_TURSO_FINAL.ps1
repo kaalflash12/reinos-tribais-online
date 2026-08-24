@@ -14,7 +14,6 @@ Write-Host 'Turso pessoal gratuito + banco exclusivo + Deno automatico.' -Foregr
   (Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'),
   (Join-Path $env:TEMP 'RT_BASE_LAUNCHER_VALIDADO.ps1'),
   (Join-Path $env:TEMP 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_RUN.ps1'),
-  (Join-Path $env:TEMP 'RT_REINO_TRIBAL_GHCLONE_TURSO_BROWSER_20260824.ps1'),
   $LauncherPath
 ) | ForEach-Object { Remove-Item $_ -Force -ErrorAction SilentlyContinue }
 
