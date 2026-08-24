@@ -294,33 +294,59 @@ try {
   $grepo = Executar-Nativo -Exe $gh -Args @('repo','view',$Repositorio) -TimeoutSec 30 -Rotulo 'Validar repositório'
   Exigir-Sucesso $grepo "Conta GitHub não acessa $Repositorio."
 
-  Etapa 'Obtendo branch isolada via GitHub autenticado'
+  Etapa 'Obtendo branch isolada via GitHub API autenticada'
   $repoDir = Join-Path $WorkRoot 'repo'
-  Remove-Item $repoDir -Recurse -Force -ErrorAction SilentlyContinue
+  $archiveDir = Join-Path $WorkRoot 'archive'
+  $archiveZip = Join-Path $WorkRoot 'branch.zip'
+  Remove-Item $repoDir,$archiveDir,$archiveZip -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $archiveDir | Out-Null
 
-  $git = Get-Command git.exe -ErrorAction SilentlyContinue
-  if (-not $git) { Falhar 'Git nao encontrado. GitHub CLI precisa do git.exe para clonar a branch.' }
-  $gitv = Executar-Nativo -Exe $git.Source -Args @('--version') -TimeoutSec 20 -Rotulo 'Validar Git'
-  Exigir-Sucesso $gitv 'git.exe existe, mas nao executa.'
+  $tokenResult = Executar-Nativo -Exe $gh -Args @('auth','token') -TimeoutSec 30 -Rotulo 'Obter credencial temporaria GitHub da sessao atual'
+  Exigir-Sucesso $tokenResult 'GitHub CLI autenticado nao forneceu a credencial temporaria da sessao.'
+  $githubToken = $tokenResult.Text.Trim()
+  if ($githubToken.Length -lt 20) { Falhar 'Credencial temporaria GitHub veio vazia ou invalida.' }
 
-  $clone = Executar-Nativo -Exe $gh -Args @(
-    'repo','clone',$Repositorio,$repoDir,
-    '--','--branch',$Branch,'--depth','1','--single-branch'
-  ) -TimeoutSec 180 -Rotulo 'Clonar rt-turso-migration via GitHub CLI autenticado'
-  Exigir-Sucesso $clone "Falha clonando a branch autenticada do Reino Tribal.`n$($clone.Text)"
-
-  $workPath = $repoDir
-  if (-not (Test-Path (Join-Path $workPath 'deno\main.js'))) {
-    Falhar 'Clone concluiu, mas deno/main.js nao existe na branch obtida.'
+  $archiveHeaders = @{
+    Authorization = "Bearer $githubToken"
+    Accept = 'application/vnd.github+json'
+    'User-Agent' = 'Reino-Tribal-Bootstrap'
+    'X-GitHub-Api-Version' = '2022-11-28'
   }
+  $escapedBranch = [Uri]::EscapeDataString($Branch)
+  $archiveUri = "https://api.github.com/repos/$Repositorio/zipball/$escapedBranch"
+  try {
+    Invoke-WebRequest -UseBasicParsing -Uri $archiveUri -Headers $archiveHeaders -OutFile $archiveZip -MaximumRedirection 5 -TimeoutSec 180
+  } catch {
+    Falhar "Falha baixando archive autenticado da branch $Branch sem git.exe.`n$($_.Exception.Message)"
+  } finally {
+    $githubToken = ''
+    $archiveHeaders.Authorization = ''
+  }
+
+  if (-not (Test-Path $archiveZip)) { Falhar 'GitHub API nao gerou o ZIP da branch.' }
+  $archiveSize = (Get-Item $archiveZip).Length
+  if ($archiveSize -lt 1024) { Falhar "ZIP da branch veio pequeno/invalido: $archiveSize bytes." }
+
+  Expand-Archive -Path $archiveZip -DestinationPath $archiveDir -Force
+  Remove-Item $archiveZip -Force -ErrorAction SilentlyContinue
+
+  $candidateRoots = @(Get-ChildItem $archiveDir -Directory -ErrorAction Stop)
+  $workPath = $null
+  foreach ($candidateRoot in $candidateRoots) {
+    if (Test-Path (Join-Path $candidateRoot.FullName 'deno\main.js')) {
+      $workPath = $candidateRoot.FullName
+      break
+    }
+  }
+  if (-not $workPath) { Falhar 'Archive GitHub foi extraido, mas deno/main.js nao foi encontrado.' }
+
   foreach ($required in @('deno.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')) {
-    if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente apos clone: $required" }
+    if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente no archive da branch: $required" }
   }
-  Ok 'Branch rt-turso-migration obtida pelo GitHub autenticado.'
+  Ok 'Branch rt-turso-migration obtida pela API GitHub autenticada sem iniciar git.exe.'
   $check = Executar-Nativo -Exe $DenoExe -Args @('check','deno/main.js') -Diretorio $workPath -TimeoutSec 180 -Rotulo 'Deno check do backend'
-  Exigir-Sucesso $check 'Backend não passou no deno check.'
+  Exigir-Sucesso $check 'Backend nÃ£o passou no deno check.'
   Ok 'Backend Deno/Turso validado localmente.'
-
   Etapa 'Turso: organização isolada e banco exclusivo'
   $platformToken = [string]$env:TURSO_PLATFORM_API_TOKEN
   if (-not $platformToken) {
@@ -463,12 +489,10 @@ try {
     } catch {
       $createError = [string]$_.Exception.Message
       if ($createError -notmatch '(?i)(\b409\b|Conflict|Conflito)') { throw }
-
       Aviso "Turso informou conflito 409 ao criar $TursoDatabase; buscando o banco existente pelo nome."
       $existingRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase" -Token $platformToken
       $db = Convert-ToTursoDatabase $existingRaw
       if (-not $db) { Falhar 'Turso retornou 409 na criacao, mas o banco existente nao pÃ´de ser carregado pelo nome.' }
-
       $existingName = Get-TursoDatabaseField $db 'Name'
       if ($existingName -and $existingName -ne $TursoDatabase) {
         Falhar "Turso retornou 409 e o detalhe carregado pertence a outro banco: $existingName"
