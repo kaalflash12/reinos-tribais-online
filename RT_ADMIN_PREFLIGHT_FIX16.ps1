@@ -3,6 +3,7 @@ $src = Join-Path $PSScriptRoot 'REINO_TRIBAL_ADMIN_FIX15_FINAL.ps1'
 $dst = Join-Path $PSScriptRoot 'REINO_TRIBAL_ADMIN_FIX16_FINAL.ps1'
 if (-not (Test-Path $src)) { throw 'FIX15 final nao encontrado.' }
 $text = [IO.File]::ReadAllText($src)
+$text = $text.Replace("`r`n","`n")
 
 # Adiciona modo de teste publico do preflight sem Deno/Turso/deploy.
 $paramOld = "  [string]`$DenoExeOverride = '',`n  [switch]`$ValidateOnly`n)"
