@@ -7,7 +7,8 @@ param(
   [string]$DenoExeOverride = '',
   [switch]$ValidateOnly,
   [switch]$PreflightOnly,
-  [switch]$IdentityOnly
+  [switch]$IdentityOnly,
+  [switch]$CheckpointFailureTestOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,11 +25,13 @@ $Frontend = 'https://kaalflash12.github.io/reinos-tribais-online/'
 $CredDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal'
 $CredFile = Join-Path $CredDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL.txt'
 $ExecutorVersion = 'FIX17'
+$ExecutorRevision = 'CHECKPOINT-1'
 $ExecutorContract = 'ADMIN_AUTHORITY_CORS_CANONICAL'
 $ExpectedBackend = 'https://reino-tribal-api.mestrederpg35.deno.net'
 $SelfPath = [string]$MyInvocation.MyCommand.Path
 $SelfLeaf = if ($SelfPath) { Split-Path $SelfPath -Leaf } else { '<interactive>' }
 $ExecutionMarker = Join-Path $env:TEMP 'REINO_TRIBAL_EXECUTOR_ATIVO.txt'
+$PendingCredFile = Join-Path $CredDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt'
 
 function Etapa([string]$Texto) { Write-Host "`n=== $Texto ===" -ForegroundColor Cyan }
 function Ok([string]$Texto) { Write-Host "PASS: $Texto" -ForegroundColor Green }
@@ -37,6 +40,7 @@ function Mostrar-Identidade {
   Write-Host ''
   Write-Host '=== REINO TRIBAL EXECUTOR CANONICO ===' -ForegroundColor Cyan
   Write-Host ('VERSAO: ' + $ExecutorVersion) -ForegroundColor Green
+  Write-Host ('REVISAO: ' + $ExecutorRevision) -ForegroundColor Green
   Write-Host ('CONTRATO: ' + $ExecutorContract) -ForegroundColor DarkGray
   Write-Host ('ARQUIVO: ' + $SelfPath) -ForegroundColor Yellow
   Write-Host ('PID: ' + $PID) -ForegroundColor DarkGray
@@ -73,6 +77,7 @@ if ($Backend -ne $ExpectedBackend) {
 Limpar-CopiasLegadas
 $markerText = @(
   ('version=' + $ExecutorVersion),
+  ('revision=' + $ExecutorRevision),
   ('contract=' + $ExecutorContract),
   ('path=' + $SelfPath),
   ('pid=' + $PID),
@@ -308,6 +313,28 @@ function Parse-JsonResult($Result,[string]$Label) {
   try { return ($Result.Text | ConvertFrom-Json) } catch { Falhar "$Label retornou JSON invalido.`n$($Result.Text)" }
 }
 
+function Gravar-CheckpointCredencial {
+  param(
+    [Parameter(Mandatory=$true)][string]$Password,
+    [Parameter(Mandatory=$true)][string]$Recovery,
+    [Parameter(Mandatory=$true)][string]$Status
+  )
+  New-Item -ItemType Directory -Force -Path $CredDir | Out-Null
+  $pending = @(
+    'REINO TRIBAL - CHECKPOINT DE CREDENCIAL ADMINISTRATIVA',
+    ('Atualizado em: ' + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')),
+    ('Status: ' + $Status),
+    ('Executor: ' + $ExecutorVersion + ' / ' + $ExecutorRevision),
+    ('Backend FIX15: ' + $BackendCommit),
+    ('Backend: ' + $Backend),
+    'Usuario ADM: reinos_admin',
+    ('Senha ADM: ' + $Password),
+    ('Recovery Key: ' + $Recovery),
+    'ATENCAO: este arquivo so vira VALIDADO quando login + admin_status + dashboard passarem.'
+  ) -join [Environment]::NewLine
+  [IO.File]::WriteAllText($PendingCredFile,$pending,(New-Object Text.UTF8Encoding($true)))
+  Ok ('Checkpoint de credencial salvo: ' + $Status)
+}
 if ($PreflightOnly) {
   Etapa 'FIX17 - teste publico isolado de CORS'
   if (-not $CurlCmd) { Falhar 'curl.exe nao encontrado no Windows.' }
@@ -318,6 +345,12 @@ if ($PreflightOnly) {
 
 try {
   Etapa 'FIX17 - sincronizacao definitiva do administrador'
+  if ($CheckpointFailureTestOnly) {
+    $testPassword = 'RT!CHECKPOINT_FAILURE_TEST_1234567890'
+    $testRecovery = 'CHECKPOINT_FAILURE_TEST_RECOVERY_1234567890'
+    Gravar-CheckpointCredencial -Password $testPassword -Recovery $testRecovery -Status 'CI_FALHA_SIMULADA_ANTES_DO_DENO'
+    throw 'CI_CHECKPOINT_FAILURE_TEST'
+  }
   if (-not (Test-Path $DenoExe)) { Falhar "Deno $DenoVersion nao encontrado em $DenoExe" }
   if (-not $CurlCmd) { Falhar 'curl.exe nao encontrado no Windows.' }
   $version = Executar-Nativo -Exe $DenoExe -Args @('--version') -TimeoutSec 20 -Rotulo 'Deno 2.9.5'
@@ -338,17 +371,21 @@ try {
 
   $adminPassword = 'RT!' + (Novo-Segredo 30)
   $recoveryKey = Novo-Segredo 48
+  Gravar-CheckpointCredencial -Password $adminPassword -Recovery $recoveryKey -Status 'GERADA_LOCALMENTE_ANTES_DO_DENO'
 
   Etapa 'Atualizando autoridade ADM no Deno'
   $up1 = Executar-Nativo -Exe $DenoExe -Args @('deploy','env','update-value','RT_ADMIN_PASSWORD',$adminPassword,'--org',$DenoOrg,'--app',$DenoApp,'--non-interactive') -TimeoutSec 90 -Rotulo 'Atualizar RT_ADMIN_PASSWORD'
   Exigir-Sucesso $up1 'Deno recusou RT_ADMIN_PASSWORD.'
+  Gravar-CheckpointCredencial -Password $adminPassword -Recovery $recoveryKey -Status 'SENHA_DENO_ATUALIZADA'
   $up2 = Executar-Nativo -Exe $DenoExe -Args @('deploy','env','update-value','RT_ADMIN_RECOVERY_KEY',$recoveryKey,'--org',$DenoOrg,'--app',$DenoApp,'--non-interactive') -TimeoutSec 90 -Rotulo 'Atualizar RT_ADMIN_RECOVERY_KEY'
   Exigir-Sucesso $up2 'Deno recusou RT_ADMIN_RECOVERY_KEY.'
+  Gravar-CheckpointCredencial -Password $adminPassword -Recovery $recoveryKey -Status 'SENHA_E_RECOVERY_DENO_ATUALIZADAS'
   Ok 'Senha e recovery key atualizadas no Deno.'
 
   Etapa 'Publicando backend FIX15 pinado'
   $deploy = Executar-Nativo -Exe $DenoExe -Args @('deploy','--org',$DenoOrg,'--app',$DenoApp,'--prod','--non-interactive') -Diretorio $WorkRoot -TimeoutSec 600 -Rotulo 'Deno deploy FIX15'
   Exigir-Sucesso $deploy 'Redeploy Deno FIX15 falhou.'
+  Gravar-CheckpointCredencial -Password $adminPassword -Recovery $recoveryKey -Status 'DEPLOY_CONCLUIDO_AGUARDANDO_LOGIN'
 
   Etapa 'Validacao publica e login ADM real'
   $health = $null
@@ -380,6 +417,7 @@ try {
   $dash = Parse-JsonResult $dashResult 'dashboard ADM'
   if ($null -eq $dash) { Falhar 'Dashboard ADM nao retornou dados.' }
   Ok 'admin_status e dashboard passaram.'
+  Gravar-CheckpointCredencial -Password $adminPassword -Recovery $recoveryKey -Status 'LOGIN_ADMIN_STATUS_DASHBOARD_PASS'
 
   Etapa 'Gravando somente a credencial que passou no teste'
   New-Item -ItemType Directory -Force -Path $CredDir | Out-Null
@@ -395,12 +433,21 @@ try {
     'VALIDACAO: login + admin_status + dashboard = PASS'
   ) -join [Environment]::NewLine
   [IO.File]::WriteAllText($CredFile,$cred,(New-Object Text.UTF8Encoding($true)))
+  Remove-Item -LiteralPath $PendingCredFile -Force -ErrorAction SilentlyContinue
   Ok "Credenciais validas gravadas em: $CredFile"
   try { Start-Process notepad.exe -ArgumentList ('"' + $CredFile + '"') } catch {}
 
   Write-Host "`nREINO_TRIBAL_ADMIN_FIX17_VALIDADO" -ForegroundColor Green
   Write-Host "Frontend: $Frontend" -ForegroundColor Green
   Write-Host "Usuario: reinos_admin" -ForegroundColor Green
+} catch {
+  if (Test-Path $PendingCredFile) {
+    Write-Host ''
+    Write-Host 'CREDENCIAL PRESERVADA APOS A FALHA:' -ForegroundColor Yellow
+    Write-Host $PendingCredFile -ForegroundColor Yellow
+    Write-Host 'Nao use como validada ate o executor concluir login + admin_status + dashboard.' -ForegroundColor Yellow
+  }
+  throw
 } finally {
   $env:DENO_DEPLOY_TOKEN = ''
   Remove-Item $WorkRoot -Recurse -Force -ErrorAction SilentlyContinue
