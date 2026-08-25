@@ -38,7 +38,7 @@ jobs:
               if($LASTEXITCODE -ne 0){throw "curl falhou: $LASTEXITCODE"}
               $code=[int]([string]$status).Trim()
               $text=if(Test-Path $resp){[IO.File]::ReadAllText($resp)}else{''}
-              if($code -lt 200 -or $code -ge 300){throw "HTTP $code: $text"}
+              if($code -lt 200 -or $code -ge 300){throw "HTTP ${code}: $text"}
               return ($text|ConvertFrom-Json)
             }finally{Remove-Item $req,$resp -Force -ErrorAction SilentlyContinue}
           }
