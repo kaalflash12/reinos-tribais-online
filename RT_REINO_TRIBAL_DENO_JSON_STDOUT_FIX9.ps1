@@ -20,8 +20,8 @@ try {
   $content = [IO.File]::ReadAllText($tmp)
 
   $content = Replace-Required $content `
-    'return [pscustomobject]@{ Code = 124; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }' `
-    'return [pscustomobject]@{ Code = 124; Stdout = ''''; Stderr = ''''; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }' `
+    'return [pscustomobject]@{ Code = 124; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }'.Replace('\"','"') `
+    'return [pscustomobject]@{ Code = 124; Stdout = ''''; Stderr = ''''; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }'.Replace('\"','"') `
     'timeout com stdout/stderr separados'
 
   $content = Replace-Required $content `
