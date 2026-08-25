@@ -4,12 +4,12 @@ on:
   push:
     branches: [rt-turso-migration]
     paths:
-      - 'RT_REINO_TRIBAL_DENO_DEP_FIX7.ps1'
+      - 'RT_REINO_TRIBAL_DENO_CONFIG_FIX10.ps1'
       - '.github/workflows/rt-flatten-final.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'RT_REINO_TRIBAL_DENO_DEP_FIX7.ps1'
+      - 'RT_REINO_TRIBAL_DENO_CONFIG_FIX10.ps1'
       - '.github/workflows/rt-flatten-final.yml'
   workflow_dispatch:
 
@@ -18,73 +18,51 @@ permissions:
 
 jobs:
   flatten:
-    runs-on: windows-latest
-    timeout-minutes: 12
+    runs-on: windows-2025
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           ref: rt-turso-migration
           persist-credentials: true
+          fetch-depth: 0
 
-      - name: Generate flattened final script from FIX7
+      - name: Generate canonical flattened scripts from FIX10
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_DENO_DEP_FIX7.ps1 -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "FIX7 ValidateOnly falhou: $LASTEXITCODE"}
+          $out=Join-Path $env:RUNNER_TEMP 'REINO_TRIBAL_FINAL_UNICO.ps1'
+          & .\RT_REINO_TRIBAL_DENO_CONFIG_FIX10.ps1 -OutFile $out -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "FIX10 ValidateOnly falhou: $LASTEXITCODE"}
+          if(-not(Test-Path $out)){throw 'Executor FIX10 nao foi gerado'}
 
-          $src=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
-          if(-not(Test-Path $src)){throw 'Bootstrap final nao foi gerado'}
-          $text=[IO.File]::ReadAllText($src)
-
+          $text=[IO.File]::ReadAllText($out)
           foreach($needle in @(
-            'function Convert-ToTursoDatabaseList',
+            'function Get-TursoHostnameFromInstances',
             "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/interactive'",
             "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/exchange'",
             '$env:DENO_DEPLOY_TOKEN = $denoToken',
-            "Turso-Request -Method GET -Path '/v2/organizations'",
-            '$dbItems = @(Convert-ToTursoDatabaseList $dbListRaw)',
-            '$denoOrg = $slugs | Sort-Object | Select-Object -First 1',
-            '$existingRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase"',
-            'Banco Turso reutilizado apos conflito 409',
-            'function Get-GitHubBranchFile',
-            '$fileUri = (''https://api.github.com/repos/{0}/contents/{1}?ref={2}'' -f $Repositorio,$escapedPath,$escapedBranch)',
             "'package.json'",
-            "foreach (`$required in @('deno.json','package.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql'))",
-            'Backend minimo obtido pela API GitHub autenticada: 6 arquivos, incluindo package.json; zero git.exe, zero clone, zero archive.'
+            "PSObject.Properties.Remove('deploy')",
+            '--do-not-use-detected-build-config',
+            '--runtime-mode',
+            '--entrypoint',
+            'deno/main.js'
           )){
-            if(-not $text.Contains($needle)){throw "Contrato final ausente: $needle"}
+            if(-not $text.Contains($needle)){throw "Contrato FIX10 ausente: $needle"}
           }
+          if($text.Contains('Failed to parse "deploy" configuration: missing field')){throw 'Executor contem erro antigo do Deno deploy config'}
 
-          foreach($forbidden in @(
-            'raw.githubusercontent.com/kaalflash12/reinos-tribais-online',
-            'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5',
-            'RT_REINO_TRIBAL_DENO_DEVICE_AUTH_FIX4',
-            '$dbList.databases',
-            '@($slugs | Sort-Object | Select-Object -First 1)[0]',
-            'Get-Command git.exe',
-            "'repo','clone'",
-            '--single-branch',
-            '/zipball/',
-            'Expand-Archive -Path $archiveZip',
-            '$fileUri = "https://api.github.com/repos/$Repositorio/contents/$escapedPath?ref=$escapedBranch"',
-            'Backend minimo obtido pela API GitHub autenticada: 5 arquivos'
-          )){
-            if($text.Contains($forbidden)){throw "Bootstrap final ainda depende de camada antiga/pesada: $forbidden"}
-          }
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){throw "Parser FIX10 falhou: $($errors[0].Message)"}
 
-          $header="# REINO TRIBAL - SCRIPT FINAL ACHATADO`r`n# Turso 409 + Deno device auth + GitHub API 6 arquivos com package.json. Sem git clone e sem launcher intermediario.`r`n"
-          $final=$header+$text
-          $enc=New-Object Text.UTF8Encoding($true)
           foreach($dest in @(
             '.\REINO_TRIBAL_FINAL_UNICO.ps1',
             '.\EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1',
             '.\IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
           )){
-            [IO.File]::WriteAllText((Join-Path $PWD $dest),$final,$enc)
-            $tokens=$null;$errors=$null
-            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $dest),[ref]$tokens,[ref]$errors)|Out-Null
-            if($errors.Count){throw "Parser falhou em $dest : $($errors[0].Message)"}
+            Copy-Item $out $dest -Force
           }
 
           $hashes=@(
@@ -92,26 +70,28 @@ jobs:
             (Get-FileHash .\EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 -Algorithm SHA256).Hash,
             (Get-FileHash .\IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1 -Algorithm SHA256).Hash
           ) | Select-Object -Unique
-          if($hashes.Count -ne 1){throw 'Os tres executores finais nao sao byte-a-byte identicos.'}
-          Write-Host "FLATTEN_FINAL_IDENTICAL_SHA256=$($hashes[0])"
-          Write-Host 'FLATTEN_FINAL_SCRIPT_PASS'
+          if($hashes.Count -ne 1){throw 'Os tres executores FIX10 nao sao byte-a-byte identicos.'}
+          Write-Host "FLATTEN_FIX10_IDENTICAL_SHA256=$($hashes[0])"
+          Write-Host 'FLATTEN_FIX10_PASS'
 
-      - name: Commit flattened scripts to migration branch
+      - name: Commit FIX10 canonical scripts to migration branch
         shell: powershell
         run: |
+          $ErrorActionPreference='Stop'
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
           git diff --cached --quiet
-          if($LASTEXITCODE -eq 0){ Write-Host 'Nenhuma alteracao para commitar na migration.'; exit 0 }
-          git commit -m 'build: gerar script final achatado Reino Tribal 6-files'
+          if($LASTEXITCODE -eq 0){ Write-Host 'MIGRATION_CANONICAL_FIX10_ALREADY_CURRENT'; exit 0 }
+          git commit -m 'build: alinhar executores canonicos ao FIX10'
           git push origin HEAD:rt-turso-migration
+          if($LASTEXITCODE -ne 0){throw "Falha publicando FIX10 na migration: $LASTEXITCODE"}
 
-      - name: Publish canonical flattened scripts to main
+      - name: Publish FIX10 canonical scripts to main
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          $publishRoot=Join-Path $env:TEMP ("rt-main-publish-" + $env:GITHUB_RUN_ID)
+          $publishRoot=Join-Path $env:RUNNER_TEMP ("rt-main-fix10-" + $env:GITHUB_RUN_ID)
           Remove-Item $publishRoot -Recurse -Force -ErrorAction SilentlyContinue
           git fetch origin main
           git worktree add $publishRoot origin/main
@@ -121,12 +101,8 @@ jobs:
               'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1',
               'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
             )){
-              $source=Join-Path $PWD $name
-              $dest=Join-Path $publishRoot $name
-              if(-not(Test-Path $source)){throw "Executor achatado ausente antes da publicacao: $name"}
-              Copy-Item $source $dest -Force
+              Copy-Item (Join-Path $PWD $name) (Join-Path $publishRoot $name) -Force
             }
-
             Push-Location $publishRoot
             try {
               git config user.name 'github-actions[bot]'
@@ -134,16 +110,14 @@ jobs:
               git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
               git diff --cached --quiet
               if($LASTEXITCODE -eq 0){
-                Write-Host 'MAIN_CANONICAL_ALREADY_CURRENT'
+                Write-Host 'MAIN_CANONICAL_FIX10_ALREADY_CURRENT'
               }else{
-                git commit -m 'build: publicar executor final 6-files no main'
+                git commit -m 'fix: restaurar executores canonicos FIX10 no main'
                 git push origin HEAD:main
-                if($LASTEXITCODE -ne 0){throw "Falha publicando executores achatados no main: $LASTEXITCODE"}
-                Write-Host 'MAIN_CANONICAL_PUBLISH_PASS'
+                if($LASTEXITCODE -ne 0){throw "Falha publicando FIX10 no main: $LASTEXITCODE"}
+                Write-Host 'MAIN_CANONICAL_FIX10_PUBLISH_PASS'
               }
-            } finally {
-              Pop-Location
-            }
+            } finally { Pop-Location }
           } finally {
             git worktree remove $publishRoot --force 2>$null
             Remove-Item $publishRoot -Recurse -Force -ErrorAction SilentlyContinue
