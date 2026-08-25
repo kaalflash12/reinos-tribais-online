@@ -1,0 +1,67 @@
+name: RT Deno Redeploy FIX13
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'REINO_TRIBAL_REDEPLOY_DENO_CORS_FIX13.ps1'
+      - '.github/workflows/rt-deno-redeploy-fix13.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-redeploy-fix13:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Parse deploy-only executor
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\REINO_TRIBAL_REDEPLOY_DENO_CORS_FIX13.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'FIX13 deploy-only nao passou no parser PowerShell'}
+          Write-Host 'FIX13_DEPLOY_ONLY_PARSE_PASS'
+
+      - name: Verify isolated scope
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $t=[IO.File]::ReadAllText((Resolve-Path '.\REINO_TRIBAL_REDEPLOY_DENO_CORS_FIX13.ps1'))
+          foreach($needle in @(
+            "[string]`$Branch = '25c61fdacf715399c7b1db5aabced5efc7db2485'",
+            "'deno.json','package.json','deno/main.js','api/reino.js','api/admin.js','backend/turso/schema.sql'",
+            "'deploy','--org',`$DenoOrg,'--app',`$DenoApp,'--prod','--non-interactive'",
+            'https://console.deno.com/auth/interactive',
+            'https://console.deno.com/auth/exchange',
+            '-Method Options',
+            'StatusCode -ne 204',
+            'https://reino-tribal-api.mestrederpg35.deno.net'
+          )){if(-not $t.Contains($needle)){throw "Contrato FIX13 ausente: $needle"}}
+          foreach($forbidden in @(
+            'api.turso.tech',
+            'Obter-TursoPlatformTokenBrowser',
+            "'pr','merge'",
+            'Merge da migração',
+            'deploy-reino-tribal-pages.yml',
+            'RT_ADMIN_PASSWORD',
+            'RT_ADMIN_RECOVERY_KEY',
+            "action='admin_recover'"
+          )){if($t.Contains($forbidden)){throw "FIX13 redeploy isolado contem etapa proibida: $forbidden"}}
+          Write-Host 'FIX13_DEPLOY_ONLY_SCOPE_PASS'
+
+      - name: Validate exact pinned backend on Deno 2.9.5
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $deno=(Get-Command deno).Source
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_REDEPLOY_DENO_CORS_FIX13.ps1 -ValidateOnly -DenoExeOverride $deno
+          if($LASTEXITCODE -ne 0){throw "FIX13 ValidateOnly falhou: $LASTEXITCODE"}
+          Write-Host 'FIX13_PINNED_SIX_FILE_DENO_CHECK_PASS'
