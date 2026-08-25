@@ -37,11 +37,11 @@ jobs:
           $ErrorActionPreference='Stop'
           deno --version
           if($LASTEXITCODE -ne 0){throw 'Deno 2.9.5 nao executou'}
-          function Get-NativeHelp([string[]]$Args){
+          function Get-NativeHelp([string[]]$DenoArgs){
             $old=$ErrorActionPreference
             try {
               $ErrorActionPreference='Continue'
-              $text=(& deno @Args 2>&1 | Out-String)
+              $text=(& deno @DenoArgs 2>&1 | Out-String)
               $code=$LASTEXITCODE
             } finally {
               $ErrorActionPreference=$old
