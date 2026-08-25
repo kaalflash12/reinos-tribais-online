@@ -37,13 +37,24 @@ jobs:
           $ErrorActionPreference='Stop'
           deno --version
           if($LASTEXITCODE -ne 0){throw 'Deno 2.9.5 nao executou'}
-          $h1 = (& deno deploy env update-value --help 2>&1 | Out-String)
-          if($LASTEXITCODE -ne 0){throw "update-value nao existe no Deno 2.9.5`n$h1"}
-          if($h1 -notmatch 'update-value'){throw 'Help Deno nao confirmou update-value'}
-          $h2 = (& deno deploy apps get --help 2>&1 | Out-String)
-          if($LASTEXITCODE -ne 0){throw "apps get nao existe`n$h2"}
-          $h3 = (& deno deploy orgs list --help 2>&1 | Out-String)
-          if($LASTEXITCODE -ne 0){throw "orgs list nao existe`n$h3"}
+          function Get-NativeHelp([string[]]$Args){
+            $old=$ErrorActionPreference
+            try {
+              $ErrorActionPreference='Continue'
+              $text=(& deno @Args 2>&1 | Out-String)
+              $code=$LASTEXITCODE
+            } finally {
+              $ErrorActionPreference=$old
+            }
+            return [pscustomobject]@{Code=$code;Text=$text}
+          }
+          $r1=Get-NativeHelp @('deploy','env','update-value','--help')
+          if($r1.Code -ne 0){throw "update-value nao existe no Deno 2.9.5`n$($r1.Text)"}
+          if($r1.Text -notmatch 'update-value'){throw "Help Deno nao confirmou update-value`n$($r1.Text)"}
+          $r2=Get-NativeHelp @('deploy','apps','get','--help')
+          if($r2.Code -ne 0){throw "apps get nao existe`n$($r2.Text)"}
+          $r3=Get-NativeHelp @('deploy','orgs','list','--help')
+          if($r3.Code -ne 0){throw "orgs list nao existe`n$($r3.Text)"}
           Write-Host 'RESUME_FIX11_DENO_CLI_CONTRACT_PASS'
 
       - name: Verify resume scope and ordering
