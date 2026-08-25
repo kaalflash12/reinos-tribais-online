@@ -66,10 +66,12 @@ $text = $text.Replace($old,$new)
 
 $loginSync = "  if (!identifier.includes('@') && normalizeUsername(identifier) === ADMIN_USERNAME) await ensureAdmin();"
 if (-not $text.Contains($loginSync)) {
-  $pattern = '(?m)^  if \(!identifier \|\| password\.length < 6\) throw Object\.assign\(new Error\([^\r\n]+$'
-  $m = [regex]::Match($text,$pattern)
-  if (-not $m.Success) { throw 'Ponto estrutural de sincronizacao do login admin nao encontrado.' }
-  $text = $text.Substring(0,$m.Index) + $m.Value + "`n" + $loginSync + $text.Substring($m.Index + $m.Length)
+  $prefix = '  if (!identifier || password.length < 6) throw Object.assign(new Error('
+  $start = $text.IndexOf($prefix,[StringComparison]::Ordinal)
+  if ($start -lt 0) { throw 'Prefixo estrutural do login admin nao encontrado.' }
+  $lineEnd = $text.IndexOf("`n",$start)
+  if ($lineEnd -lt 0) { throw 'Fim da linha estrutural do login admin nao encontrado.' }
+  $text = $text.Insert($lineEnd + 1,$loginSync + "`n")
 }
 
 if ($text.Contains('if (existing) return;')) { throw 'ensureAdmin antigo ainda presente.' }
