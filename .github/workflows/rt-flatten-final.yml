@@ -33,7 +33,7 @@ jobs:
           $ErrorActionPreference='Stop'
           $out=Join-Path $env:RUNNER_TEMP 'REINO_TRIBAL_FINAL_UNICO.ps1'
           & .\RT_REINO_TRIBAL_DENO_CONFIG_FIX10.ps1 -OutFile $out -ValidateOnly
-          if($LASTEXITCODE -ne 0){throw "FIX10 ValidateOnly falhou: $LASTEXITCODE"}
+          if(-not $?){throw 'FIX10 ValidateOnly falhou em PowerShell'}
           if(-not(Test-Path $out)){throw 'Executor FIX10 nao foi gerado'}
 
           $text=[IO.File]::ReadAllText($out)
