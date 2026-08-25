@@ -74,21 +74,29 @@ jobs:
           '@
           [IO.File]::WriteAllText((Join-Path $proj 'deno.json'),$bad,(New-Object Text.UTF8Encoding($false)))
           Push-Location $proj
+          $previousEap = $ErrorActionPreference
           try {
             $env:DENO_DEPLOY_TOKEN = 'ci-intentionally-invalid-token'
+            $ErrorActionPreference = 'Continue'
             $oldOut = (& $deno deploy create . --org fixture-org --app fixture-app --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --do-not-use-detected-build-config --dry-run --non-interactive 2>&1 | Out-String)
+            $oldCode = $LASTEXITCODE
+            $ErrorActionPreference = $previousEap
             if ($oldOut -notmatch 'Failed to parse.*deploy.*configuration|missing field.*org') {
-              throw "Deno 2.9.5 nao reproduziu o conflito esperado do deno.json antigo. Saida: $oldOut"
+              throw "Deno 2.9.5 nao reproduziu o conflito esperado do deno.json antigo. Exit=$oldCode Saida: $oldOut"
             }
             Write-Host 'DENO_2_9_5_OLD_DEPLOY_CONFIG_MISSING_ORG_REPRODUCED'
 
             [IO.File]::WriteAllText((Join-Path $proj 'deno.json'),"{`n  `"nodeModulesDir`": `"auto`"`n}`n",(New-Object Text.UTF8Encoding($false)))
+            $ErrorActionPreference = 'Continue'
             $newOut = (& $deno deploy create . --org fixture-org --app fixture-app --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --do-not-use-detected-build-config --dry-run --non-interactive 2>&1 | Out-String)
+            $newCode = $LASTEXITCODE
+            $ErrorActionPreference = $previousEap
             if ($newOut -match 'Failed to parse.*deploy.*configuration|missing field.*org') {
-              throw "Config saneada ainda caiu no parser deploy antigo: $newOut"
+              throw "Config saneada ainda caiu no parser deploy antigo. Exit=$newCode Saida: $newOut"
             }
-            Write-Host 'DENO_2_9_5_SANITIZED_CONFIG_NO_MISSING_ORG_PASS'
+            Write-Host "DENO_2_9_5_SANITIZED_CONFIG_NO_MISSING_ORG_PASS exit=$newCode"
           } finally {
+            $ErrorActionPreference = $previousEap
             Pop-Location
             Remove-Item Env:DENO_DEPLOY_TOKEN -ErrorAction SilentlyContinue
           }
