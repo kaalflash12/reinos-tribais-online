@@ -1,0 +1,90 @@
+name: RT Admin Pending FIX17
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'RT_ADMIN_PENDING_CREDENTIAL_FIX17.ps1'
+      - '.github/workflows/rt-admin-pending-fix17.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-fix17:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Generate FIX17
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_ADMIN_PENDING_CREDENTIAL_FIX17.ps1
+          if($LASTEXITCODE -ne 0){throw "FIX17 transform falhou: $LASTEXITCODE"}
+
+      - name: Parse and verify FIX17
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $p=(Resolve-Path '.\REINO_TRIBAL_ADMIN_FIX17_FINAL.ps1')
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'FIX17 não passou no parser'}
+          $t=[IO.File]::ReadAllText($p)
+          foreach($needle in @(
+            'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTE.txt',
+            'Credencial PENDENTE preservada antes de alterar Deno',
+            'ESTADO: PENDENTE',
+            'Remove-Item $PendingCredFile -Force -ErrorAction SilentlyContinue',
+            'REINO_TRIBAL_ADMIN_FIX17_VALIDADO'
+          )){if(-not $t.Contains($needle)){throw "Contrato FIX17 ausente: $needle"}}
+          $iPending=$t.IndexOf('[IO.File]::WriteAllText($PendingCredFile')
+          $iUpdate=$t.IndexOf("'deploy','env','update-value','RT_ADMIN_PASSWORD'")
+          $iFinal=$t.IndexOf('[IO.File]::WriteAllText($CredFile,$cred')
+          $iRemove=$t.IndexOf('Remove-Item $PendingCredFile -Force')
+          if(-not($iPending -ge 0 -and $iPending -lt $iUpdate -and $iUpdate -lt $iFinal -and $iFinal -lt $iRemove)){throw 'Ordem FIX17 inválida'}
+          Write-Host 'FIX17_PARSE_AND_PENDING_ORDER_PASS'
+
+      - name: Execute exact public preflight on Windows
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_FIX17_FINAL.ps1 -PreflightOnly
+          if($LASTEXITCODE -ne 0){throw "FIX17 preflight falhou: $LASTEXITCODE"}
+          Write-Host 'FIX17_PREFLIGHT_WINDOWS_PASS'
+
+      - name: Validate pinned backend with Deno 2.9.5
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $deno=(Get-Command deno.exe).Source
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_FIX17_FINAL.ps1 -ValidateOnly -DenoExeOverride $deno
+          if($LASTEXITCODE -ne 0){throw "FIX17 ValidateOnly falhou: $LASTEXITCODE"}
+          Write-Host 'FIX17_DENO_CHECK_PASS'
+
+      - name: Publish tested FIX17 executor
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add REINO_TRIBAL_ADMIN_FIX17_FINAL.ps1
+          if(git diff --cached --quiet){ Write-Host 'FIX17 já publicado.'; exit 0 }
+          git commit -m 'fix: publicar executor admin FIX17 testado'
+          for($i=1;$i -le 5;$i++){
+            git fetch origin main
+            git rebase origin/main
+            if($LASTEXITCODE -ne 0){ git rebase --abort; throw 'Rebase FIX17 falhou.' }
+            git push origin HEAD:main
+            if($LASTEXITCODE -eq 0){ exit 0 }
+            if($i -lt 5){ Start-Sleep -Seconds (2*$i) }
+          }
+          throw 'Não foi possível publicar FIX17 após 5 tentativas.'
