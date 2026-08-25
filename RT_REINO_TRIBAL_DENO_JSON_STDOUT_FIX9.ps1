@@ -19,41 +19,29 @@ try {
   Invoke-WebRequest -UseBasicParsing -Uri $sourceUrl -OutFile $tmp -TimeoutSec 120
   $content = [IO.File]::ReadAllText($tmp)
 
-  $oldTimeout = @'
-      return [pscustomobject]@{ Code = 124; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }
-'@
-  $newTimeout = @'
-      return [pscustomobject]@{ Code = 124; Stdout = ''; Stderr = ''; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }
-'@
-  $content = Replace-Required $content $oldTimeout $newTimeout 'timeout com stdout/stderr separados'
+  $content = Replace-Required $content `
+    'return [pscustomobject]@{ Code = 124; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }' `
+    'return [pscustomobject]@{ Code = 124; Stdout = ''''; Stderr = ''''; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }' `
+    'timeout com stdout/stderr separados'
 
-  $oldReturn = @'
-  return [pscustomobject]@{
-    Code = [int]$p.ExitCode
-    Text = (($stdout + "`n" + $stderr).Trim())
-    TimedOut = $false
-  }
-'@
-  $newReturn = @'
-  return [pscustomobject]@{
-    Code = [int]$p.ExitCode
-    Stdout = ([string]$stdout).Trim()
-    Stderr = ([string]$stderr).Trim()
-    Text = (($stdout + "`n" + $stderr).Trim())
-    TimedOut = $false
-  }
-'@
-  $content = Replace-Required $content $oldReturn $newReturn 'retorno Executar-Nativo'
+  $content = Replace-Required $content `
+    '    Code = [int]$p.ExitCode' `
+    "    Code = [int]`$p.ExitCode`r`n    Stdout = ([string]`$stdout).Trim()`r`n    Stderr = ([string]`$stderr).Trim()" `
+    'retorno Executar-Nativo'
 
   $pairs = @(
-    @('$githubToken = $tokenResult.Text.Trim()','$githubToken = $tokenResult.Stdout.Trim()','token GitHub somente stdout'),
-    @('if ($r.Code -eq 0 -and $r.Text) {`n      try { $checks = @($r.Text | ConvertFrom-Json) } catch { $checks = @() }','if ($r.Code -eq 0 -and $r.Stdout) {`n      try { $checks = @($r.Stdout | ConvertFrom-Json) } catch { $checks = @() }','checks GitHub JSON'),
-    @('try { $denoOrgs = @($orgList.Text | ConvertFrom-Json) } catch { Falhar "Deno retornou JSON de organizacoes invalido.`n$($orgList.Text)" }','try { $denoOrgs = @($orgList.Stdout | ConvertFrom-Json) } catch { Falhar "Deno retornou JSON de organizacoes invalido.`nSTDOUT:`n$($orgList.Stdout)`nSTDERR:`n$($orgList.Stderr)" }','Deno orgs JSON'),
-    @('if ($retryOrgs.Code -eq 0 -and $retryOrgs.Text) {`n        try { $denoOrgs = @($retryOrgs.Text | ConvertFrom-Json) } catch { $denoOrgs = @() }','if ($retryOrgs.Code -eq 0 -and $retryOrgs.Stdout) {`n        try { $denoOrgs = @($retryOrgs.Stdout | ConvertFrom-Json) } catch { $denoOrgs = @() }','retry orgs JSON'),
-    @('try { $appMeta = $appInfo.Text | ConvertFrom-Json } catch { Falhar "apps get retornou JSON invalido.`n$($appInfo.Text)" }','try { $appMeta = $appInfo.Stdout | ConvertFrom-Json } catch { Falhar "apps get retornou JSON invalido.`nSTDOUT:`n$($appInfo.Stdout)`nSTDERR:`n$($appInfo.Stderr)" }','apps get JSON'),
-    @('$pr = $prView.Text | ConvertFrom-Json','$pr = $prView.Stdout | ConvertFrom-Json','PR JSON'),
-    @('if ($last.Code -eq 0 -and $last.Text) {`n      $runs = @($last.Text | ConvertFrom-Json)','if ($last.Code -eq 0 -and $last.Stdout) {`n      $runs = @($last.Stdout | ConvertFrom-Json)','run list JSON'),
-    @('if ($view.Code -eq 0 -and $view.Text) {`n      $obj = $view.Text | ConvertFrom-Json','if ($view.Code -eq 0 -and $view.Stdout) {`n      $obj = $view.Stdout | ConvertFrom-Json','run view JSON')
+    @('$tokenResult.Text.Trim()','$tokenResult.Stdout.Trim()','token GitHub somente stdout'),
+    @('$r.Text | ConvertFrom-Json','$r.Stdout | ConvertFrom-Json','checks GitHub JSON'),
+    @('$orgList.Text | ConvertFrom-Json','$orgList.Stdout | ConvertFrom-Json','Deno orgs JSON'),
+    @('$retryOrgs.Text | ConvertFrom-Json','$retryOrgs.Stdout | ConvertFrom-Json','retry orgs JSON'),
+    @('$appInfo.Text | ConvertFrom-Json','$appInfo.Stdout | ConvertFrom-Json','apps get JSON'),
+    @('$prView.Text | ConvertFrom-Json','$prView.Stdout | ConvertFrom-Json','PR JSON'),
+    @('$last.Text | ConvertFrom-Json','$last.Stdout | ConvertFrom-Json','run list JSON'),
+    @('$view.Text | ConvertFrom-Json','$view.Stdout | ConvertFrom-Json','run view JSON'),
+    @('$r.Code -eq 0 -and $r.Text','$r.Code -eq 0 -and $r.Stdout','checks condition'),
+    @('$retryOrgs.Code -eq 0 -and $retryOrgs.Text','$retryOrgs.Code -eq 0 -and $retryOrgs.Stdout','retry orgs condition'),
+    @('$last.Code -eq 0 -and $last.Text','$last.Code -eq 0 -and $last.Stdout','run list condition'),
+    @('$view.Code -eq 0 -and $view.Text','$view.Code -eq 0 -and $view.Stdout','run view condition')
   )
 
   foreach($pair in $pairs) {
