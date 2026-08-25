@@ -1,0 +1,39 @@
+name: RT Admin Bootstrap FIX16
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'REINO_TRIBAL_ADMIN_BOOTSTRAP_FIX16.ps1'
+      - '.github/workflows/rt-admin-bootstrap-fix16.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-bootstrap-fix16:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Parse bootstrap
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\REINO_TRIBAL_ADMIN_BOOTSTRAP_FIX16.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'Bootstrap FIX16 não passou no parser'}
+          Write-Host 'BOOTSTRAP_FIX16_PARSE_PASS'
+
+      - name: Execute bootstrap ValidateOnly
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_BOOTSTRAP_FIX16.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "Bootstrap FIX16 falhou: $LASTEXITCODE"}
+          Write-Host 'BOOTSTRAP_FIX16_WINDOWS_PASS'
