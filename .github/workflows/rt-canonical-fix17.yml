@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.5
@@ -79,7 +79,7 @@ jobs:
           if(git diff --cached --quiet){Write-Host 'FIX17 canonico ja publicado';exit 0}
           git commit -m 'fix: consolidar Deno curl e CORS nos executores canonicos'
           for($i=1;$i -le 5;$i++){
-            git fetch origin main
+            git fetch origin main --depth=2
             git rebase origin/main
             if($LASTEXITCODE -ne 0){throw 'Rebase FIX17 falhou'}
             git push origin HEAD:main
