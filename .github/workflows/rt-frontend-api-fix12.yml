@@ -38,10 +38,11 @@ jobs:
           printf '%s\n' "$cfg" | grep -F '1.0.4-turso-fix12'
           echo FRONTEND_PUBLIC_CONFIG_FIX12_PASS
 
-          html="$(curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$SITE/?fix12=${GITHUB_SHA}")"
-          python - <<'PY' "$html"
-          import sys
-          h=sys.argv[1]
+          html_file="$(mktemp)"
+          curl -fsSL --retry 3 -H 'Cache-Control: no-cache' "$SITE/?fix12=${GITHUB_SHA}" -o "$html_file"
+          python - "$html_file" <<'PY'
+          import pathlib,sys
+          h=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8',errors='replace')
           a=h.find('reino-tribal-config.js')
           b=h.find('rt85-auth-bridge.js')
           assert a>=0, 'config script absent from public index'
