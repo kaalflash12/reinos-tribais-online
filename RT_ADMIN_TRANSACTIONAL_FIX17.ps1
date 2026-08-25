@@ -37,17 +37,27 @@ $insert = $insert.TrimEnd("`r","`n") + "`n"
 if (-not $text.Contains($anchor)) { throw 'Ancora CredFile nao encontrada.' }
 $text = $text.Replace($anchor,$anchor + $insert)
 
-# Estado transacional protegido por DPAPI do usuario Windows.
+# Estado transacional protegido diretamente pela DPAPI do Windows (CurrentUser).
 $fnAnchor = "function Parse-JsonResult(`$Result,[string]`$Label) {`n"
 $stateFns = @'
 function Protect-LocalText([string]$Plain) {
-  $secure = ConvertTo-SecureString $Plain -AsPlainText -Force
-  return ($secure | ConvertFrom-SecureString)
+  $bytes = [Text.Encoding]::UTF8.GetBytes($Plain)
+  $protected = [Security.Cryptography.ProtectedData]::Protect(
+    $bytes,
+    $null,
+    [Security.Cryptography.DataProtectionScope]::CurrentUser
+  )
+  return [Convert]::ToBase64String($protected)
 }
 
 function Unprotect-LocalText([string]$Cipher) {
-  $secure = ConvertTo-SecureString $Cipher
-  return Secure-ToText $secure
+  $protected = [Convert]::FromBase64String($Cipher)
+  $bytes = [Security.Cryptography.ProtectedData]::Unprotect(
+    $protected,
+    $null,
+    [Security.Cryptography.DataProtectionScope]::CurrentUser
+  )
+  return [Text.Encoding]::UTF8.GetString($bytes)
 }
 
 function Get-OrCreateAdminState {
@@ -63,7 +73,9 @@ function Get-OrCreateAdminState {
           return [pscustomobject]@{ Password=$p; RecoveryKey=$r; Reused=$true }
         }
       }
-    } catch {}
+    } catch {
+      Write-Host ("Estado ADM existente invalido: " + $_.Exception.Message) -ForegroundColor DarkYellow
+    }
     Remove-Item $StateFile -Force -ErrorAction SilentlyContinue
   }
 
@@ -78,7 +90,7 @@ function Get-OrCreateAdminState {
   } | ConvertTo-Json -Depth 10
   [IO.File]::WriteAllText($StateFile,$state,(New-Object Text.UTF8Encoding($false)))
   try { (Get-Item $StateFile).Attributes = (Get-Item $StateFile).Attributes -bor [IO.FileAttributes]::Hidden } catch {}
-  Ok 'Estado ADM transacional criado e protegido pelo Windows antes de qualquer alteracao remota.'
+  Ok 'Estado ADM transacional criado e protegido pela DPAPI antes de qualquer alteracao remota.'
   return [pscustomobject]@{ Password=$p; RecoveryKey=$r; Reused=$false }
 }
 
@@ -99,6 +111,7 @@ if ($StateOnly) {
   $s1 = Get-OrCreateAdminState
   $s2 = Get-OrCreateAdminState
   if ($s1.Password -ne $s2.Password -or $s1.RecoveryKey -ne $s2.RecoveryKey) { Falhar 'Estado transacional nao foi reutilizado de forma deterministica.' }
+  if (-not $s2.Reused) { Falhar 'Segunda leitura do estado nao foi marcada como reutilizada.' }
   Clear-AdminState
   Ok 'FIX17_STATE_TRANSACTION_PASS'
   return
@@ -151,7 +164,7 @@ foreach ($needle in @(
   "`$ExecutorId = 'RT-ADMIN-FIX17'",
   '[switch]$StateOnly',
   'ADMIN_FIX17_STATE.json',
-  'Protect-LocalText',
+  '[Security.Cryptography.ProtectedData]::Protect',
   'FIX17_STATE_TRANSACTION_PASS',
   'Preflight publico antes de alterar credenciais',
   '$adminState = Get-OrCreateAdminState',
