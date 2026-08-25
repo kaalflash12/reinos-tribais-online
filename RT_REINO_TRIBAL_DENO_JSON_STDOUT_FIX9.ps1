@@ -20,11 +20,6 @@ try {
   $content = [IO.File]::ReadAllText($tmp)
 
   $content = Replace-Required $content `
-    'return [pscustomobject]@{ Code = 124; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }'.Replace('\"','"') `
-    'return [pscustomobject]@{ Code = 124; Stdout = ''''; Stderr = ''''; Text = "TIMEOUT após ${TimeoutSec}s: $label"; TimedOut = $true }'.Replace('\"','"') `
-    'timeout com stdout/stderr separados'
-
-  $content = Replace-Required $content `
     '    Code = [int]$p.ExitCode' `
     "    Code = [int]`$p.ExitCode`r`n    Stdout = ([string]`$stdout).Trim()`r`n    Stderr = ([string]`$stderr).Trim()" `
     'retorno Executar-Nativo'
