@@ -66,11 +66,13 @@ jobs:
           Push-Location $proj
           $oldEap = $ErrorActionPreference
           try {
+            $env:DENO_DEPLOY_TOKEN = 'ci-intentionally-invalid-token'
             $ErrorActionPreference = 'Continue'
             $text = (& $deno deploy create . --org fixture-org --app fixture-app --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --do-not-use-detected-build-config --dry-run --non-interactive 2>&1 | Out-String)
             $code = $LASTEXITCODE
           } finally {
             $ErrorActionPreference = $oldEap
+            Remove-Item Env:DENO_DEPLOY_TOKEN -ErrorAction SilentlyContinue
             Pop-Location
           }
           $plain = $text -replace "`e\[[0-9;]*[A-Za-z]",''
