@@ -14,6 +14,7 @@ on:
       - 'index.html'
       - 'JOGAR_REINOS_TRIBAIS.html'
       - 'package.json'
+      - 'REINO_TRIBAL_FINAL_UNICO.ps1'
       - '.github/workflows/rt-turso-ci.yml'
 
 permissions:
@@ -69,19 +70,28 @@ jobs:
           set -euo pipefail
           test -f deno.json
           test -f deno/main.js
+          test -f REINO_TRIBAL_FINAL_UNICO.ps1
           test ! -f vercel.json
-          grep -q '"entrypoint": "./deno/main.js"' deno.json
           grep -q "service: 'reino-tribal-api'" deno/main.js
+          grep -q -- "--do-not-use-detected-build-config" REINO_TRIBAL_FINAL_UNICO.ps1
+          grep -q -- "--runtime-mode" REINO_TRIBAL_FINAL_UNICO.ps1
+          grep -q -- "--entrypoint" REINO_TRIBAL_FINAL_UNICO.ps1
+          grep -q "deno/main.js" REINO_TRIBAL_FINAL_UNICO.ps1
           python - <<'PY'
+          import json
           from pathlib import Path
+          cfg=json.loads(Path('deno.json').read_text(encoding='utf-8-sig'))
+          if 'deploy' in cfg:
+              raise SystemExit('deno.json voltou a conter bloco deploy incompatível com o FIX10')
           targets=[Path('deno.json'),Path('deno/main.js')]
           forbidden=['vercel','bw-v151','bacathegas','bacaworld','cloudflare','mongodb','neon']
           bad=[]
           for p in targets:
-              s=p.read_text(encoding='utf-8').lower()
+              s=p.read_text(encoding='utf-8-sig').lower()
               for x in forbidden:
                   if x in s: bad.append(f'{p}:{x}')
           if bad: raise SystemExit('Infraestrutura cruzada: '+', '.join(bad))
+          print('DENO_FIX10_CONFIG_PASS')
           print('DENO_ISOLATION_PASS')
           PY
       - name: Verify no Turso secret is committed
