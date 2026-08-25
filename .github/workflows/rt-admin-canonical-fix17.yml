@@ -102,6 +102,8 @@ jobs:
           )){if(-not $p.Contains($needle)){throw "Checkpoint FIX17 incompleto: $needle"}}
           Remove-Item $pending -Force
           Write-Host 'FIX17_CREDENTIAL_CHECKPOINT_FAILURE_SURVIVAL_PASS'
+          $global:LASTEXITCODE=0
+          exit 0
 
       - name: Execute exact public preflight on Windows
         shell: powershell
