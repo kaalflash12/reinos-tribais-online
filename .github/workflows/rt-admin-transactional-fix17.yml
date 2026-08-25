@@ -1,0 +1,75 @@
+name: RT Admin Transactional FIX17
+
+on:
+  push:
+    branches: [rt-admin-fix17-transactional]
+    paths:
+      - 'RT_ADMIN_TRANSACTIONAL_FIX17.ps1'
+      - '.github/workflows/rt-admin-transactional-fix17.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-fix17:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Generate FIX17
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_ADMIN_TRANSACTIONAL_FIX17.ps1
+          if($LASTEXITCODE -ne 0){throw "FIX17 transform falhou: $LASTEXITCODE"}
+
+      - name: Parse and verify FIX17 contract
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $p=(Resolve-Path '.\REINO_TRIBAL_ADMIN_FIX17_FINAL.ps1')
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'FIX17 nao passou no parser PowerShell'}
+          $t=[IO.File]::ReadAllText($p)
+          foreach($needle in @(
+            "`$ExecutorId = 'RT-ADMIN-FIX17'",
+            'ADMIN_FIX17_STATE.json',
+            'FIX17_STATE_TRANSACTION_PASS',
+            'Preflight publico antes de alterar credenciais',
+            "`$adminState = Get-OrCreateAdminState",
+            'REINO_TRIBAL_ADMIN_FIX17_VALIDADO'
+          )){if(-not $t.Contains($needle)){throw "Contrato FIX17 ausente: $needle"}}
+          $iPre=$t.IndexOf("Preflight publico antes de alterar credenciais")
+          $iAuth=$t.IndexOf('  Garantir-DenoAuth',$iPre)
+          $iSecret=$t.IndexOf("'deploy','env','update-value','RT_ADMIN_PASSWORD'")
+          if($iPre -lt 0 -or $iAuth -lt 0 -or $iSecret -lt 0 -or -not ($iPre -lt $iAuth -and $iAuth -lt $iSecret)){throw 'Ordem FIX17 invalida: preflight -> auth -> secret'}
+          Write-Host 'FIX17_PARSE_AND_CONTRACT_PASS'
+
+      - name: Execute transactional state twice on Windows
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_FIX17_FINAL.ps1 -StateOnly
+          if($LASTEXITCODE -ne 0){throw "FIX17 StateOnly falhou: $LASTEXITCODE"}
+
+      - name: Execute exact public preflight on Windows
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_FIX17_FINAL.ps1 -PreflightOnly
+          if($LASTEXITCODE -ne 0){throw "FIX17 PreflightOnly falhou: $LASTEXITCODE"}
+
+      - name: Validate pinned backend with Deno 2.9.5
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $deno=(Get-Command deno).Source
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_FIX17_FINAL.ps1 -ValidateOnly -DenoExeOverride $deno
+          if($LASTEXITCODE -ne 0){throw "FIX17 ValidateOnly falhou: $LASTEXITCODE"}
+          Write-Host 'FIX17_DENO_CHECK_PASS'
