@@ -57,9 +57,18 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add api/reino.js
-          if(-not (git diff --cached --quiet)) {
-            git commit -m 'fix: tornar RT_ADMIN_PASSWORD autoridade da conta mestre'
-            git push origin HEAD:main
-          } else {
+          if(git diff --cached --quiet) {
             Write-Host 'Backend FIX15 ja estava aplicado.'
+            exit 0
           }
+          git commit -m 'fix: tornar RT_ADMIN_PASSWORD autoridade da conta mestre'
+          for($i=1;$i -le 5;$i++) {
+            git fetch origin main
+            if($LASTEXITCODE -ne 0){throw 'git fetch main falhou'}
+            git rebase origin/main
+            if($LASTEXITCODE -ne 0){git rebase --abort; throw 'rebase do FIX15 conflitou com main'}
+            git push origin HEAD:main
+            if($LASTEXITCODE -eq 0){Write-Host 'FIX15_BACKEND_PUBLISHED'; exit 0}
+            if($i -lt 5){Start-Sleep -Seconds (2*$i)}
+          }
+          throw 'FIX15 validado, mas nao foi possivel publicar apos 5 tentativas.'
