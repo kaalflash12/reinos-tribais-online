@@ -3,9 +3,10 @@ on:
   pull_request:
     paths:
       - 'rt85-auth-bridge.js'
-      - 'rt79-village-ui.js'
-      - 'backend/rt85-auth-alias-profile-repair.sql'
-      - 'backend/edge/rt-login-v85/**'
+      - 'index.html'
+      - 'JOGAR_REINOS_TRIBAIS.html'
+      - 'api/**'
+      - 'backend/turso/**'
       - 'tools/rt85_auth_regression.py'
       - '.github/workflows/rt85-auth-regression.yml'
   workflow_dispatch:
@@ -23,14 +24,12 @@ jobs:
         shell: pwsh
         run: |
           node --check rt85-auth-bridge.js
-          node --check rt79-village-ui.js
-      - name: Edge health
-        shell: pwsh
-        run: |
-          $headers=@{apikey='sb_publishable_S9LtSpLhLKFOU9iSd8b4yQ_EziH1Arr';'Content-Type'='application/json'}
-          $body='{"action":"health"}'
-          $r=Invoke-RestMethod -Uri 'https://rlyiwlwzrdgvcwawrnpl.supabase.co/functions/v1/rt-login-v85' -Method Post -Headers $headers -Body $body -TimeoutSec 20
-          if(-not $r.ok -or $r.version -ne 85 -or -not $r.alias_login){throw 'RT85 health invalido'}
+          node --check api/reino.js
+          node --check api/admin.js
+          $bridge=Get-Content rt85-auth-bridge.js -Raw
+          if ($bridge -notmatch '__RT_TURSO_BRIDGE__') { throw 'Ponte Turso ausente' }
+          if ($bridge -notmatch '__RT85_AUTH_BRIDGE__') { throw 'Marcador legado de compatibilidade ausente' }
+          if ($bridge -notmatch 'blockLegacySupabase:true') { throw 'Bloqueio do Supabase legado ausente' }
       - name: Install Selenium
         run: python -m pip install --disable-pip-version-check selenium
       - name: Start local site
@@ -39,7 +38,7 @@ jobs:
           Start-Process python -ArgumentList '-m','http.server','8765','--bind','127.0.0.1' -WindowStyle Hidden
           Start-Sleep -Seconds 2
           (Invoke-WebRequest http://127.0.0.1:8765/ -UseBasicParsing).StatusCode
-      - name: Browser auth proof
+      - name: Browser login and isolation proof
         env:
           RT85_URL: http://127.0.0.1:8765/
         run: python tools/rt85_auth_regression.py
@@ -47,6 +46,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: RT85_AUTH_PROOF
+          name: RT_TURSO_AUTH_PROOF
           path: ${{ runner.temp }}/RT85_AUTH_PROOF
           if-no-files-found: error

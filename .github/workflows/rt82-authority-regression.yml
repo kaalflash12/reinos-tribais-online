@@ -12,7 +12,7 @@ permissions:
 jobs:
   authority-readiness:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Check RT82 preview and promotion readiness

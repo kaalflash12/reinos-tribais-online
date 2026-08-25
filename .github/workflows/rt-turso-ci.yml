@@ -1,0 +1,136 @@
+name: RT Turso migration gate
+
+on:
+  push:
+    branches: [rt-turso-migration]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'backend/turso/**'
+      - 'deno/**'
+      - 'deno.json'
+      - 'rt85-auth-bridge.js'
+      - 'index.html'
+      - 'JOGAR_REINOS_TRIBAIS.html'
+      - 'package.json'
+      - 'REINO_TRIBAL_FINAL_UNICO.ps1'
+      - '.github/workflows/rt-turso-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+      - name: Install runtime dependency
+        run: npm install --no-audit --no-fund
+      - name: JavaScript syntax and Deno adapter
+        run: |
+          node --check api/reino.js
+          node --check api/admin.js
+          node --check rt85-auth-bridge.js
+          deno check deno/main.js
+      - name: Verify Turso module resolves
+        run: |
+          node -e "import('@tursodatabase/serverless').then(m=>{if(typeof m.connect!=='function')process.exit(2);console.log('TURSO_MODULE_PASS')})"
+          node -e "Promise.all([import('./api/reino.js'),import('./api/admin.js')]).then(()=>console.log('API_IMPORT_PASS'))"
+      - name: Verify bridge ordering and isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp -s index.html JOGAR_REINOS_TRIBAIS.html
+          grep -q 'rt85-auth-bridge.js?v=1.0.4-turso' index.html
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          bridge=s.index('rt85-auth-bridge.js?v=1.0.4-turso')
+          core=s.index("'use strict';", bridge)
+          if not bridge < core:
+              raise SystemExit('bridge não carrega antes do core')
+          b=Path('rt85-auth-bridge.js').read_text(encoding='utf-8')
+          required=['__RT_TURSO_BRIDGE__','blockLegacySupabase:true','/api/reino','/api/admin']
+          missing=[x for x in required if x not in b]
+          if missing:
+              raise SystemExit('ponte incompleta: '+','.join(missing))
+          print('BRIDGE_ORDER_PASS')
+          PY
+      - name: Verify dedicated Deno infrastructure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f deno.json
+          test -f deno/main.js
+          test -f REINO_TRIBAL_FINAL_UNICO.ps1
+          test ! -f vercel.json
+          grep -q "service: 'reino-tribal-api'" deno/main.js
+          grep -q -- "--do-not-use-detected-build-config" REINO_TRIBAL_FINAL_UNICO.ps1
+          grep -q -- "--runtime-mode" REINO_TRIBAL_FINAL_UNICO.ps1
+          grep -q -- "--entrypoint" REINO_TRIBAL_FINAL_UNICO.ps1
+          grep -q "deno/main.js" REINO_TRIBAL_FINAL_UNICO.ps1
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cfg=json.loads(Path('deno.json').read_text(encoding='utf-8-sig'))
+          if 'deploy' in cfg:
+              raise SystemExit('deno.json voltou a conter bloco deploy incompatível com o FIX10')
+          targets=[Path('deno.json'),Path('deno/main.js')]
+          forbidden=['vercel','bw-v151','bacathegas','bacaworld','cloudflare','mongodb','neon']
+          bad=[]
+          for p in targets:
+              s=p.read_text(encoding='utf-8-sig').lower()
+              for x in forbidden:
+                  if x in s: bad.append(f'{p}:{x}')
+          if bad: raise SystemExit('Infraestrutura cruzada: '+', '.join(bad))
+          print('DENO_FIX10_CONFIG_PASS')
+          print('DENO_ISOLATION_PASS')
+          PY
+      - name: Verify no Turso secret is committed
+        shell: bash
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          bad=[]
+          rx=re.compile(r'TURSO_AUTH_TOKEN\s*[=:]\s*[\"\x27]([A-Za-z0-9._-]{20,})[\"\x27]')
+          for p in Path('.').rglob('*'):
+              if not p.is_file() or '.git' in p.parts:
+                  continue
+              if p.suffix.lower() in {'.png','.jpg','.jpeg','.gif','.webp','.zip','.rar','.pdf'}:
+                  continue
+              try: text=p.read_text(encoding='utf-8',errors='ignore')
+              except Exception: continue
+              if rx.search(text): bad.append(str(p))
+          if bad:
+              raise SystemExit('Possível token Turso commitado: '+', '.join(bad))
+          print('SECRET_SCAN_PASS')
+          PY
+      - name: Live Turso probe when production secrets exist
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${TURSO_DATABASE_URL:-}" ] || [ -z "${TURSO_AUTH_TOKEN:-}" ]; then
+            echo '::warning::Turso production secrets ainda não configurados; teste ao vivo ignorado.'
+            exit 0
+          fi
+          node --input-type=module <<'NODE'
+          import { connect } from '@tursodatabase/serverless';
+          const db=connect({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN});
+          const stmt=await Promise.resolve(db.prepare('SELECT 1 AS ok'));
+          const row=await stmt.get();
+          if(Number(row?.ok)!==1) throw new Error('Turso live SELECT failed');
+          console.log('TURSO_LIVE_SELECT_PASS');
+          await db.close?.();
+          NODE

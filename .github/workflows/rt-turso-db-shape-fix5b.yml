@@ -1,0 +1,114 @@
+name: RT Turso DB Shape FIX5B
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - 'deno.json'
+      - 'package.json'
+      - 'deno/**'
+      - 'api/**'
+      - 'backend/turso/**'
+      - '.github/workflows/rt-turso-db-shape-fix5b.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - 'deno.json'
+      - 'package.json'
+      - 'deno/**'
+      - 'api/**'
+      - 'backend/turso/**'
+      - '.github/workflows/rt-turso-db-shape-fix5b.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-fix5b:
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Parse FIX5B
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $path=Resolve-Path '.\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'FIX5B nao passou no parser'}
+          Write-Host 'TURSO_DB_SHAPE_FIX5B_PARSE_PASS'
+
+      - name: Validate FIX5B transform and synthetic shapes
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1 -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "FIX5B ValidateOnly falhou: $LASTEXITCODE"}
+          $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
+          if(-not(Test-Path $out)){throw 'Bootstrap final FIX5B nao foi gerado'}
+          $t=[IO.File]::ReadAllText($out)
+          foreach($needle in @(
+            'param($DatabaseObject,[Parameter(Mandatory=$true)][string]$Name)',
+            '$DatabaseObject.PSObject.Properties',
+            '$Raw.PSObject.Properties[''databases'']',
+            '$Raw.PSObject.Properties[''database'']',
+            '$db = Convert-ToTursoDatabase $createdRaw',
+            '$detailDb = Convert-ToTursoDatabase $detailRaw',
+            "Deno-PostJsonRaw -Url 'https://console.deno.com/auth/interactive'",
+            '$env:DENO_DEPLOY_TOKEN = $denoToken',
+            "`$tokenResult = Executar-Nativo -Exe `$gh -Args @('auth','token')",
+            'function Get-GitHubBranchFile',
+            '[Convert]::FromBase64String($base64)',
+            '[IO.File]::WriteAllBytes($dest,$bytes)'
+          )){
+            if(-not $t.Contains($needle)){throw "FIX5B contrato ausente: $needle"}
+          }
+          foreach($forbidden in @(
+            '$dbList.databases',
+            '$created.database',
+            '$detail.database.Hostname',
+            'param($Db,[Parameter',
+            'Get-Command git.exe',
+            "'repo','clone'",
+            '--single-branch',
+            '/zipball/',
+            'Expand-Archive -Path $archiveZip'
+          )){
+            if($t.Contains($forbidden)){throw "FIX5B ainda contem fluxo rigido/pesado: $forbidden"}
+          }
+          Write-Host 'TURSO_DB_SHAPE_FIX5B_TRANSFORM_PASS'
+
+      - name: Validate current real six-file backend
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $required=@(
+            'deno.json',
+            'package.json',
+            'deno\main.js',
+            'api\reino.js',
+            'api\admin.js',
+            'backend\turso\schema.sql'
+          )
+          foreach($relative in $required){
+            if(-not(Test-Path $relative)){throw "arquivo real ausente: $relative"}
+            if((Get-Item $relative).Length -lt 1){throw "arquivo real vazio: $relative"}
+          }
+          $pkg=Get-Content -Raw '.\package.json' | ConvertFrom-Json
+          if(-not $pkg.dependencies.'@tursodatabase/serverless'){throw 'package.json sem @tursodatabase/serverless'}
+          $cfg=Get-Content -Raw '.\deno.json' | ConvertFrom-Json
+          if($cfg.PSObject.Properties['deploy']){throw 'deno.json voltou a conter bloco deploy incompatível com FIX10'}
+          $entry=Get-Content -Raw '.\deno\main.js'
+          if($entry -notmatch '\.\./api/reino\.js'){throw 'deno/main.js real nao contem import de api/reino.js'}
+          & deno check deno/main.js
+          if($LASTEXITCODE -ne 0){throw "deno check dos seis arquivos falhou: $LASTEXITCODE"}
+          Write-Host 'GITHUB_CHECKOUT_REAL_6_FILES_DENO_PASS'

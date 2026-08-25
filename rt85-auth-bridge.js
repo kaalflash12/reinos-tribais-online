@@ -1,100 +1,175 @@
 'use strict';
 (()=>{
-  if(window.__RT85_AUTH_BRIDGE__) return;
-  window.__RT85_AUTH_BRIDGE__=true;
-  const ORIGINAL_FETCH=window.fetch.bind(window);
-  const SUPABASE_ORIGIN='https://rlyiwlwzrdgvcwawrnpl.supabase.co';
-  const APIKEY='sb_publishable_S9LtSpLhLKFOU9iSd8b4yQ_EziH1Arr';
-  const SESSION_KEY='reinos_tribais_supabase_session_v60_browser';
-  const AUTO_KEY='rt85_auth_autocontinue';
+  if(window.__RT_TURSO_BRIDGE__) return;
+  window.__RT_TURSO_BRIDGE__=true;
+  window.__RT85_AUTH_BRIDGE__=true; // marcador legado; backend continua Turso
+  window.__RT_SERVER_ACTIONS_ENABLED__=false;
 
-  const parseBody=body=>{try{return typeof body==='string'?JSON.parse(body):body||{}}catch{return {}}};
+  const ORIGINAL_FETCH=window.fetch.bind(window);
+  const LEGACY_ORIGIN='https://rlyiwlwzrdgvcwawrnpl.supabase.co';
+  const SESSION_KEY='reinos_tribais_supabase_session_v60_browser';
+  const API_BASE_KEY='reino_tribal_api_base';
+  const DEFAULT_WORLD='d5a546fb-316d-4332-ae92-1886d80b07df';
+
+  const cleanBase=v=>String(v||'').trim().replace(/\/$/,'');
+  function apiBase(){
+    const configured=cleanBase(window.REINO_TRIBAL_API_BASE||localStorage.getItem(API_BASE_KEY)||'');
+    if(configured)return configured;
+    if(/\.vercel\.app$/i.test(location.hostname))return location.origin;
+    return '';
+  }
   const urlOf=input=>typeof input==='string'?input:(input?.url||'');
-  const broker=async(action,payload={})=>{
-    const r=await ORIGINAL_FETCH(`${SUPABASE_ORIGIN}/functions/v1/rt-login-v85`,{
-      method:'POST',headers:{apikey:APIKEY,'Content-Type':'application/json'},body:JSON.stringify({action,...payload}),cache:'no-store'
-    });
-    const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data={error:text||`HTTP ${r.status}`}}
-    if(!r.ok)throw new Error(data?.error||data?.message||`HTTP ${r.status}`);
-    return data;
+  const parseBody=body=>{try{return typeof body==='string'?JSON.parse(body):body||{}}catch{return {}}};
+  const session=()=>{try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null')}catch{return null}};
+  const headerValue=(headers,name)=>{
+    if(!headers)return '';
+    if(typeof headers.get==='function')return String(headers.get(name)||'');
+    const key=Object.keys(headers).find(k=>k.toLowerCase()===String(name).toLowerCase());
+    return key?String(headers[key]||''):'';
   };
+  const authHeader=init=>headerValue(init?.headers,'authorization');
+  const tokenFrom=(init={})=>{
+    const h=authHeader(init);if(/^Bearer\s+/i.test(h))return h.replace(/^Bearer\s+/i,'').trim();
+    return session()?.access_token||'';
+  };
+  const jsonResponse=(data,status=200,headers={})=>{
+    const body=status===204||status===205||status===304?null:JSON.stringify(data??null);
+    return new Response(body,{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...headers}});
+  };
+  const errorResponse=(message,status=400)=>jsonResponse({error:String(message||'Falha na requisição.')},status);
+
+  async function call(path,action,payload={},token=''){
+    const base=apiBase();
+    if(!base)throw new Error('Backend Turso ainda não está apontado para a URL da API do Reino Tribal.');
+    const headers={'Content-Type':'application/json'};
+    if(token)headers.Authorization=`Bearer ${token}`;
+    const r=await ORIGINAL_FETCH(`${base}${path}`,{method:'POST',headers,body:JSON.stringify({action,...payload}),cache:'no-store'});
+    const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data={error:text||`HTTP ${r.status}`}}
+    if(!r.ok)throw Object.assign(new Error(data?.error||data?.message||`HTTP ${r.status}`),{status:r.status,data});
+    return data;
+  }
+  const api=(action,payload={},token='')=>call('/api/reino',action,payload,token);
+  const adminApi=(action,payload={},token='')=>call('/api/admin',action,payload,token);
+
+  function eqParam(params,key,def=''){
+    const v=String(params.get(key)||'');return v.startsWith('eq.')?decodeURIComponent(v.slice(3)):def;
+  }
+  function preferToken(init){return tokenFrom(init)}
+
+  async function legacyAuth(url,init){
+    const method=String(init?.method||'GET').toUpperCase();const body=parseBody(init?.body);const token=preferToken(init);
+    if(url.includes('/auth/v1/token?grant_type=password')&&method==='POST'){
+      const data=await api('login',{identifier:String(body.email||body.identifier||''),password:String(body.password||'')});
+      return jsonResponse(data);
+    }
+    if(url.includes('/auth/v1/token?grant_type=refresh_token')&&method==='POST'){
+      const cached=session();const raw=String(body.refresh_token||cached?.refresh_token||cached?.access_token||'');
+      if(!raw)return errorResponse('Sessão expirada.',401);
+      const me=await api('me',{},raw);
+      const next={...(cached||{}),access_token:raw,refresh_token:raw,token_type:'bearer',expires_in:2592000,expires_at:Math.floor(Date.now()/1000)+2592000,user:me?.user};
+      return jsonResponse(next);
+    }
+    if(url.endsWith('/auth/v1/signup')&&method==='POST'){
+      const data=await api('register',{email:String(body.email||''),username:String(body.username||''),password:String(body.password||'')});
+      return jsonResponse(data);
+    }
+    if(url.endsWith('/auth/v1/logout')&&method==='POST'){
+      if(token)await api('logout',{},token).catch(()=>null);
+      return jsonResponse({ok:true});
+    }
+    if(url.endsWith('/auth/v1/user')&&method==='GET'){
+      const data=await api('me',{},token);return jsonResponse(data?.user||data);
+    }
+    if(url.endsWith('/auth/v1/user')&&method==='PUT')return errorResponse('Troca de senha de jogador por link ainda não está habilitada no Turso.',501);
+    if(url.includes('/auth/v1/otp')||url.includes('/auth/v1/verify'))return errorResponse('Login por código de e-mail foi removido nesta migração. Use usuário/e-mail e senha.',501);
+    return null;
+  }
+
+  async function legacyRest(url,init){
+    const method=String(init?.method||'GET').toUpperCase();const body=parseBody(init?.body);const token=preferToken(init);const u=new URL(url);const path=u.pathname;const p=u.searchParams;
+    if(path==='/rest/v1/worlds'&&method==='GET'){
+      const rows=await api('list_worlds',{},token);return jsonResponse(rows);
+    }
+    if(path==='/rest/v1/player_worlds'&&method==='GET'){
+      const world=eqParam(p,'world_id','');const user=eqParam(p,'user_id','');
+      if(world&&user){const row=await api('player_world_get',{world_id:world},token);return jsonResponse(row?[row]:[])}
+      const rows=await api('memberships',{},token);return jsonResponse(rows||[]);
+    }
+    if(path==='/rest/v1/player_worlds'&&(method==='PATCH'||method==='POST')){
+      const world=eqParam(p,'world_id',String(body.world_id||DEFAULT_WORLD));
+      const data=await api('player_world_update',{world_id:world,patch:body},token);return jsonResponse(data?[data]:[],200);
+    }
+    if(path==='/rest/v1/game_saves'&&method==='GET'){
+      const world=eqParam(p,'world_id',DEFAULT_WORLD);const row=await api('load_save',{world_id:world},token);return jsonResponse(row?[row]:[]);
+    }
+    if(path==='/rest/v1/game_saves'&&method==='DELETE'){
+      const world=eqParam(p,'world_id',DEFAULT_WORLD);await api('delete_save',{world_id:world},token);return jsonResponse({ok:true},200);
+    }
+    if(path==='/rest/v1/game_saves'&&(method==='POST'||method==='PATCH')){
+      const world=String(body.world_id||eqParam(p,'world_id',DEFAULT_WORLD));const state=body.state??body.state_json;
+      const data=await api('save',{world_id:world,state},token);return jsonResponse(data);
+    }
+    if(path==='/rest/v1/rpc/rt50_join_world'&&method==='POST'){
+      const data=await api('join_world',{world_id:body.p_world_id,player_name:body.p_player_name},token);return jsonResponse(data);
+    }
+    return null;
+  }
+
+  async function legacyFunctions(url,init){
+    const method=String(init?.method||'POST').toUpperCase();if(method!=='POST')return null;
+    const body=parseBody(init?.body);const path=new URL(url).pathname;
+    if(path==='/functions/v1/rt-login-v85'){
+      if(body.action==='health')return jsonResponse(await api('health'));
+      if(body.action==='password_login')return jsonResponse(await api('login',{identifier:body.identifier,password:body.password}));
+      if(body.action==='signup')return jsonResponse(await api('register',{email:body.email,username:body.username,password:body.password}));
+      return errorResponse('Ação de e-mail/código não existe mais no backend Turso.',501);
+    }
+    if(path==='/functions/v1/rt-admin-recovery-v102'){
+      try{return jsonResponse(await api('admin_recover',{token:body.token,password:body.password}))}catch(e){return errorResponse(e.message,e.status||400)}
+    }
+    if(path==='/functions/v1/rt-admin-v64'){
+      if(body.action==='login'){
+        try{
+          const s=await api('login',{identifier:'reinos_admin',password:body.password});
+          if(s?.user?.role!=='admin')return errorResponse('Conta não possui permissão administrativa.',403);
+          return jsonResponse({ok:true,token:s.access_token,admin:{id:s.user.id,username:s.user.username,role:'superadmin'}});
+        }catch(e){return errorResponse(e.message,e.status||401)}
+      }
+      const adminToken=String(headerValue(init?.headers,'x-admin-token')||sessionStorage.getItem('rt60_admin_token')||'');
+      try{return jsonResponse(await adminApi(body.action,body,adminToken))}catch(e){return errorResponse(e.message,e.status||400)}
+    }
+    if(path==='/functions/v1/rt-admin-logout-v67'){
+      const adminToken=String(headerValue(init?.headers,'x-admin-token')||sessionStorage.getItem('rt60_admin_token')||'');
+      try{return jsonResponse(await adminApi('logout',{},adminToken))}catch{return jsonResponse({ok:true})}
+    }
+    return null;
+  }
 
   window.fetch=async function(input,init={}){
     const url=urlOf(input);
-    if(url.startsWith(`${SUPABASE_ORIGIN}/auth/v1/token?grant_type=password`) && String(init?.method||'GET').toUpperCase()==='POST'){
-      const body=parseBody(init?.body);
-      const identifier=String(body?.email||body?.identifier||'').trim();
-      const password=String(body?.password||'');
-      try{
-        const r=await ORIGINAL_FETCH(`${SUPABASE_ORIGIN}/functions/v1/rt-login-v85`,{
-          method:'POST',headers:{apikey:APIKEY,'Content-Type':'application/json'},body:JSON.stringify({action:'password_login',identifier,password}),cache:'no-store'
-        });
-        if(r.status<500 || !identifier.includes('@')) return r;
-      }catch(e){ if(!identifier.includes('@')) throw e; }
-      return ORIGINAL_FETCH(input,init);
-    }
-    return ORIGINAL_FETCH(input,init);
+    if(!url.startsWith(LEGACY_ORIGIN))return ORIGINAL_FETCH(input,init);
+    try{
+      const a=await legacyAuth(url,init);if(a)return a;
+      const f=await legacyFunctions(url,init);if(f)return f;
+      const r=await legacyRest(url,init);if(r)return r;
+      return errorResponse('Este módulo online ainda apontava para o banco antigo e foi bloqueado durante a migração para Turso.',503);
+    }catch(e){return errorResponse(e?.message||e,e?.status||500)}
   };
 
-  function msg(text,type=''){
-    const el=document.querySelector('#rt18-auth-message');
-    if(!el)return;
-    el.className=`rt18-auth-message${type?` ${type}`:''}`;
-    el.textContent=text;
+  function enhance(){
+    const form=document.querySelector('#rt18-login-form');if(!form||form.dataset.rtTurso==='1')return;
+    form.dataset.rtTurso='1';
+    document.querySelectorAll('[data-rt85-code],[data-rt85-code-panel]').forEach(x=>x.remove());
+    const note=document.createElement('p');note.className='small';note.dataset.rtTursoNote='1';note.textContent=apiBase()?'Conta e save online conectados ao backend exclusivo Turso do Reino Tribal.':'Backend Turso preparado; falta somente apontar a URL privada da API.';
+    form.insertAdjacentElement('afterend',note);
   }
+  const pulse=()=>enhance();new MutationObserver(pulse).observe(document.documentElement,{childList:true,subtree:true});setInterval(pulse,1200);pulse();
 
-  function enhanceAuth(){
-    const form=document.querySelector('#rt18-login-form');
-    if(!form||form.dataset.rt85Enhanced==='1')return;
-    form.dataset.rt85Enhanced='1';
-    const actions=form.querySelector('.rt59-inline')||form;
-    const btn=document.createElement('button');
-    btn.type='button';btn.className='rt18-auth-btn secondary';btn.dataset.rt85Code='1';btn.textContent='Entrar por código';
-    actions.prepend(btn);
-    const panel=document.createElement('section');
-    panel.className='rt64-recovery-code-panel';panel.dataset.rt85CodePanel='1';panel.hidden=true;
-    panel.innerHTML=`<h3>🔑 Entrar por código</h3><form data-rt85-code-form><div class="rt64-recovery-code-grid"><label>E-mail ou usuário<input class="text-input" name="identifier" autocomplete="username" required></label><label>Código<input class="text-input" name="code" inputmode="numeric" minlength="6" maxlength="8" autocomplete="one-time-code" required placeholder="000000"></label></div><div class="rt59-inline" style="margin-top:9px"><button class="rt18-auth-btn" type="submit">Validar e entrar</button><button class="rt18-auth-btn secondary" type="button" data-rt85-resend>Reenviar</button></div><p class="rt64-recovery-help">Funciona com e-mail ou nome de usuário ligado à conta.</p></form>`;
-    form.insertAdjacentElement('afterend',panel);
-  }
-
-  async function requestCode(identifier){
-    await broker('request_otp',{identifier});
-    msg('Se a conta existir, o código/link de acesso foi enviado.','success');
-  }
-
-  document.addEventListener('click',async e=>{
-    const open=e.target.closest?.('[data-rt85-code]');
-    if(open){
-      const panel=document.querySelector('[data-rt85-code-panel]');const src=document.querySelector('#rt18-login-form input[name="email"]');const dst=panel?.querySelector('input[name="identifier"]');
-      if(panel)panel.hidden=false;if(dst&&src?.value)dst.value=src.value.trim();
-      const id=String(dst?.value||'').trim();if(id.length>=3){try{msg('Solicitando código de acesso...');await requestCode(id)}catch(err){msg(`Código de acesso: ${err.message||err}`,'error')}}
-      return;
-    }
-    const resend=e.target.closest?.('[data-rt85-resend]');
-    if(resend){const id=String(document.querySelector('[data-rt85-code-form] input[name="identifier"]')?.value||'').trim();if(id.length<3)return msg('Informe e-mail ou usuário.','error');try{msg('Reenviando código...');await requestCode(id)}catch(err){msg(`Código de acesso: ${err.message||err}`,'error')}return;}
-  },true);
-
-  document.addEventListener('submit',async e=>{
-    const form=e.target.closest?.('[data-rt85-code-form]');if(!form)return;
-    e.preventDefault();e.stopImmediatePropagation();
-    const fd=new FormData(form),identifier=String(fd.get('identifier')||'').trim(),token=String(fd.get('code')||'').trim();
-    if(identifier.length<3||token.length<6)return msg('Informe e-mail/usuário e código.','error');
-    try{
-      msg('Validando código de acesso...');
-      const session=await broker('verify_otp',{identifier,token});
-      if(!session?.access_token||!session?.user?.id)throw new Error('Sessão não recebida.');
-      sessionStorage.setItem(SESSION_KEY,JSON.stringify(session));sessionStorage.setItem(AUTO_KEY,'1');location.reload();
-    }catch(err){msg(`Não foi possível entrar por código: ${err.message||err}`,'error')}
-  },true);
-
-  function autoContinue(){
-    enhanceAuth();
-    if(sessionStorage.getItem(AUTO_KEY)==='1'){
-      const b=document.querySelector('[data-cloud-continue]');
-      if(b){sessionStorage.removeItem(AUTO_KEY);b.click();}
-    }
-  }
-  new MutationObserver(autoContinue).observe(document.documentElement,{childList:true,subtree:true});
-  setInterval(autoContinue,1200);autoContinue();
-  window.RT85Auth={version:85,health:()=>broker('health')};
+  window.ReinoTribalTurso={
+    version:'1.0.4-turso',
+    get apiBase(){return apiBase()},
+    configure(base){const v=cleanBase(base);if(v)localStorage.setItem(API_BASE_KEY,v);else localStorage.removeItem(API_BASE_KEY);location.reload()},
+    health(){return api('health')},
+    blockLegacySupabase:true,
+  };
 })();

@@ -1,0 +1,12 @@
+{
+  "name": "reino-tribal-online",
+  "private": true,
+  "version": "1.0.4-turso",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@tursodatabase/serverless": "1.4.0"
+  }
+}
