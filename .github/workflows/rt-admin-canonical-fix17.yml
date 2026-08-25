@@ -1,0 +1,109 @@
+name: RT Admin Canonical FIX17
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'RT_ADMIN_CANONICAL_FIX17.ps1'
+      - '.github/workflows/rt-admin-canonical-fix17.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-fix17:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Generate canonical FIX17
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_ADMIN_CANONICAL_FIX17.ps1
+          if($LASTEXITCODE -ne 0){throw "FIX17 transform falhou: $LASTEXITCODE"}
+
+      - name: Parse and verify FIX17 contract
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $p=Resolve-Path '.\REINO_TRIBAL_ADMIN_ATUAL.ps1'
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'FIX17 nao passou no parser PowerShell'}
+          $t=[IO.File]::ReadAllText($p)
+          foreach($needle in @(
+            "`$ExecutorVersion = 'FIX17'",
+            "`$ExecutorContract = 'ADMIN_AUTHORITY_CORS_CANONICAL'",
+            '[switch]$IdentityOnly',
+            'REINO_TRIBAL_FIX17_IDENTITY_PASS',
+            'REINO_TRIBAL_EXECUTOR_ATIVO.txt',
+            "if (`$SelfLeaf -match '(?i)FIX1[56]')",
+            '$preflightUrl = $preflightUri.AbsoluteUri',
+            'FIX17_PREFLIGHT_PUBLICO_PASS',
+            'REINO_TRIBAL_ADMIN_FIX17_VALIDADO',
+            "[string]`$BackendCommit = 'd5d1edadd9f33b612a233c4feed0e06ec97203bc'"
+          )){if(-not $t.Contains($needle)){throw "Contrato FIX17 ausente: $needle"}}
+          Write-Host 'FIX17_PARSE_CONTRACT_PASS'
+
+      - name: Prove stale TEMP cleanup and identity
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $stale15=Join-Path $env:TEMP 'RT_ADMIN_FIX15_STALE_TEST.ps1'
+          $stale16=Join-Path $env:TEMP 'RT_ADMIN_FIX16_STALE_TEST.ps1'
+          Set-Content -Path $stale15 -Value 'stale'
+          Set-Content -Path $stale16 -Value 'stale'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_ATUAL.ps1 -IdentityOnly
+          if($LASTEXITCODE -ne 0){throw "FIX17 IdentityOnly falhou: $LASTEXITCODE"}
+          if(Test-Path $stale15){throw 'FIX17 nao removeu stale FIX15 do TEMP'}
+          if(Test-Path $stale16){throw 'FIX17 nao removeu stale FIX16 do TEMP'}
+          $marker=Join-Path $env:TEMP 'REINO_TRIBAL_EXECUTOR_ATIVO.txt'
+          if(-not (Test-Path $marker)){throw 'FIX17 nao gravou marcador de executor ativo'}
+          $m=[IO.File]::ReadAllText($marker)
+          foreach($needle in @('version=FIX17','contract=ADMIN_AUTHORITY_CORS_CANONICAL','backend=https://reino-tribal-api.mestrederpg35.deno.net')){if(-not $m.Contains($needle)){throw "Marcador FIX17 ausente: $needle"}}
+          Write-Host 'FIX17_IDENTITY_STALE_CLEANUP_PASS'
+
+      - name: Execute exact public preflight on Windows
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_ATUAL.ps1 -PreflightOnly
+          if($LASTEXITCODE -ne 0){throw "FIX17 PreflightOnly falhou: $LASTEXITCODE"}
+          Write-Host 'FIX17_PUBLIC_PREFLIGHT_WINDOWS_PASS'
+
+      - name: Validate pinned backend with Deno 2.9.5
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $deno=(Get-Command deno).Source
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_ATUAL.ps1 -ValidateOnly -DenoExeOverride $deno
+          if($LASTEXITCODE -ne 0){throw "FIX17 ValidateOnly falhou: $LASTEXITCODE"}
+          Write-Host 'FIX17_PINNED_BACKEND_DENO_CHECK_PASS'
+
+      - name: Publish canonical executor
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add REINO_TRIBAL_ADMIN_ATUAL.ps1
+          if(git diff --cached --quiet){ Write-Host 'Executor canonico FIX17 ja publicado.'; exit 0 }
+          git commit -m 'fix: publicar executor admin canonico FIX17'
+          for($i=1;$i -le 5;$i++){
+            git fetch origin main
+            git rebase origin/main
+            if($LASTEXITCODE -ne 0){throw 'Rebase FIX17 falhou.'}
+            git push origin HEAD:main
+            if($LASTEXITCODE -eq 0){exit 0}
+            Start-Sleep -Seconds (2*$i)
+          }
+          throw 'Nao foi possivel publicar FIX17 apos 5 tentativas.'
