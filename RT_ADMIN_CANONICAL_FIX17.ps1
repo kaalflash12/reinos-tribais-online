@@ -9,7 +9,8 @@ function Insert-AfterLineContaining([string]$InputText,[string]$Needle,[string]$
   if ($idx -lt 0) { throw "Linha ancora nao encontrada: $Needle" }
   $eol = $InputText.IndexOf("`n",$idx)
   if ($eol -lt 0) { $eol = $InputText.Length - 1 }
-  return $InputText.Substring(0,$eol + 1) + $InsertText.TrimEnd("`r","`n") + "`n" + $InputText.Substring($eol + 1)
+  $normalizedInsert = $InsertText.Replace("`r`n","`n").TrimEnd("`r","`n")
+  return $InputText.Substring(0,$eol + 1) + $normalizedInsert + "`n" + $InputText.Substring($eol + 1)
 }
 
 $paramOld = "  [switch]`$PreflightOnly`n)"
@@ -122,7 +123,7 @@ function Gravar-CheckpointCredencial {
 
 '@
 if (-not $text.Contains('if ($PreflightOnly) {')) { throw 'Ancora PreflightOnly nao encontrada.' }
-$text = $text.Replace('if ($PreflightOnly) {',$checkpointBlock.TrimEnd("`r","`n") + "`nif (`$PreflightOnly) {")
+$text = $text.Replace('if ($PreflightOnly) {',$checkpointBlock.Replace("`r`n","`n").TrimEnd("`r","`n") + "`nif (`$PreflightOnly) {")
 
 $flowAnchor = "try {`n  Etapa 'FIX17 - sincronizacao definitiva do administrador'"
 $flowReplacement = @'
@@ -135,7 +136,7 @@ try {
     throw 'CI_CHECKPOINT_FAILURE_TEST'
   }
 '@
-$flowReplacement = $flowReplacement.TrimEnd("`r","`n")
+$flowReplacement = $flowReplacement.Replace("`r`n","`n").TrimEnd("`r","`n")
 if (-not $text.Contains($flowAnchor)) { throw 'Ancora do fluxo principal FIX17 nao encontrada.' }
 $text = $text.Replace($flowAnchor,$flowReplacement)
 
@@ -175,6 +176,8 @@ $tailReplacement = @'
   throw
 } finally {
 '@
+$tailAnchor = $tailAnchor.Replace("`r`n","`n")
+$tailReplacement = $tailReplacement.Replace("`r`n","`n")
 if (-not $text.Contains($tailAnchor)) { throw 'Cauda try/finally nao encontrada.' }
 $text = $text.Replace($tailAnchor,$tailReplacement)
 
@@ -202,5 +205,6 @@ foreach ($needle in @(
   if (-not $text.Contains($needle)) { throw "Contrato FIX17 ausente: $needle" }
 }
 
+$text = $text.Replace("`r`n","`n")
 [IO.File]::WriteAllText($dst,$text,(New-Object Text.UTF8Encoding($false)))
 Write-Host 'FIX17_CANONICAL_TRANSFORM_PASS'
