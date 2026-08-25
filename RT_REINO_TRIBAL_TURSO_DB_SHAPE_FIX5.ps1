@@ -60,9 +60,9 @@ $helpers=@'
   }
 
   function Get-TursoDatabaseField {
-    param($Db,[Parameter(Mandatory=$true)][string]$Name)
-    if ($null -eq $Db) { return '' }
-    $prop = $Db.PSObject.Properties | Where-Object { $_.Name -ieq $Name } | Select-Object -First 1
+    param($DatabaseObject,[Parameter(Mandatory=$true)][string]$Name)
+    if ($null -eq $DatabaseObject) { return '' }
+    $prop = $DatabaseObject.PSObject.Properties | Where-Object { $_.Name -ieq $Name } | Select-Object -First 1
     if (-not $prop) { return '' }
     return [string]$prop.Value
   }
