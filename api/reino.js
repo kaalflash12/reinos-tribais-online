@@ -276,19 +276,35 @@ async function ensureAdmin() {
   const password = String(process.env.RT_ADMIN_PASSWORD || '');
   if (password.length < 12) return;
   const conn = db();
-  const existing = await conn.prepare('SELECT id FROM rt_users WHERE username = ? LIMIT 1').get([ADMIN_USERNAME]);
-  if (existing) return;
+  const existing = await conn.prepare('SELECT * FROM rt_users WHERE username = ? LIMIT 1').get([ADMIN_USERNAME]);
   const t = nowIso();
-  await conn.prepare(`INSERT INTO rt_users
-    (id,username,email,password_hash,role,disabled,created_at,updated_at)
-    VALUES (?,?,?,?, 'admin',0,?,?)`).run([
-    randomUUID(),
-    ADMIN_USERNAME,
-    null,
+
+  if (!existing) {
+    await conn.prepare(`INSERT INTO rt_users
+      (id,username,email,password_hash,role,disabled,created_at,updated_at)
+      VALUES (?,?,?,?, 'admin',0,?,?)`).run([
+      randomUUID(),
+      ADMIN_USERNAME,
+      null,
+      passwordHash(password),
+      t,
+      t,
+    ]);
+    return;
+  }
+
+  const passwordMatches = verifyPassword(password, existing.password_hash);
+  const needsSync = !passwordMatches || existing.role !== 'admin' || Boolean(existing.disabled);
+  if (!needsSync) return;
+
+  await conn.prepare("UPDATE rt_users SET password_hash=?,role='admin',disabled=0,updated_at=? WHERE id=?").run([
     passwordHash(password),
     t,
-    t,
+    existing.id,
   ]);
+  if (!passwordMatches) {
+    await conn.prepare('DELETE FROM rt_sessions WHERE user_id=?').run([existing.id]);
+  }
 }
 
 async function readBody(req) {
@@ -371,6 +387,7 @@ async function login(body) {
   const identifier = String(body.identifier || body.email || body.username || '').trim().toLowerCase();
   const password = String(body.password || '');
   if (!identifier || password.length < 6) throw Object.assign(new Error('Informe usuário/e-mail e senha.'), { status: 400 });
+  if (!identifier.includes('@') && normalizeUsername(identifier) === ADMIN_USERNAME) await ensureAdmin();
   const row = identifier.includes('@')
     ? await db().prepare('SELECT * FROM rt_users WHERE email=? LIMIT 1').get([identifier])
     : await db().prepare('SELECT * FROM rt_users WHERE username=? LIMIT 1').get([normalizeUsername(identifier)]);
