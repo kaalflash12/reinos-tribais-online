@@ -7,8 +7,8 @@ if(-not (Test-Path $source)){throw 'Executor canonico fonte nao encontrado.'}
 $text=[IO.File]::ReadAllText($source).Replace("`r`n","`n")
 
 # Deno auth: remove HttpWebRequest/GetResponse e usa curl.exe com retry.
-$startMarker="  function Deno-PostJsonRaw {"
-$endMarker="  `$denoToken = [string]`$env:DENO_DEPLOY_TOKEN"
+$startMarker='  function Deno-PostJsonRaw {'
+$endMarker='  $denoToken = [string]$env:DENO_DEPLOY_TOKEN'
 $start=$text.IndexOf($startMarker,[StringComparison]::Ordinal)
 $end=$text.IndexOf($endMarker,[StringComparison]::Ordinal)
 if($start -lt 0 -or $end -le $start){throw 'Bloco Deno-PostJsonRaw canonico nao localizado.'}
@@ -51,16 +51,20 @@ $newDeno=@'
 '@
 $text=$text.Substring(0,$start)+$newDeno+$text.Substring($end)
 
-# CORS público: testa URL absoluta e OPTIONS real antes de qualquer conta.
-$healthMarker="  `$health = Post-Json \"`$backend/api/reino\" @{ action='health' }`n  if (-not `$health.ok -or `$health.database -ne 'turso') { Falhar 'Health da API/Turso não passou.' }"
-if(-not $text.Contains($healthMarker)){throw 'Ponto de health API/Turso nao localizado.'}
+# CORS publico: substitui por indices ASCII, sem depender de encoding/acento.
+$healthStartMarker='  $health = Post-Json "$backend/api/reino"'
+$nextAccountMarker='  $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()'
+$healthStart=$text.IndexOf($healthStartMarker,[StringComparison]::Ordinal)
+$nextAccount=$text.IndexOf($nextAccountMarker,[StringComparison]::Ordinal)
+if($healthStart -lt 0 -or $nextAccount -le $healthStart){throw 'Faixa health -> conta de teste nao localizada.'}
 $corsBlock=@'
   $health = Post-Json "$backend/api/reino" @{ action='health' }
-  if (-not $health.ok -or $health.database -ne 'turso') { Falhar 'Health da API/Turso não passou.' }
+  if (-not $health.ok -or $health.database -ne 'turso') { Falhar 'Health da API/Turso nao passou.' }
 
   $corsUri = [Uri]($backend.TrimEnd('/') + '/api/reino')
   if (-not $corsUri.IsAbsoluteUri -or [string]::IsNullOrWhiteSpace($corsUri.Host)) { Falhar "URL CORS invalida: $corsUri" }
   $corsUrl = $corsUri.AbsoluteUri
+  Write-Host ("CORS URL: " + $corsUrl) -ForegroundColor DarkGray
   $corsHeaders = Join-Path $env:TEMP ('rt-canonical-cors-' + [Guid]::NewGuid().ToString('N') + '.txt')
   try {
     $curlCors = Get-Command curl.exe -ErrorAction SilentlyContinue
@@ -81,10 +85,11 @@ $corsBlock=@'
   } finally {
     Remove-Item $corsHeaders -Force -ErrorAction SilentlyContinue
   }
-'@
-$text=$text.Replace($healthMarker,$corsBlock.TrimEnd("`r","`n"))
 
-# Contratos já corrigidos que não podem regredir.
+'@
+$text=$text.Substring(0,$healthStart)+$corsBlock+$text.Substring($nextAccount)
+
+# Contratos ja corrigidos que nao podem regredir.
 foreach($needle in @(
   "[string]`$Branch = 'main'",
   "'package.json'",
