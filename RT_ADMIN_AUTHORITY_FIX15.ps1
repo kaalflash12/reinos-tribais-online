@@ -64,11 +64,12 @@ if (-not $text.Contains($old)) { throw 'Bloco ensureAdmin antigo nao encontrado 
 $text = $text.Replace($old,$new)
 }
 
-$loginNeedle = "  if (!identifier || password.length < 6) throw Object.assign(new Error('Informe usuário/e-mail e senha.'), { status: 400 });"
 $loginSync = "  if (!identifier.includes('@') && normalizeUsername(identifier) === ADMIN_USERNAME) await ensureAdmin();"
 if (-not $text.Contains($loginSync)) {
-  if (-not $text.Contains($loginNeedle)) { throw 'Ponto de sincronizacao do login admin nao encontrado.' }
-  $text = $text.Replace($loginNeedle, $loginNeedle + "`n" + $loginSync)
+  $pattern = '(?m)^  if \(!identifier \|\| password\.length < 6\) throw Object\.assign\(new Error\([^\r\n]+$'
+  $m = [regex]::Match($text,$pattern)
+  if (-not $m.Success) { throw 'Ponto estrutural de sincronizacao do login admin nao encontrado.' }
+  $text = $text.Substring(0,$m.Index) + $m.Value + "`n" + $loginSync + $text.Substring($m.Index + $m.Length)
 }
 
 if ($text.Contains('if (existing) return;')) { throw 'ensureAdmin antigo ainda presente.' }
