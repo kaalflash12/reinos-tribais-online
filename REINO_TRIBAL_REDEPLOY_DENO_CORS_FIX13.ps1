@@ -1,6 +1,6 @@
 param(
   [string]$Repositorio = 'kaalflash12/reinos-tribais-online',
-  [string]$Branch = 'main',
+  [string]$Branch = '25c61fdacf715399c7b1db5aabced5efc7db2485',
   [string]$DenoOrg = 'mestrederpg35',
   [string]$DenoApp = 'reino-tribal-api',
   [string]$DenoVersion = '2.9.5',
@@ -168,7 +168,7 @@ function Baixar-BackendAtual {
   }
   $check = Executar-Nativo -Exe $DenoExe -Args @('check','deno/main.js') -Diretorio $Destino -TimeoutSec 180 -Rotulo 'Deno check backend FIX13'
   Exigir-Sucesso $check 'Backend FIX13 nao passou no deno check.'
-  Ok 'Seis arquivos atuais de main baixados e validados.'
+  Ok 'Seis arquivos do backend FIX13 pinado baixados e validados.'
 }
 
 function Testar-Publico {
