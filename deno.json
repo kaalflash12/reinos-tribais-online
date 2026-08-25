@@ -1,9 +1,3 @@
 {
-  "nodeModulesDir": "auto",
-  "deploy": {
-    "runtime": {
-      "type": "dynamic",
-      "entrypoint": "./deno/main.js"
-    }
-  }
+  "nodeModulesDir": "auto"
 }
