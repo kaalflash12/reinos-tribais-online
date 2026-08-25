@@ -1,4 +1,4 @@
-﻿# REINO TRIBAL - SCRIPT FINAL ACHATADO
+# REINO TRIBAL - SCRIPT FINAL ACHATADO
 # Turso 409 + Deno device auth + GitHub API 6 arquivos com package.json. Sem git clone e sem launcher intermediario.
 param(
   [string]$Repositorio = 'kaalflash12/reinos-tribais-online',
@@ -351,20 +351,20 @@ try {
     $githubHeaders.Authorization = ''
   }
 
-  $workPath = $repoDir
-  $denoConfigPath = Join-Path $workPath 'deno.json'
-  try {
-    $denoConfig = Get-Content -Raw -Path $denoConfigPath | ConvertFrom-Json
-  } catch {
-    Falhar "deno.json invalido antes do deploy: $($_.Exception.Message)"
-  }
-  if ($denoConfig.PSObject.Properties['deploy']) {
-    $denoConfig.PSObject.Properties.Remove('deploy')
-    $denoConfigText = $denoConfig | ConvertTo-Json -Depth 50
-    [IO.File]::WriteAllText($denoConfigPath,$denoConfigText,(New-Object Text.UTF8Encoding($false)))
-    Ok 'Bloco deploy removido do deno.json local; Deno Deploy sera configurado exclusivamente por flags --org/--app/runtime.'
-  } else {
-    Ok 'deno.json local sem bloco deploy conflitante; configuracao Deno Deploy sera feita exclusivamente por flags.'
+  $workPath = $repoDir
+  $denoConfigPath = Join-Path $workPath 'deno.json'
+  try {
+    $denoConfig = Get-Content -Raw -Path $denoConfigPath | ConvertFrom-Json
+  } catch {
+    Falhar "deno.json invalido antes do deploy: $($_.Exception.Message)"
+  }
+  if ($denoConfig.PSObject.Properties['deploy']) {
+    $denoConfig.PSObject.Properties.Remove('deploy')
+    $denoConfigText = $denoConfig | ConvertTo-Json -Depth 50
+    [IO.File]::WriteAllText($denoConfigPath,$denoConfigText,(New-Object Text.UTF8Encoding($false)))
+    Ok 'Bloco deploy removido do deno.json local; Deno Deploy sera configurado exclusivamente por flags --org/--app/runtime.'
+  } else {
+    Ok 'deno.json local sem bloco deploy conflitante; configuracao Deno Deploy sera feita exclusivamente por flags.'
   }
   foreach ($required in @('deno.json','package.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')) {
     if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente apos download minimo: $required" }
@@ -610,32 +610,38 @@ try {
 
   function Deno-PostJsonRaw {
     param([Parameter(Mandatory=$true)][string]$Url,[Parameter(Mandatory=$true)][hashtable]$Body)
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if (-not $curl) { Falhar 'curl.exe nao encontrado no Windows para autenticar no Deno.' }
+    $id = [Guid]::NewGuid().ToString('N')
+    $reqFile = Join-Path $env:TEMP ("rt-deno-auth-$id-request.json")
+    $respFile = Join-Path $env:TEMP ("rt-deno-auth-$id-response.json")
     $json = $Body | ConvertTo-Json -Depth 20 -Compress
-    $bytes = [Text.Encoding]::UTF8.GetBytes($json)
-    $req = [Net.HttpWebRequest]::Create($Url)
-    $req.Method = 'POST'
-    $req.ContentType = 'application/json'
-    $req.Accept = 'application/json'
-    $req.ContentLength = $bytes.Length
-    $stream = $req.GetRequestStream()
-    try { $stream.Write($bytes,0,$bytes.Length) } finally { $stream.Dispose() }
-    $resp = $null
+    [IO.File]::WriteAllText($reqFile,$json,(New-Object Text.UTF8Encoding($false)))
     try {
-      $resp = $req.GetResponse()
-    } catch [Net.WebException] {
-      $resp = $_.Exception.Response
-      if (-not $resp) { throw }
-    }
-    try {
-      $status = [int]$resp.StatusCode
-      $reader = New-Object IO.StreamReader($resp.GetResponseStream())
-      try { $bodyText = $reader.ReadToEnd() } finally { $reader.Dispose() }
-      return [pscustomobject]@{ Ok = ($status -ge 200 -and $status -lt 300); Status = $status; Text = [string]$bodyText }
+      $last = ''
+      for ($attempt=1; $attempt -le 5; $attempt++) {
+        Remove-Item $respFile -Force -ErrorAction SilentlyContinue
+        $r = Executar-Nativo -Exe $curl.Source -Args @(
+          '--silent','--show-error','--location','--http1.1','--tlsv1.2',
+          '--connect-timeout','20','--max-time','60',
+          '--retry','2','--retry-all-errors',
+          '-H','Content-Type: application/json','-H','Accept: application/json',
+          '--data-binary',('@' + $reqFile),'--output',$respFile,'--write-out','%{http_code}',$Url
+        ) -TimeoutSec 75 -Rotulo "Deno HTTPS tentativa $attempt/5"
+        $bodyText = if (Test-Path $respFile) { [IO.File]::ReadAllText($respFile) } else { '' }
+        $status = 0
+        if ($r.Stdout -match '^[0-9]{3}$') { $status = [int]$r.Stdout }
+        if ($r.Code -eq 0 -and $status -gt 0) {
+          return [pscustomobject]@{ Ok=($status -ge 200 -and $status -lt 300); Status=$status; Text=[string]$bodyText }
+        }
+        $last = "curl exit=$($r.Code); http=$status; stderr=$($r.Stderr); body=$bodyText"
+        if ($attempt -lt 5) { Start-Sleep -Seconds ([Math]::Min(8,$attempt*2)) }
+      }
+      return [pscustomobject]@{ Ok=$false; Status=0; Text=('Falha HTTPS Deno apos 5 tentativas. ' + $last) }
     } finally {
-      if ($resp) { $resp.Close() }
+      Remove-Item $reqFile,$respFile -Force -ErrorAction SilentlyContinue
     }
   }
-
   $denoToken = [string]$env:DENO_DEPLOY_TOKEN
   if ($denoToken) {
     $existingWho = Executar-Nativo -Exe $DenoExe -Args @('deploy','whoami','--json','--non-interactive') -TimeoutSec 60 -Rotulo 'Validar token Deno existente'
@@ -789,7 +795,32 @@ try {
   if (-not $healthWeb -or -not $healthWeb.ok) { Falhar 'Health do runtime Deno não passou.' }
 
   $health = Post-Json "$backend/api/reino" @{ action='health' }
-  if (-not $health.ok -or $health.database -ne 'turso') { Falhar 'Health da API/Turso não passou.' }
+  if (-not $health.ok -or $health.database -ne 'turso') { Falhar 'Health da API/Turso nao passou.' }
+
+  $corsUri = [Uri]($backend.TrimEnd('/') + '/api/reino')
+  if (-not $corsUri.IsAbsoluteUri -or [string]::IsNullOrWhiteSpace($corsUri.Host)) { Falhar "URL CORS invalida: $corsUri" }
+  $corsUrl = $corsUri.AbsoluteUri
+  Write-Host ("CORS URL: " + $corsUrl) -ForegroundColor DarkGray
+  $corsHeaders = Join-Path $env:TEMP ('rt-canonical-cors-' + [Guid]::NewGuid().ToString('N') + '.txt')
+  try {
+    $curlCors = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if (-not $curlCors) { Falhar 'curl.exe nao encontrado para teste CORS.' }
+    $cors = Executar-Nativo -Exe $curlCors.Source -Args @(
+      '--silent','--show-error','--http1.1','--tlsv1.2','--connect-timeout','20','--max-time','30',
+      '--output','NUL','--dump-header',$corsHeaders,'--request','OPTIONS',
+      '-H','Origin: https://kaalflash12.github.io',
+      '-H','Access-Control-Request-Method: POST',
+      '-H','Access-Control-Request-Headers: content-type,authorization',
+      $corsUrl
+    ) -TimeoutSec 45 -Rotulo 'CORS preflight publico'
+    Exigir-Sucesso $cors 'CORS preflight publico nao respondeu.'
+    $corsText = if (Test-Path $corsHeaders) { [IO.File]::ReadAllText($corsHeaders) } else { '' }
+    if ($corsText -notmatch '(?im)^HTTP/\S+\s+204\b') { Falhar "CORS preflight nao retornou 204.`n$corsText" }
+    if ($corsText -notmatch '(?im)^access-control-allow-origin:\s*https://kaalflash12\.github\.io\s*$') { Falhar "CORS allow-origin invalido.`n$corsText" }
+    Ok 'CORS publico 204 passou.'
+  } finally {
+    Remove-Item $corsHeaders -Force -ErrorAction SilentlyContinue
+  }
   $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
   $testUser = "rtprobe_$stamp"
   $testPass = 'Probe!' + (Novo-Segredo 24)
@@ -803,11 +834,11 @@ try {
   if (-not $save.ok) { Falhar 'Save real falhou.' }
   $load = Post-Json "$backend/api/reino" @{ action='load_save'; world_id=$worldId } $playerToken
   if (-not $load.state -or $load.state.probe -ne 'reino-tribal-deno-turso') { Falhar 'Load real falhou.' }
-  # Idempotencia: cada execucao pode gerar uma nova credencial ADM. A recovery key
-  # publicada no mesmo deploy sincroniza o hash persistido antes de testar o login.
-  $admSync = Post-Json "$backend/api/reino" @{ action='admin_recover'; recovery_key=$recoveryKey; password=$adminPassword }
-  if (-not $admSync.ok) { Falhar 'Sincronizacao da credencial ADM via recovery key falhou.' }
-  Ok 'Credencial ADM sincronizada com o Turso para esta execucao.'
+  # Idempotencia: cada execucao pode gerar uma nova credencial ADM. A recovery key
+  # publicada no mesmo deploy sincroniza o hash persistido antes de testar o login.
+  $admSync = Post-Json "$backend/api/reino" @{ action='admin_recover'; recovery_key=$recoveryKey; password=$adminPassword }
+  if (-not $admSync.ok) { Falhar 'Sincronizacao da credencial ADM via recovery key falhou.' }
+  Ok 'Credencial ADM sincronizada com o Turso para esta execucao.'
   $adm = Post-Json "$backend/api/reino" @{ action='login'; identifier='reinos_admin'; password=$adminPassword }
   if (-not $adm.access_token -or $adm.user.role -ne 'admin') { Falhar 'Login ADM real falhou apos sincronizacao.' }
   $adminToken = [string]$adm.access_token
