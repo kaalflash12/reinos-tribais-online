@@ -42,10 +42,20 @@ jobs:
           $t=[IO.File]::ReadAllText($p)
           foreach($needle in @(
             "`$ExecutorVersion = 'FIX17'",
+            "`$ExecutorRevision = 'CHECKPOINT-1'",
             "`$ExecutorContract = 'ADMIN_AUTHORITY_CORS_CANONICAL'",
             '[switch]$IdentityOnly',
+            '[switch]$CheckpointFailureTestOnly',
             'REINO_TRIBAL_FIX17_IDENTITY_PASS',
             'REINO_TRIBAL_EXECUTOR_ATIVO.txt',
+            'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt',
+            'function Gravar-CheckpointCredencial',
+            'GERADA_LOCALMENTE_ANTES_DO_DENO',
+            'SENHA_DENO_ATUALIZADA',
+            'SENHA_E_RECOVERY_DENO_ATUALIZADAS',
+            'DEPLOY_CONCLUIDO_AGUARDANDO_LOGIN',
+            'LOGIN_ADMIN_STATUS_DASHBOARD_PASS',
+            'CREDENCIAL PRESERVADA APOS A FALHA:',
             "if (`$SelfLeaf -match '(?i)FIX1[56]')",
             '$preflightUrl = $preflightUri.AbsoluteUri',
             'FIX17_PREFLIGHT_PUBLICO_PASS',
@@ -69,8 +79,29 @@ jobs:
           $marker=Join-Path $env:TEMP 'REINO_TRIBAL_EXECUTOR_ATIVO.txt'
           if(-not (Test-Path $marker)){throw 'FIX17 nao gravou marcador de executor ativo'}
           $m=[IO.File]::ReadAllText($marker)
-          foreach($needle in @('version=FIX17','contract=ADMIN_AUTHORITY_CORS_CANONICAL','backend=https://reino-tribal-api.mestrederpg35.deno.net')){if(-not $m.Contains($needle)){throw "Marcador FIX17 ausente: $needle"}}
+          foreach($needle in @('version=FIX17','revision=CHECKPOINT-1','contract=ADMIN_AUTHORITY_CORS_CANONICAL','backend=https://reino-tribal-api.mestrederpg35.deno.net')){if(-not $m.Contains($needle)){throw "Marcador FIX17 ausente: $needle"}}
           Write-Host 'FIX17_IDENTITY_STALE_CLEANUP_PASS'
+
+      - name: Prove credential checkpoint survives failure
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $credDir=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal'
+          $pending=Join-Path $credDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt'
+          Remove-Item $pending -Force -ErrorAction SilentlyContinue
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_ATUAL.ps1 -CheckpointFailureTestOnly
+          $code=$LASTEXITCODE
+          if($code -eq 0){throw 'FIX17 teste de falha deveria retornar codigo diferente de zero'}
+          if(-not (Test-Path $pending)){throw 'FIX17 perdeu a credencial no teste de falha simulada'}
+          $p=[IO.File]::ReadAllText($pending)
+          foreach($needle in @(
+            'Status: CI_FALHA_SIMULADA_ANTES_DO_DENO',
+            'Usuario ADM: reinos_admin',
+            'Senha ADM: RT!CHECKPOINT_FAILURE_TEST_1234567890',
+            'Recovery Key: CHECKPOINT_FAILURE_TEST_RECOVERY_1234567890'
+          )){if(-not $p.Contains($needle)){throw "Checkpoint FIX17 incompleto: $needle"}}
+          Remove-Item $pending -Force
+          Write-Host 'FIX17_CREDENTIAL_CHECKPOINT_FAILURE_SURVIVAL_PASS'
 
       - name: Execute exact public preflight on Windows
         shell: powershell
@@ -97,7 +128,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add REINO_TRIBAL_ADMIN_ATUAL.ps1
           if(git diff --cached --quiet){ Write-Host 'Executor canonico FIX17 ja publicado.'; exit 0 }
-          git commit -m 'fix: publicar executor admin canonico FIX17'
+          git commit -m 'fix: publicar executor admin canonico FIX17 checkpoint'
           for($i=1;$i -le 5;$i++){
             git fetch origin main
             git rebase origin/main
