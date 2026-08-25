@@ -1,0 +1,104 @@
+name: RT Admin Sync FIX11
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'RT_REINO_TRIBAL_ADMIN_SYNC_FIX11.ps1'
+      - '.github/workflows/rt-admin-sync-fix11.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-fix11:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Generate and parse FIX11 executor
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $out=Join-Path $env:RUNNER_TEMP 'REINO_TRIBAL_FINAL_UNICO_FIX11.ps1'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_ADMIN_SYNC_FIX11.ps1 -OutFile $out -ValidateOnly
+          if($LASTEXITCODE -ne 0){throw "FIX11 ValidateOnly falhou: $LASTEXITCODE"}
+          if(-not(Test-Path $out)){throw 'FIX11 nao gerou executor'}
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'Executor FIX11 nao passou no parser'}
+          $t=[IO.File]::ReadAllText($out)
+          foreach($needle in @(
+            "[string]`$Branch = 'main'",
+            "action='admin_recover'",
+            'recovery_key=$recoveryKey',
+            'Credencial ADM sincronizada com o Turso para esta execucao.',
+            "action='login'; identifier='reinos_admin'; password=`$adminPassword",
+            "Ok 'PR já estava mesclada.'",
+            'Get-TursoHostnameFromInstances',
+            '--do-not-use-detected-build-config',
+            'package.json'
+          )){if(-not $t.Contains($needle)){throw "Contrato FIX11 ausente: $needle"}}
+          $recover=$t.IndexOf("action='admin_recover'",[StringComparison]::Ordinal)
+          $login=$t.IndexOf("action='login'; identifier='reinos_admin'",[StringComparison]::Ordinal)
+          if($recover -lt 0 -or $login -lt 0 -or $recover -ge $login){throw 'admin_recover nao ocorre antes do login'}
+          "FIX11_OUT=$out" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host 'FIX11_TRANSFORM_ORDER_PASS'
+
+      - name: Verify backend recovery contract
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $s=[IO.File]::ReadAllText((Resolve-Path '.\api\reino.js'))
+          $start=$s.IndexOf('async function adminRecover(body) {',[StringComparison]::Ordinal)
+          $end=$s.IndexOf('async function handleAction(req, body) {',$start,[StringComparison]::Ordinal)
+          if($start -lt 0 -or $end -le $start){throw 'adminRecover nao encontrado no backend'}
+          $block=$s.Substring($start,$end-$start)
+          foreach($needle in @(
+            "process.env.RT_ADMIN_RECOVERY_KEY",
+            'safeEqualText(recovery, supplied)',
+            'passwordHash(password)',
+            "UPDATE rt_users SET password_hash=?,disabled=0,role='admin'",
+            'DELETE FROM rt_sessions WHERE user_id=?'
+          )){if(-not $block.Contains($needle)){throw "Contrato adminRecover ausente: $needle"}}
+          if(-not $s.Contains("if (action === 'admin_recover') return { status: 200, data: await adminRecover(body) };")){throw 'Rota admin_recover nao esta exposta'}
+          Write-Host 'ADMIN_RECOVERY_BACKEND_CONTRACT_PASS'
+
+      - name: Validate real six-file backend
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($required in @('deno.json','package.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')){
+            if(-not(Test-Path $required)){throw "Arquivo real ausente: $required"}
+          }
+          deno check deno/main.js
+          if($LASTEXITCODE -ne 0){throw "deno check falhou: $LASTEXITCODE"}
+          Write-Host 'FIX11_SIX_FILE_DENO_CHECK_PASS'
+
+      - name: Publish FIX11 canonical executors
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $content=[IO.File]::ReadAllText($env:FIX11_OUT)
+          $utf8Bom=New-Object Text.UTF8Encoding($true)
+          foreach($file in @(
+            'REINO_TRIBAL_FINAL_UNICO.ps1',
+            'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1',
+            'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1'
+          )){[IO.File]::WriteAllText((Join-Path $PWD $file),$content,$utf8Bom)}
+          $a=(Get-FileHash .\REINO_TRIBAL_FINAL_UNICO.ps1 -Algorithm SHA256).Hash
+          $b=(Get-FileHash .\EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 -Algorithm SHA256).Hash
+          $c=(Get-FileHash .\IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1 -Algorithm SHA256).Hash
+          if($a -ne $b -or $a -ne $c){throw 'Executores canonicos divergiram'}
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
+          if(git diff --cached --quiet){Write-Host 'Executores FIX11 ja estavam publicados';exit 0}
+          git commit -m 'fix: publicar executor ADM idempotente FIX11 [skip ci]'
+          git push origin HEAD:main
