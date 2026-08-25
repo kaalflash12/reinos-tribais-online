@@ -24,12 +24,7 @@ try {
     "  [string]`$Branch = 'main'," `
     'fonte pos-merge deve ser main'
 
-  $oldAdmin = @'
-  $adm = Post-Json "$backend/api/reino" @{ action='login'; identifier='reinos_admin'; password=$adminPassword }
-  if (-not $adm.access_token -or $adm.user.role -ne 'admin') { Falhar 'Login ADM real falhou.' }
-'@
-  $oldAdmin = $oldAdmin -replace "`n",[Environment]::NewLine
-
+  $oldAdminLine = "  `$adm = Post-Json `"`$backend/api/reino`" @{ action='login'; identifier='reinos_admin'; password=`$adminPassword }"
   $newAdmin = @'
   # Idempotencia: cada execucao pode gerar uma nova credencial ADM. A recovery key
   # publicada no mesmo deploy sincroniza o hash persistido antes de testar o login.
@@ -37,11 +32,11 @@ try {
   if (-not $admSync.ok) { Falhar 'Sincronizacao da credencial ADM via recovery key falhou.' }
   Ok 'Credencial ADM sincronizada com o Turso para esta execucao.'
   $adm = Post-Json "$backend/api/reino" @{ action='login'; identifier='reinos_admin'; password=$adminPassword }
-  if (-not $adm.access_token -or $adm.user.role -ne 'admin') { Falhar 'Login ADM real falhou apos sincronizacao.' }
 '@
   $newAdmin = $newAdmin -replace "`n",[Environment]::NewLine
 
-  $content = Replace-Required $content $oldAdmin $newAdmin 'sincronizacao ADM antes do login'
+  $content = Replace-Required $content $oldAdminLine $newAdmin 'sincronizacao ADM antes do login'
+  $content = $content.Replace("if (-not `$adm.access_token -or `$adm.user.role -ne 'admin') { Falhar 'Login ADM real falhou.' }","if (-not `$adm.access_token -or `$adm.user.role -ne 'admin') { Falhar 'Login ADM real falhou apos sincronizacao.' }")
 
   foreach($required in @(
     "[string]`$Branch = 'main'",
