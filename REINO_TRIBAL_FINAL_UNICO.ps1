@@ -2,7 +2,7 @@
 # Turso 409 + Deno device auth + GitHub API 6 arquivos com package.json. Sem git clone e sem launcher intermediario.
 param(
   [string]$Repositorio = 'kaalflash12/reinos-tribais-online',
-  [string]$Branch = 'rt-turso-migration',
+  [string]$Branch = 'main',
   [string]$DenoApp = 'reino-tribal-api',
   [string]$TursoDatabase = 'reino-tribal-prod',
   [int]$PullRequest = 53
@@ -803,8 +803,13 @@ try {
   if (-not $save.ok) { Falhar 'Save real falhou.' }
   $load = Post-Json "$backend/api/reino" @{ action='load_save'; world_id=$worldId } $playerToken
   if (-not $load.state -or $load.state.probe -ne 'reino-tribal-deno-turso') { Falhar 'Load real falhou.' }
+  # Idempotencia: cada execucao pode gerar uma nova credencial ADM. A recovery key
+  # publicada no mesmo deploy sincroniza o hash persistido antes de testar o login.
+  $admSync = Post-Json "$backend/api/reino" @{ action='admin_recover'; recovery_key=$recoveryKey; password=$adminPassword }
+  if (-not $admSync.ok) { Falhar 'Sincronizacao da credencial ADM via recovery key falhou.' }
+  Ok 'Credencial ADM sincronizada com o Turso para esta execucao.'
   $adm = Post-Json "$backend/api/reino" @{ action='login'; identifier='reinos_admin'; password=$adminPassword }
-  if (-not $adm.access_token -or $adm.user.role -ne 'admin') { Falhar 'Login ADM real falhou.' }
+  if (-not $adm.access_token -or $adm.user.role -ne 'admin') { Falhar 'Login ADM real falhou apos sincronizacao.' }
   $adminToken = [string]$adm.access_token
   $status = Post-Json "$backend/api/reino" @{ action='admin_status' } $adminToken
   if (-not $status.ok) { Falhar 'admin_status falhou.' }
