@@ -1,0 +1,85 @@
+name: RT Public Player E2E Once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rt-public-player-e2e-once.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  public-player-e2e:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Register login world save load against production
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          Set-StrictMode -Version Latest
+          [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
+          $api='https://reino-tribal-api.mestrederpg35.deno.net/api/reino'
+          $origin='https://kaalflash12.github.io'
+          $world='d5a546fb-316d-4332-ae92-1886d80b07df'
+          $curl=(Get-Command curl.exe).Source
+
+          function Api([hashtable]$Body,[string]$Bearer=''){
+            $id=[Guid]::NewGuid().ToString('N')
+            $req=Join-Path $env:TEMP ("rt-e2e-$id.req.json")
+            $resp=Join-Path $env:TEMP ("rt-e2e-$id.resp.json")
+            [IO.File]::WriteAllText($req,($Body|ConvertTo-Json -Depth 20 -Compress),(New-Object Text.UTF8Encoding($false)))
+            try{
+              $args=@('--silent','--show-error','--http1.1','--tlsv1.2','--connect-timeout','20','--max-time','60','-H',("Origin: $origin"),'-H','Content-Type: application/json','-H','Accept: application/json')
+              if($Bearer){$args+=@('-H',("Authorization: Bearer $Bearer"))}
+              $args+=@('--data-binary',('@'+$req),'--output',$resp,'--write-out','%{http_code}',$api)
+              $status=& $curl @args
+              if($LASTEXITCODE -ne 0){throw "curl falhou: $LASTEXITCODE"}
+              $code=[int]([string]$status).Trim()
+              $text=if(Test-Path $resp){[IO.File]::ReadAllText($resp)}else{''}
+              if($code -lt 200 -or $code -ge 300){throw "HTTP $code: $text"}
+              return ($text|ConvertFrom-Json)
+            }finally{Remove-Item $req,$resp -Force -ErrorAction SilentlyContinue}
+          }
+
+          $suffix=[Guid]::NewGuid().ToString('N').Substring(0,16)
+          $email="rt-e2e-$suffix@example.invalid"
+          $username="e2e_$suffix"
+          $password='E2E!'+[Guid]::NewGuid().ToString('N')+'x'
+          $marker='marker-'+[Guid]::NewGuid().ToString('N')
+
+          $reg=Api @{action='register';email=$email;username=$username;password=$password}
+          if(-not $reg.access_token){throw 'register sem access_token'}
+          if([string]$reg.user.role -ne 'player'){throw 'register role diferente de player'}
+          Write-Host 'E2E_REGISTER_PASS'
+
+          $login=Api @{action='login';identifier=$username;password=$password}
+          if(-not $login.access_token){throw 'login sem access_token'}
+          $token=[string]$login.access_token
+          Write-Host 'E2E_LOGIN_PASS'
+
+          $worlds=@(Api @{action='list_worlds'} $token)
+          if(-not ($worlds|Where-Object { [string]$_.id -eq $world })){throw 'Mundo 1 nao apareceu em list_worlds'}
+          Write-Host 'E2E_LIST_WORLDS_PASS'
+
+          $joined=Api @{action='join_world';world_id=$world;player_name=$username} $token
+          if(-not $joined.ok -or [string]$joined.world.id -ne $world){throw 'join_world nao confirmou Mundo 1'}
+          Write-Host 'E2E_JOIN_WORLD_PASS'
+
+          $state=@{e2e_marker=$marker;player=$username;probe='production';saved_at=(Get-Date).ToUniversalTime().ToString('o')}
+          $saved=Api @{action='save';world_id=$world;state=$state} $token
+          if(-not $saved.ok -or [int]$saved.state_version -lt 1){throw 'save nao confirmou persistencia'}
+          Write-Host 'E2E_SAVE_PASS'
+
+          $loaded=Api @{action='load_save';world_id=$world} $token
+          if($null -eq $loaded -or [string]$loaded.state.e2e_marker -ne $marker){throw 'load_save nao devolveu exatamente o estado salvo'}
+          Write-Host 'E2E_LOAD_PASS'
+
+          $membership=Api @{action='player_world_get';world_id=$world} $token
+          if([string]$membership.world_id -ne $world){throw 'player_world_get nao confirmou membership'}
+          Write-Host 'E2E_PLAYER_WORLD_PASS'
+
+          $logout=Api @{action='logout'} $token
+          if(-not $logout.ok){throw 'logout falhou'}
+          Write-Host 'RT_PUBLIC_PLAYER_E2E_PASS'
