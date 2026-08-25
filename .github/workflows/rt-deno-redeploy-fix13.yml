@@ -37,13 +37,15 @@ jobs:
           $t=[IO.File]::ReadAllText((Resolve-Path '.\REINO_TRIBAL_REDEPLOY_DENO_CORS_FIX13.ps1'))
           foreach($needle in @(
             "[string]`$Branch = '25c61fdacf715399c7b1db5aabced5efc7db2485'",
+            "[string]`$DenoOrg = 'mestrederpg35'",
+            "[string]`$DenoApp = 'reino-tribal-api'",
+            '`$Backend = "https://`$DenoApp.`$DenoOrg.deno.net"',
             "'deno.json','package.json','deno/main.js','api/reino.js','api/admin.js','backend/turso/schema.sql'",
             "'deploy','--org',`$DenoOrg,'--app',`$DenoApp,'--prod','--non-interactive'",
             'https://console.deno.com/auth/interactive',
             'https://console.deno.com/auth/exchange',
             '-Method Options',
-            'StatusCode -ne 204',
-            'https://reino-tribal-api.mestrederpg35.deno.net'
+            'StatusCode -ne 204'
           )){if(-not $t.Contains($needle)){throw "Contrato FIX13 ausente: $needle"}}
           foreach($forbidden in @(
             'api.turso.tech',
