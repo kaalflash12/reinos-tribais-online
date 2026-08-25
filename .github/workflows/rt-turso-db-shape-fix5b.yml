@@ -5,11 +5,21 @@ on:
     branches: [rt-turso-migration]
     paths:
       - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - 'deno.json'
+      - 'package.json'
+      - 'deno/**'
+      - 'api/**'
+      - 'backend/turso/**'
       - '.github/workflows/rt-turso-db-shape-fix5b.yml'
   pull_request:
     branches: [main]
     paths:
       - 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
+      - 'deno.json'
+      - 'package.json'
+      - 'deno/**'
+      - 'api/**'
+      - 'backend/turso/**'
       - '.github/workflows/rt-turso-db-shape-fix5b.yml'
   workflow_dispatch:
 
@@ -18,32 +28,30 @@ permissions:
 
 jobs:
   windows-fix5b:
-    runs-on: windows-latest
-    timeout-minutes: 10
+    runs-on: windows-2025
+    timeout-minutes: 12
     steps:
-      - name: Fetch FIX5B script without git
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          $scriptPath=Join-Path $env:RUNNER_TEMP 'RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
-          $uri="https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_SHA/RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1"
-          Invoke-WebRequest -UseBasicParsing -Uri $uri -OutFile $scriptPath -TimeoutSec 120
-          if(-not(Test-Path $scriptPath)){throw 'FIX5B nao foi baixado do commit do workflow'}
-          "FIX5B_PATH=$scriptPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host 'FIX5B_RAW_FETCH_PASS'
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
 
       - name: Parse FIX5B
         shell: powershell
         run: |
+          $ErrorActionPreference='Stop'
+          $path=Resolve-Path '.\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1'
           $tokens=$null;$errors=$null
-          [System.Management.Automation.Language.Parser]::ParseFile($env:FIX5B_PATH,[ref]$tokens,[ref]$errors)|Out-Null
-          if($errors.Count){$errors|Format-List;exit 1}
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'FIX5B nao passou no parser'}
           Write-Host 'TURSO_DB_SHAPE_FIX5B_PARSE_PASS'
 
       - name: Validate FIX5B transform and synthetic shapes
         shell: powershell
         run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $env:FIX5B_PATH -ValidateOnly
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_REINO_TRIBAL_TURSO_DB_SHAPE_FIX5B.ps1 -ValidateOnly
           if($LASTEXITCODE -ne 0){throw "FIX5B ValidateOnly falhou: $LASTEXITCODE"}
           $out=Join-Path $env:TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1'
           if(-not(Test-Path $out)){throw 'Bootstrap final FIX5B nao foi gerado'}
@@ -59,10 +67,8 @@ jobs:
             '$env:DENO_DEPLOY_TOKEN = $denoToken',
             "`$tokenResult = Executar-Nativo -Exe `$gh -Args @('auth','token')",
             'function Get-GitHubBranchFile',
-            'https://api.github.com/repos/$Repositorio/contents/$escapedPath?ref=$escapedBranch',
             '[Convert]::FromBase64String($base64)',
-            '[IO.File]::WriteAllBytes($dest,$bytes)',
-            'Backend minimo obtido pela API GitHub autenticada: 5 arquivos, zero git.exe, zero clone, zero archive.'
+            '[IO.File]::WriteAllBytes($dest,$bytes)'
           )){
             if(-not $t.Contains($needle)){throw "FIX5B contrato ausente: $needle"}
           }
@@ -81,39 +87,28 @@ jobs:
           }
           Write-Host 'TURSO_DB_SHAPE_FIX5B_TRANSFORM_PASS'
 
-      - name: Real authenticated minimal download without git
+      - name: Validate current real six-file backend
         shell: powershell
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference='Stop'
-          $root=Join-Path $env:TEMP ('rt-minimal-ci-'+[Guid]::NewGuid().ToString('N'))
-          New-Item -ItemType Directory -Force -Path $root|Out-Null
-          try {
-            $token=(gh auth token).Trim()
-            if($LASTEXITCODE -ne 0 -or $token.Length -lt 20){throw 'gh auth token indisponivel no runner'}
-            $headers=@{
-              Authorization="Bearer $token"
-              Accept='application/vnd.github+json'
-              'User-Agent'='Reino-Tribal-CI'
-              'X-GitHub-Api-Version'='2022-11-28'
-            }
-            foreach($relative in @('deno.json','deno/main.js','api/reino.js','api/admin.js','backend/turso/schema.sql')){
-              $escaped=(($relative -split '/')|ForEach-Object{[Uri]::EscapeDataString($_)}) -join '/'
-              $uri="https://api.github.com/repos/kaalflash12/reinos-tribais-online/contents/$escaped?ref=rt-turso-migration"
-              $meta=Invoke-RestMethod -Method Get -Uri $uri -Headers $headers -TimeoutSec 60
-              if([string]$meta.type -ne 'file' -or -not $meta.content){throw "conteudo ausente: $relative"}
-              $bytes=[Convert]::FromBase64String((([string]$meta.content)-replace '\s',''))
-              if($bytes.Length -lt 1){throw "arquivo vazio: $relative"}
-              $dest=Join-Path $root ($relative -replace '/','\')
-              New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent)|Out-Null
-              [IO.File]::WriteAllBytes($dest,$bytes)
-            }
-            foreach($required in @('deno.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')){
-              if(-not(Test-Path (Join-Path $root $required))){throw "arquivo ausente no download real: $required"}
-            }
-            if((Get-Content (Join-Path $root 'deno\main.js') -Raw) -notmatch "../api/reino.js"){throw 'deno/main.js real nao contem import reino'}
-            Write-Host 'GITHUB_AUTH_MINIMAL_5_FILES_REAL_PASS'
-          } finally {
-            Remove-Item $root -Recurse -Force -ErrorAction SilentlyContinue
+          $required=@(
+            'deno.json',
+            'package.json',
+            'deno\main.js',
+            'api\reino.js',
+            'api\admin.js',
+            'backend\turso\schema.sql'
+          )
+          foreach($relative in $required){
+            if(-not(Test-Path $relative)){throw "arquivo real ausente: $relative"}
+            if((Get-Item $relative).Length -lt 1){throw "arquivo real vazio: $relative"}
           }
+          $pkg=Get-Content -Raw '.\package.json' | ConvertFrom-Json
+          if(-not $pkg.dependencies.'@tursodatabase/serverless'){throw 'package.json sem @tursodatabase/serverless'}
+          $cfg=Get-Content -Raw '.\deno.json' | ConvertFrom-Json
+          if($cfg.PSObject.Properties['deploy']){throw 'deno.json voltou a conter bloco deploy incompatível com FIX10'}
+          $entry=Get-Content -Raw '.\deno\main.js'
+          if($entry -notmatch '\.\./api/reino\.js'){throw 'deno/main.js real nao contem import de api/reino.js'}
+          & deno check deno/main.js
+          if($LASTEXITCODE -ne 0){throw "deno check dos seis arquivos falhou: $LASTEXITCODE"}
+          Write-Host 'GITHUB_CHECKOUT_REAL_6_FILES_DENO_PASS'
