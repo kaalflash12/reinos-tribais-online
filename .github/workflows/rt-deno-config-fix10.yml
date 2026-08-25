@@ -1,0 +1,136 @@
+name: RT Deno Config FIX10
+
+on:
+  push:
+    branches: [rt-turso-migration]
+    paths:
+      - 'deno.json'
+      - 'RT_REINO_TRIBAL_DENO_CONFIG_FIX10.ps1'
+      - '.github/workflows/rt-deno-config-fix10.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'deno.json'
+      - 'RT_REINO_TRIBAL_DENO_CONFIG_FIX10.ps1'
+      - '.github/workflows/rt-deno-config-fix10.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-fix10:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate and parse FIX10 executor
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $out = Join-Path $env:RUNNER_TEMP 'REINO_TRIBAL_FINAL_UNICO.ps1'
+          & .\RT_REINO_TRIBAL_DENO_CONFIG_FIX10.ps1 -OutFile $out -ValidateOnly
+          if (-not (Test-Path $out)) { throw 'Executor FIX10 nao foi gerado.' }
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; throw 'FIX10 nao passa no parser.' }
+          $raw = [IO.File]::ReadAllText($out)
+          foreach($required in @("PSObject.Properties.Remove('deploy')",'--do-not-use-detected-build-config','$orgList.Stdout | ConvertFrom-Json','Get-TursoHostnameFromInstances','package.json')) {
+            if ($raw.IndexOf($required,[StringComparison]::Ordinal) -lt 0) { throw "Contrato FIX10 ausente: $required" }
+          }
+          Copy-Item $out (Join-Path $env:RUNNER_TEMP 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1') -Force
+          Copy-Item $out (Join-Path $env:RUNNER_TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1') -Force
+
+      - name: Deno 2.9.5 reproduce old parser bug and validate sanitized config
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'deno-fix10'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $zip = Join-Path $root 'deno.zip'
+          Invoke-WebRequest -UseBasicParsing 'https://github.com/denoland/deno/releases/download/v2.9.5/deno-x86_64-pc-windows-msvc.zip' -OutFile $zip -TimeoutSec 180
+          Expand-Archive $zip -DestinationPath $root -Force
+          $deno = Join-Path $root 'deno.exe'
+          & $deno --version
+          if ($LASTEXITCODE -ne 0) { throw 'Deno 2.9.5 nao executou.' }
+
+          $proj = Join-Path $root 'project'
+          New-Item -ItemType Directory -Force -Path (Join-Path $proj 'deno') | Out-Null
+          Set-Content -Path (Join-Path $proj 'deno\main.js') -Value "Deno.serve(() => new Response('ok'));" -Encoding UTF8
+          Set-Content -Path (Join-Path $proj 'package.json') -Value '{"dependencies":{}}' -Encoding UTF8
+
+          $bad = @'
+          {
+            "nodeModulesDir": "auto",
+            "deploy": {
+              "runtime": {
+                "type": "dynamic",
+                "entrypoint": "./deno/main.js"
+              }
+            }
+          }
+          '@
+          [IO.File]::WriteAllText((Join-Path $proj 'deno.json'),$bad,(New-Object Text.UTF8Encoding($false)))
+          Push-Location $proj
+          try {
+            $env:DENO_DEPLOY_TOKEN = 'ci-intentionally-invalid-token'
+            $oldOut = (& $deno deploy create . --org fixture-org --app fixture-app --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --do-not-use-detected-build-config --dry-run --non-interactive 2>&1 | Out-String)
+            if ($oldOut -notmatch 'Failed to parse.*deploy.*configuration|missing field.*org') {
+              throw "Deno 2.9.5 nao reproduziu o conflito esperado do deno.json antigo. Saida: $oldOut"
+            }
+            Write-Host 'DENO_2_9_5_OLD_DEPLOY_CONFIG_MISSING_ORG_REPRODUCED'
+
+            [IO.File]::WriteAllText((Join-Path $proj 'deno.json'),"{`n  `"nodeModulesDir`": `"auto`"`n}`n",(New-Object Text.UTF8Encoding($false)))
+            $newOut = (& $deno deploy create . --org fixture-org --app fixture-app --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --do-not-use-detected-build-config --dry-run --non-interactive 2>&1 | Out-String)
+            if ($newOut -match 'Failed to parse.*deploy.*configuration|missing field.*org') {
+              throw "Config saneada ainda caiu no parser deploy antigo: $newOut"
+            }
+            Write-Host 'DENO_2_9_5_SANITIZED_CONFIG_NO_MISSING_ORG_PASS'
+          } finally {
+            Pop-Location
+            Remove-Item Env:DENO_DEPLOY_TOKEN -ErrorAction SilentlyContinue
+          }
+
+      - name: Validate real backend still checks with sanitized deno.json
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = Join-Path $env:RUNNER_TEMP 'real-backend-fix10'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          foreach($f in @('deno.json','package.json','deno/main.js','api/reino.js','api/admin.js','backend/turso/schema.sql')) {
+            $src = Join-Path $env:GITHUB_WORKSPACE ($f -replace '/','\')
+            $dst = Join-Path $root ($f -replace '/','\')
+            New-Item -ItemType Directory -Force -Path (Split-Path $dst -Parent) | Out-Null
+            Copy-Item $src $dst -Force
+          }
+          $cfg = Get-Content -Raw (Join-Path $root 'deno.json') | ConvertFrom-Json
+          if ($cfg.PSObject.Properties['deploy']) { throw 'deno.json da branch ainda contem bloco deploy.' }
+          $deno = Join-Path $env:RUNNER_TEMP 'deno-fix10\deno.exe'
+          Push-Location $root
+          try {
+            & $deno check deno/main.js
+            if ($LASTEXITCODE -ne 0) { throw "deno check real falhou: $LASTEXITCODE" }
+          } finally { Pop-Location }
+          Write-Host 'DENO_2_9_5_REAL_BACKEND_SANITIZED_CHECK_PASS'
+
+      - name: Publish tested canonical executors to main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/rt-turso-migration'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git checkout -B fix10-main origin/main
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'REINO_TRIBAL_FINAL_UNICO.ps1') '.\REINO_TRIBAL_FINAL_UNICO.ps1' -Force
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1') '.\EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1' -Force
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1') '.\IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1' -Force
+          git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
+          if (git diff --cached --quiet) {
+            Write-Host 'Main ja contem o executor FIX10.'
+          } else {
+            git commit -m 'fix: evitar conflito do deno.json com deploy CLI'
+            git push origin HEAD:main
+          }
