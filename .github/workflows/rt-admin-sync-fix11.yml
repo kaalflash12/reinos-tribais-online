@@ -61,10 +61,13 @@ jobs:
           if($start -lt 0 -or $end -le $start){throw 'adminRecover nao encontrado no backend'}
           $block=$s.Substring($start,$end-$start)
           foreach($needle in @(
-            "process.env.RT_ADMIN_RECOVERY_KEY",
+            'process.env.RT_ADMIN_RECOVERY_KEY',
             'safeEqualText(recovery, supplied)',
             'passwordHash(password)',
-            "UPDATE rt_users SET password_hash=?,disabled=0,role='admin'",
+            'UPDATE rt_users SET password_hash=?',
+            'disabled=0',
+            'role=',
+            'updated_at=? WHERE id=?',
             'DELETE FROM rt_sessions WHERE user_id=?'
           )){if(-not $block.Contains($needle)){throw "Contrato adminRecover ausente: $needle"}}
           if(-not $s.Contains("if (action === 'admin_recover') return { status: 200, data: await adminRecover(body) };")){throw 'Rota admin_recover nao esta exposta'}
@@ -101,4 +104,18 @@ jobs:
           git add REINO_TRIBAL_FINAL_UNICO.ps1 EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1 IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1
           if(git diff --cached --quiet){Write-Host 'Executores FIX11 ja estavam publicados';exit 0}
           git commit -m 'fix: publicar executor ADM idempotente FIX11 [skip ci]'
-          git push origin HEAD:main
+          # Main pode avançar por workflows de prova pública; reaplica apenas este commit no topo atual.
+          $ours=(git rev-parse HEAD).Trim()
+          for($attempt=1;$attempt -le 3;$attempt++){
+            git fetch origin main
+            if($LASTEXITCODE -ne 0){throw 'Falha buscando main antes da publicacao FIX11'}
+            $remote=(git rev-parse origin/main).Trim()
+            if($remote -ne (git rev-parse HEAD^).Trim()){
+              git rebase origin/main
+              if($LASTEXITCODE -ne 0){throw 'Falha rebasing FIX11 sobre main atual'}
+            }
+            git push origin HEAD:main
+            if($LASTEXITCODE -eq 0){Write-Host 'FIX11_CANONICAL_PUBLISH_PASS';exit 0}
+            if($attempt -eq 3){throw 'Falha publicando FIX11 apos 3 sincronizacoes com main'}
+            Start-Sleep -Seconds 2
+          }
