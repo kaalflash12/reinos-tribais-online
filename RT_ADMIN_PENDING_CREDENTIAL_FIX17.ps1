@@ -4,8 +4,8 @@ $dst = Join-Path $PSScriptRoot 'REINO_TRIBAL_ADMIN_FIX17_FINAL.ps1'
 if (-not (Test-Path $src)) { throw 'FIX16 final nao encontrado.' }
 $text = [IO.File]::ReadAllText($src).Replace("`r`n","`n")
 
-$oldCred = "$CredFile = Join-Path `$CredDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL.txt'"
-$newCred = "$CredFile = Join-Path `$CredDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL.txt'`n`$PendingCredFile = Join-Path `$CredDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTE.txt'"
+$oldCred = '$CredFile = Join-Path $CredDir ''CREDENCIAIS_ADMIN_REINO_TRIBAL.txt'''
+$newCred = '$CredFile = Join-Path $CredDir ''CREDENCIAIS_ADMIN_REINO_TRIBAL.txt''' + "`n" + '$PendingCredFile = Join-Path $CredDir ''CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTE.txt'''
 if (-not $text.Contains($oldCred)) { throw 'Linha CredFile nao encontrada.' }
 $text = $text.Replace($oldCred,$newCred)
 
