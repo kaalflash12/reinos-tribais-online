@@ -75,6 +75,8 @@ function Executar-Nativo {
   $stderr = $errTask.GetAwaiter().GetResult()
   return [pscustomobject]@{
     Code = [int]$p.ExitCode
+    Stdout = ([string]$stdout).Trim()
+    Stderr = ([string]$stderr).Trim()
     Text = (($stdout + "`n" + $stderr).Trim())
     TimedOut = $false
   }
@@ -261,8 +263,8 @@ function Esperar-Checks([string]$Gh) {
   Etapa 'Checks da PR'
   for ($i=1; $i -le 60; $i++) {
     $r = Executar-Nativo -Exe $Gh -Args @('pr','checks',"$PullRequest",'-R',$Repositorio,'--json','name,bucket') -TimeoutSec 45 -Rotulo 'Consultar checks'
-    if ($r.Code -eq 0 -and $r.Text) {
-      try { $checks = @($r.Text | ConvertFrom-Json) } catch { $checks = @() }
+    if ($r.Code -eq 0 -and $r.Stdout) {
+      try { $checks = @($r.Stdout | ConvertFrom-Json) } catch { $checks = @() }
       if ($checks.Count -gt 0) {
         $falhas = @($checks | Where-Object { $_.bucket -in @('fail','cancel') })
         if ($falhas.Count -gt 0) { Falhar ('Checks falharam: ' + (($falhas.name) -join ', ')) }
@@ -301,7 +303,7 @@ try {
 
   $tokenResult = Executar-Nativo -Exe $gh -Args @('auth','token') -TimeoutSec 30 -Rotulo 'Obter credencial temporaria GitHub da sessao atual'
   Exigir-Sucesso $tokenResult 'GitHub CLI autenticado nao forneceu a credencial temporaria da sessao.'
-  $githubToken = $tokenResult.Text.Trim()
+  $githubToken = $tokenResult.Stdout.Trim()
   if ($githubToken.Length -lt 20) { Falhar 'Credencial temporaria GitHub veio vazia ou invalida.' }
 
   $githubHeaders = @{
@@ -349,7 +351,21 @@ try {
     $githubHeaders.Authorization = ''
   }
 
-  $workPath = $repoDir
+  $workPath = $repoDir
+  $denoConfigPath = Join-Path $workPath 'deno.json'
+  try {
+    $denoConfig = Get-Content -Raw -Path $denoConfigPath | ConvertFrom-Json
+  } catch {
+    Falhar "deno.json invalido antes do deploy: $($_.Exception.Message)"
+  }
+  if ($denoConfig.PSObject.Properties['deploy']) {
+    $denoConfig.PSObject.Properties.Remove('deploy')
+    $denoConfigText = $denoConfig | ConvertTo-Json -Depth 50
+    [IO.File]::WriteAllText($denoConfigPath,$denoConfigText,(New-Object Text.UTF8Encoding($false)))
+    Ok 'Bloco deploy removido do deno.json local; Deno Deploy sera configurado exclusivamente por flags --org/--app/runtime.'
+  } else {
+    Ok 'deno.json local sem bloco deploy conflitante; configuracao Deno Deploy sera feita exclusivamente por flags.'
+  }
   foreach ($required in @('deno.json','package.json','deno\main.js','api\reino.js','api\admin.js','backend\turso\schema.sql')) {
     if (-not (Test-Path (Join-Path $workPath $required))) { Falhar "Arquivo obrigatorio ausente apos download minimo: $required" }
   }
@@ -513,13 +529,61 @@ try {
     Ok "Banco Turso reutilizado: $TursoDatabase"
   }
 
+  function Get-TursoHostnameFromInstances {
+    param($Raw)
+    if ($null -eq $Raw) { return '' }
+
+    $instances = @()
+    if ($Raw -is [System.Array]) {
+      $instances = @($Raw)
+    } elseif ($Raw.PSObject.Properties['instances']) {
+      $instances = @($Raw.instances)
+    } elseif ($Raw.PSObject.Properties['data']) {
+      $dataNode = $Raw.data
+      if ($null -ne $dataNode) {
+        if ($dataNode -is [System.Array]) {
+          $instances = @($dataNode)
+        } elseif ($dataNode.PSObject.Properties['instances']) {
+          $instances = @($dataNode.instances)
+        } elseif ($dataNode.PSObject.Properties['instance']) {
+          $instances = @($dataNode.instance)
+        }
+      }
+    } elseif ($Raw.PSObject.Properties['instance']) {
+      $instances = @($Raw.instance)
+    }
+
+    $instances = @($instances | Where-Object { $null -ne $_ })
+    if ($instances.Count -lt 1) { return '' }
+
+    $candidate = $instances | Where-Object {
+      $typeProp = $_.PSObject.Properties | Where-Object { $_.Name -ieq 'type' } | Select-Object -First 1
+      $typeProp -and ([string]$typeProp.Value) -ieq 'primary'
+    } | Select-Object -First 1
+    if (-not $candidate) { $candidate = $instances | Select-Object -First 1 }
+    if (-not $candidate) { return '' }
+
+    $hostnameProp = $candidate.PSObject.Properties | Where-Object { $_.Name -ieq 'hostname' } | Select-Object -First 1
+    if (-not $hostnameProp) { return '' }
+    return ([string]$hostnameProp.Value).Trim()
+  }
+
   $hostname = Get-TursoDatabaseField $db 'Hostname'
   if (-not $hostname) {
     $detailRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase" -Token $platformToken
     $detailDb = Convert-ToTursoDatabase $detailRaw
     $hostname = Get-TursoDatabaseField $detailDb 'Hostname'
   }
-  if (-not $hostname) { Falhar 'Turso nao retornou hostname do banco apos normalizacao da resposta.' }
+
+  if (-not $hostname) {
+    $instancesRaw = Turso-Request -Method GET -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase/instances" -Token $platformToken
+    $hostname = Get-TursoHostnameFromInstances $instancesRaw
+    if ($hostname) { Ok "Hostname Turso obtido pela instancia primaria: $hostname" }
+  }
+
+  if (-not $hostname) {
+    Falhar 'Turso nao retornou hostname nem no detalhe do database nem na lista de instances.'
+  }
 
   $dbUrl = 'libsql://' + ($hostname -replace '^https?://','' -replace '^libsql://','')
   $dbTokenResp = Turso-Request -Method POST -Path "/v1/organizations/$orgSlug/databases/$TursoDatabase/auth/tokens?expiration=never&authorization=full-access" -Token $platformToken -Body @{}
@@ -626,7 +690,7 @@ try {
 
   $orgList = Executar-Nativo -Exe $DenoExe -Args @('deploy','orgs','list','--json','--non-interactive') -TimeoutSec 120 -Rotulo 'Listar organizacoes Deno autenticado'
   Exigir-Sucesso $orgList "Nao foi possivel autenticar/listar organizacoes do Deno Deploy.`n$($orgList.Text)"
-  try { $denoOrgs = @($orgList.Text | ConvertFrom-Json) } catch { Falhar "Deno retornou JSON de organizacoes invalido.`n$($orgList.Text)" }
+  try { $denoOrgs = @($orgList.Stdout | ConvertFrom-Json) } catch { Falhar "Deno retornou JSON de organizacoes invalido.`n$($orgList.Text)" }
 
   if ($denoOrgs.Count -lt 1) {
     Aviso 'A conta Deno ainda nao possui organizacao. O console oficial sera aberto; crie/confirme uma organizacao. O script detectara automaticamente.'
@@ -634,8 +698,8 @@ try {
     for ($attempt=1; $attempt -le 24 -and $denoOrgs.Count -lt 1; $attempt++) {
       Start-Sleep -Seconds 5
       $retryOrgs = Executar-Nativo -Exe $DenoExe -Args @('deploy','orgs','list','--json') -TimeoutSec 45 -Rotulo "Detectar organizacao Deno ($attempt/24)"
-      if ($retryOrgs.Code -eq 0 -and $retryOrgs.Text) {
-        try { $denoOrgs = @($retryOrgs.Text | ConvertFrom-Json) } catch { $denoOrgs = @() }
+      if ($retryOrgs.Code -eq 0 -and $retryOrgs.Stdout) {
+        try { $denoOrgs = @($retryOrgs.Stdout | ConvertFrom-Json) } catch { $denoOrgs = @() }
       }
     }
   }
@@ -669,6 +733,7 @@ try {
       '--org',$denoOrg,
       '--app',$DenoApp,
       '--source','local',
+      '--do-not-use-detected-build-config',
       '--runtime-mode','dynamic',
       '--entrypoint','deno/main.js',
       '--build-timeout','5',
@@ -708,7 +773,7 @@ try {
   Exigir-Sucesso $deploy 'Deploy Deno falhou.'
   $appInfo = Executar-Nativo -Exe $DenoExe -Args @('deploy','apps','get','--org',$denoOrg,'--app',$DenoApp,'--json','--non-interactive') -TimeoutSec 60 -Rotulo 'Obter URL oficial do backend Deno'
   Exigir-Sucesso $appInfo "Deploy terminou, mas apps get falhou.`n$($appInfo.Text)"
-  try { $appMeta = $appInfo.Text | ConvertFrom-Json } catch { Falhar "apps get retornou JSON invalido.`n$($appInfo.Text)" }
+  try { $appMeta = $appInfo.Stdout | ConvertFrom-Json } catch { Falhar "apps get retornou JSON invalido.`n$($appInfo.Text)" }
   $backend = ([string]$appMeta.productionUrl).TrimEnd('/')
   if (-not $backend -or $backend -notmatch '^https://') { Falhar "Deno nao retornou productionUrl valida para $DenoApp." }
   Ok "Backend: $backend"
@@ -758,7 +823,7 @@ try {
   Etapa 'PR e publicação do frontend'
   $prView = Executar-Nativo -Exe $gh -Args @('pr','view',"$PullRequest",'-R',$Repositorio,'--json','state,isDraft,mergedAt') -TimeoutSec 30 -Rotulo 'Estado da PR'
   Exigir-Sucesso $prView 'Não consegui ler a PR.'
-  $pr = $prView.Text | ConvertFrom-Json
+  $pr = $prView.Stdout | ConvertFrom-Json
   if (-not $pr.mergedAt) {
     if ($pr.isDraft) {
       $ready = Executar-Nativo -Exe $gh -Args @('pr','ready',"$PullRequest",'-R',$Repositorio) -TimeoutSec 45 -Rotulo 'Marcar PR pronta'
@@ -778,8 +843,8 @@ try {
   $runId = ''
   for ($i=1; $i -le 12 -and -not $runId; $i++) {
     $last = Executar-Nativo -Exe $gh -Args @('run','list','-R',$Repositorio,'--workflow','deploy-reino-tribal-pages.yml','--branch','main','--limit','1','--json','databaseId,status,conclusion') -TimeoutSec 30 -Rotulo 'Localizar deploy Pages'
-    if ($last.Code -eq 0 -and $last.Text) {
-      $runs = @($last.Text | ConvertFrom-Json)
+    if ($last.Code -eq 0 -and $last.Stdout) {
+      $runs = @($last.Stdout | ConvertFrom-Json)
       if ($runs.Count -gt 0) { $runId = [string]$runs[0].databaseId }
     }
     if (-not $runId) { Start-Sleep -Seconds 5 }
@@ -787,8 +852,8 @@ try {
   if (-not $runId) { Falhar 'Workflow do GitHub Pages não apareceu.' }
   for ($i=1; $i -le 60; $i++) {
     $view = Executar-Nativo -Exe $gh -Args @('run','view',$runId,'-R',$Repositorio,'--json','status,conclusion') -TimeoutSec 30 -Rotulo 'Acompanhar GitHub Pages'
-    if ($view.Code -eq 0 -and $view.Text) {
-      $obj = $view.Text | ConvertFrom-Json
+    if ($view.Code -eq 0 -and $view.Stdout) {
+      $obj = $view.Stdout | ConvertFrom-Json
       if ($obj.status -eq 'completed') {
         if ($obj.conclusion -ne 'success') { Falhar "GitHub Pages terminou com $($obj.conclusion)." }
         break
