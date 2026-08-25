@@ -1,0 +1,75 @@
+name: RT Admin Canonical Launcher
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'REINO_TRIBAL_ADMIN_EXECUTAR_CANONICO.ps1'
+      - '.github/workflows/rt-admin-canonical-launcher.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-canonical-launcher:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Parse and verify launcher contract
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $p=Resolve-Path '.\REINO_TRIBAL_ADMIN_EXECUTAR_CANONICO.ps1'
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'Launcher canonico nao passou no parser'}
+          $t=[IO.File]::ReadAllText($p)
+          foreach($needle in @(
+            "`$ExecutorCommit = 'e86544bcf3902c1e2600f5efc76cee09fdddb02c'",
+            "`$ExpectedSha256 = '8a9a93e0cee6f0f63e6df37ffeb60704d19cd7e287de0617d4fd924516bedfc2'",
+            'SHA256 DO EXECUTOR NAO CONFERE',
+            'RT_ADMIN_CANONICO_e86544bc.ps1'
+          )){if(-not $t.Contains($needle)){throw "Contrato launcher ausente: $needle"}}
+          Write-Host 'CANONICAL_LAUNCHER_PARSE_CONTRACT_PASS'
+
+      - name: Execute canonical launcher public preflight and cleanup
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $oldTemp=$env:TEMP
+          $isolated=Join-Path $env:RUNNER_TEMP ('rt-canonical-' + [Guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Force -Path $isolated|Out-Null
+          foreach($name in @('RT_ADMIN_FIX15.ps1','RT_ADMIN_FIX16.ps1','RT_ADMIN_FIX16_be58d645.ps1','REINO_TRIBAL_ADMIN_FIX15_FINAL.ps1','REINO_TRIBAL_ADMIN_FIX16_FINAL.ps1')){
+            Set-Content -LiteralPath (Join-Path $isolated $name) -Value 'LEGACY' -Encoding ASCII
+          }
+          $env:TEMP=$isolated
+          try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_EXECUTAR_CANONICO.ps1 -PreflightOnly
+            if($LASTEXITCODE -ne 0){throw "Launcher PreflightOnly falhou: $LASTEXITCODE"}
+            foreach($name in @('RT_ADMIN_FIX15.ps1','RT_ADMIN_FIX16.ps1','RT_ADMIN_FIX16_be58d645.ps1','REINO_TRIBAL_ADMIN_FIX15_FINAL.ps1','REINO_TRIBAL_ADMIN_FIX16_FINAL.ps1')){
+              if(Test-Path (Join-Path $isolated $name)){throw "Legado nao removido: $name"}
+            }
+            $target=Join-Path $isolated 'RT_ADMIN_CANONICO_e86544bc.ps1'
+            if(-not (Test-Path $target)){throw 'Executor canonico nao foi baixado no TEMP isolado'}
+            $sha=(Get-FileHash -Algorithm SHA256 $target).Hash.ToLowerInvariant()
+            if($sha -ne '8a9a93e0cee6f0f63e6df37ffeb60704d19cd7e287de0617d4fd924516bedfc2'){throw "SHA divergente no teste: $sha"}
+            Write-Host 'CANONICAL_LAUNCHER_PREFLIGHT_CLEANUP_SHA_PASS'
+          } finally {
+            $env:TEMP=$oldTemp
+            Remove-Item $isolated -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Execute canonical launcher ValidateOnly with Deno 2.9.5
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $deno=(Get-Command deno).Source
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_EXECUTAR_CANONICO.ps1 -ValidateOnly -DenoExeOverride $deno
+          if($LASTEXITCODE -ne 0){throw "Launcher ValidateOnly falhou: $LASTEXITCODE"}
+          Write-Host 'CANONICAL_LAUNCHER_DENO_VALIDATE_PASS'
