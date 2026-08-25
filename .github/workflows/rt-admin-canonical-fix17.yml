@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'RT_ADMIN_CANONICAL_FIX17.ps1'
+      - 'REINO_TRIBAL_CONTINUAR.ps1'
       - '.github/workflows/rt-admin-canonical-fix17.yml'
   workflow_dispatch:
 
@@ -121,6 +122,60 @@ jobs:
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_ATUAL.ps1 -ValidateOnly -DenoExeOverride $deno
           if($LASTEXITCODE -ne 0){throw "FIX17 ValidateOnly falhou: $LASTEXITCODE"}
           Write-Host 'FIX17_PINNED_BACKEND_DENO_CHECK_PASS'
+
+      - name: Parse and verify canonical launcher
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $p=Resolve-Path '.\REINO_TRIBAL_CONTINUAR.ps1'
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List;throw 'Launcher nao passou no parser PowerShell'}
+          $t=[IO.File]::ReadAllText($p)
+          foreach($needle in @(
+            "`$CanonicalCommit = 'e57caab5f36096575902438e9ec2145c1b90ef8f'",
+            "`$CanonicalVersion = 'FIX17'",
+            "`$CanonicalRevision = 'CHECKPOINT-1'",
+            'REINO_TRIBAL_ADMIN_ATUAL_FIX17_CHECKPOINT1_',
+            'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt',
+            'REINO_TRIBAL_LAUNCHER_CANONICO_CONCLUIDO'
+          )){if(-not $t.Contains($needle)){throw "Contrato launcher ausente: $needle"}}
+          Write-Host 'LAUNCHER_PARSE_PIN_CONTRACT_PASS'
+
+      - name: Prove launcher cleanup and identity
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          foreach($name in @('RT_ADMIN_FIX15_STALE.ps1','RT_ADMIN_FIX16_STALE.ps1','REINO_TRIBAL_ADMIN_FIX15_STALE.ps1','REINO_TRIBAL_ADMIN_FIX16_STALE.ps1')){
+            Set-Content -Path (Join-Path $env:TEMP $name) -Value 'stale'
+          }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -IdentityOnly
+          if($LASTEXITCODE -ne 0){throw "Launcher IdentityOnly falhou: $LASTEXITCODE"}
+          foreach($name in @('RT_ADMIN_FIX15_STALE.ps1','RT_ADMIN_FIX16_STALE.ps1','REINO_TRIBAL_ADMIN_FIX15_STALE.ps1','REINO_TRIBAL_ADMIN_FIX16_STALE.ps1')){
+            if(Test-Path (Join-Path $env:TEMP $name)){throw "Launcher deixou stale no TEMP: $name"}
+          }
+          $marker=Join-Path $env:TEMP 'REINO_TRIBAL_EXECUTOR_ATIVO.txt'
+          if(-not (Test-Path $marker)){throw 'Launcher nao produziu marcador do executor canonico'}
+          $m=[IO.File]::ReadAllText($marker)
+          foreach($needle in @('version=FIX17','revision=CHECKPOINT-1','backend=https://reino-tribal-api.mestrederpg35.deno.net')){if(-not $m.Contains($needle)){throw "Marcador launcher ausente: $needle"}}
+          Write-Host 'LAUNCHER_STALE_CLEANUP_IDENTITY_PASS'
+
+      - name: Execute public preflight through launcher
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -PreflightOnly
+          if($LASTEXITCODE -ne 0){throw "Launcher PreflightOnly falhou: $LASTEXITCODE"}
+          Write-Host 'LAUNCHER_PUBLIC_PREFLIGHT_PASS'
+
+      - name: Validate backend through launcher with Deno 2.9.5
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $deno=(Get-Command deno).Source
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -ValidateOnly -DenoExeOverride $deno
+          if($LASTEXITCODE -ne 0){throw "Launcher ValidateOnly falhou: $LASTEXITCODE"}
+          Write-Host 'LAUNCHER_DENO_PINNED_BACKEND_PASS'
 
       - name: Publish canonical executor
         shell: powershell
