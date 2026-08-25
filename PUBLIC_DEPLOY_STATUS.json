@@ -4,11 +4,11 @@
   "status": "failed",
   "http_status": 200,
   "url": "https://kaalflash12.github.io/reinos-tribais-online/",
-  "diagnosed_commit": "4ca2567988bf0587ce09e0e34550900f99a74357",
+  "diagnosed_commit": "ad0641cecbb02c23ca677a5fccda62d9c88ef620",
   "pages_api_http": 200,
   "pages": {
     "url": "https://api.github.com/repos/kaalflash12/reinos-tribais-online/pages",
-    "status": "building",
+    "status": "errored",
     "cname": null,
     "custom_404": false,
     "html_url": "https://kaalflash12.github.io/reinos-tribais-online/",
@@ -32,5 +32,5 @@
     "auth_http_200": true,
     "auth_bridge_present": true
   },
-  "verified_at_utc": "2026-08-25T23:56:53.835848+00:00"
+  "verified_at_utc": "2026-08-25T23:57:20.583814+00:00"
 }
