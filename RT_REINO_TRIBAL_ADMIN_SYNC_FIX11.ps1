@@ -44,7 +44,7 @@ try {
     'recovery_key=$recoveryKey',
     'Credencial ADM sincronizada com o Turso para esta execucao.',
     "action='login'; identifier='reinos_admin'; password=`$adminPassword",
-    "Ok 'PR já estava mesclada.'",
+    '$pr.mergedAt',
     'Get-TursoHostnameFromInstances',
     '--do-not-use-detected-build-config',
     'package.json',
