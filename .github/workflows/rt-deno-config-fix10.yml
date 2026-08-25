@@ -79,7 +79,7 @@ jobs:
           if ($code -ne 0) { throw "Deno create --dry-run falhou com exit $code. Saida: $plain" }
           if ($plain -match 'missing field.*org|Failed to parse.*deploy.*configuration') { throw "Deno ainda caiu no parser deploy conflitante: $plain" }
           if ($plain -notmatch 'runtime mode\s+dynamic') { throw "Dry-run nao confirmou runtime dynamic: $plain" }
-          if ($plain -notmatch 'entrypoint\s+\.\/deno\/main\.js') { throw "Dry-run nao confirmou entrypoint ./deno/main.js: $plain" }
+          if ($plain -notmatch 'entrypoint\s+(?:\.\/)?deno\/main\.js') { throw "Dry-run nao confirmou entrypoint deno/main.js: $plain" }
           Write-Host 'DENO_2_9_5_SANITIZED_EXACT_CREATE_DRY_RUN_PASS'
 
       - name: Validate real six-file backend with sanitized deno.json
