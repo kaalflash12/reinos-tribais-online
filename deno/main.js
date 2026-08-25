@@ -30,7 +30,8 @@ class CompatResponse {
   }
 
   toResponse() {
-    return new Response(this.body, {
+    const noBodyStatus = this.statusCode === 204 || this.statusCode === 205 || this.statusCode === 304;
+    return new Response(noBodyStatus ? null : this.body, {
       status: this.statusCode,
       headers: this.headers,
     });
