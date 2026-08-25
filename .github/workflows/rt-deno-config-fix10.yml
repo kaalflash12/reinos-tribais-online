@@ -42,8 +42,9 @@ jobs:
           }
           Copy-Item $out (Join-Path $env:RUNNER_TEMP 'EXECUTAR_REINO_TRIBAL_DENO_TURSO_FINAL.ps1') -Force
           Copy-Item $out (Join-Path $env:RUNNER_TEMP 'IMPLANTAR_REINO_TRIBAL_DENO_TURSO.ps1') -Force
+          Write-Host 'FIX10_EXECUTOR_PARSE_AND_CONTRACT_PASS'
 
-      - name: Deno 2.9.5 prove old parser bug and both FIX10 mitigations
+      - name: Deno 2.9.5 exact create dry-run with sanitized config
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
@@ -53,70 +54,33 @@ jobs:
           Invoke-WebRequest -UseBasicParsing 'https://github.com/denoland/deno/releases/download/v2.9.5/deno-x86_64-pc-windows-msvc.zip' -OutFile $zip -TimeoutSec 180
           Expand-Archive $zip -DestinationPath $root -Force
           $deno = Join-Path $root 'deno.exe'
-          & $deno --version
-          if ($LASTEXITCODE -ne 0) { throw 'Deno 2.9.5 nao executou.' }
+          $version = (& $deno --version | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch 'deno 2\.9\.5') { throw "Deno 2.9.5 nao executou corretamente: $version" }
 
           $proj = Join-Path $root 'project'
           New-Item -ItemType Directory -Force -Path (Join-Path $proj 'deno') | Out-Null
-          Set-Content -Path (Join-Path $proj 'deno\main.js') -Value "Deno.serve(() => new Response('ok'));" -Encoding UTF8
-          Set-Content -Path (Join-Path $proj 'package.json') -Value '{"dependencies":{}}' -Encoding UTF8
-
-          $bad = @'
-          {
-            "nodeModulesDir": "auto",
-            "deploy": {
-              "runtime": {
-                "type": "dynamic",
-                "entrypoint": "./deno/main.js"
-              }
-            }
-          }
-          '@
-
-          function Invoke-DenoDryRun([switch]$Bypass) {
-            $previousEap = $ErrorActionPreference
-            try {
-              $ErrorActionPreference = 'Continue'
-              $args = @('deploy','create','.','--org','fixture-org','--app','fixture-app','--source','local','--runtime-mode','dynamic','--entrypoint','deno/main.js','--build-timeout','5','--build-memory-limit','1024','--region','global')
-              if ($Bypass) { $args += '--do-not-use-detected-build-config' }
-              $args += @('--dry-run','--non-interactive')
-              $text = (& $deno @args 2>&1 | Out-String)
-              $code = $LASTEXITCODE
-              return [pscustomobject]@{ Code=$code; Text=$text }
-            } finally {
-              $ErrorActionPreference = $previousEap
-            }
-          }
+          [IO.File]::WriteAllText((Join-Path $proj 'deno\main.js'),"Deno.serve(() => new Response('ok'));`n",(New-Object Text.UTF8Encoding($false)))
+          [IO.File]::WriteAllText((Join-Path $proj 'package.json'),"{`"dependencies`":{}}`n",(New-Object Text.UTF8Encoding($false)))
+          [IO.File]::WriteAllText((Join-Path $proj 'deno.json'),"{`n  `"nodeModulesDir`": `"auto`"`n}`n",(New-Object Text.UTF8Encoding($false)))
 
           Push-Location $proj
+          $oldEap = $ErrorActionPreference
           try {
-            $env:DENO_DEPLOY_TOKEN = 'ci-intentionally-invalid-token'
-
-            [IO.File]::WriteAllText((Join-Path $proj 'deno.json'),$bad,(New-Object Text.UTF8Encoding($false)))
-            $old = Invoke-DenoDryRun
-            if ($old.Text -notmatch 'Failed to parse.*deploy.*configuration|missing field.*org') {
-              throw "Deno 2.9.5 sem bypass nao reproduziu o conflito do deno.json antigo. Exit=$($old.Code) Saida: $($old.Text)"
-            }
-            Write-Host 'DENO_2_9_5_OLD_DEPLOY_CONFIG_MISSING_ORG_REPRODUCED'
-
-            $bypassed = Invoke-DenoDryRun -Bypass
-            if ($bypassed.Text -match 'Failed to parse.*deploy.*configuration|missing field.*org') {
-              throw "Bypass ainda caiu no parser deploy antigo. Exit=$($bypassed.Code) Saida: $($bypassed.Text)"
-            }
-            Write-Host "DENO_2_9_5_BYPASS_DETECTED_CONFIG_NO_MISSING_ORG_PASS exit=$($bypassed.Code)"
-
-            [IO.File]::WriteAllText((Join-Path $proj 'deno.json'),"{`n  `"nodeModulesDir`": `"auto`"`n}`n",(New-Object Text.UTF8Encoding($false)))
-            $sanitized = Invoke-DenoDryRun
-            if ($sanitized.Text -match 'Failed to parse.*deploy.*configuration|missing field.*org') {
-              throw "Config saneada ainda caiu no parser deploy antigo. Exit=$($sanitized.Code) Saida: $($sanitized.Text)"
-            }
-            Write-Host "DENO_2_9_5_SANITIZED_CONFIG_NO_MISSING_ORG_PASS exit=$($sanitized.Code)"
+            $ErrorActionPreference = 'Continue'
+            $text = (& $deno deploy create . --org fixture-org --app fixture-app --source local --runtime-mode dynamic --entrypoint deno/main.js --build-timeout 5 --build-memory-limit 1024 --region global --do-not-use-detected-build-config --dry-run --non-interactive 2>&1 | Out-String)
+            $code = $LASTEXITCODE
           } finally {
+            $ErrorActionPreference = $oldEap
             Pop-Location
-            Remove-Item Env:DENO_DEPLOY_TOKEN -ErrorAction SilentlyContinue
           }
+          $plain = $text -replace "`e\[[0-9;]*[A-Za-z]",''
+          if ($code -ne 0) { throw "Deno create --dry-run falhou com exit $code. Saida: $plain" }
+          if ($plain -match 'missing field.*org|Failed to parse.*deploy.*configuration') { throw "Deno ainda caiu no parser deploy conflitante: $plain" }
+          if ($plain -notmatch 'runtime mode\s+dynamic') { throw "Dry-run nao confirmou runtime dynamic: $plain" }
+          if ($plain -notmatch 'entrypoint\s+\.\/deno\/main\.js') { throw "Dry-run nao confirmou entrypoint ./deno/main.js: $plain" }
+          Write-Host 'DENO_2_9_5_SANITIZED_EXACT_CREATE_DRY_RUN_PASS'
 
-      - name: Validate real backend still checks with sanitized deno.json
+      - name: Validate real six-file backend with sanitized deno.json
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
@@ -136,7 +100,7 @@ jobs:
             & $deno check deno/main.js
             if ($LASTEXITCODE -ne 0) { throw "deno check real falhou: $LASTEXITCODE" }
           } finally { Pop-Location }
-          Write-Host 'DENO_2_9_5_REAL_BACKEND_SANITIZED_CHECK_PASS'
+          Write-Host 'DENO_2_9_5_REAL_6_FILES_SANITIZED_CHECK_PASS'
 
       - name: Publish tested canonical executors to main
         if: github.event_name == 'push' && github.ref == 'refs/heads/rt-turso-migration'
