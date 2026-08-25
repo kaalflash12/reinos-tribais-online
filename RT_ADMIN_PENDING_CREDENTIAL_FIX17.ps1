@@ -9,17 +9,8 @@ $newCred = '$CredFile = Join-Path $CredDir ''CREDENCIAIS_ADMIN_REINO_TRIBAL.txt'
 if (-not $text.Contains($oldCred)) { throw 'Linha CredFile nao encontrada.' }
 $text = $text.Replace($oldCred,$newCred)
 
-$oldGen = @'
-  $adminPassword = 'RT!' + (Novo-Segredo 30)
-  $recoveryKey = Novo-Segredo 48
-
-  Etapa 'Atualizando autoridade ADM no Deno'
-'@
-$oldGen = $oldGen.TrimEnd("`r","`n")
-$newGen = @'
-  $adminPassword = 'RT!' + (Novo-Segredo 30)
-  $recoveryKey = Novo-Segredo 48
-
+$marker = "  Etapa 'Atualizando autoridade ADM no Deno'"
+$pendingBlock = @'
   New-Item -ItemType Directory -Force -Path $CredDir | Out-Null
   $pendingCred = @(
     'REINO TRIBAL - CREDENCIAIS ADMINISTRATIVAS PENDENTES',
@@ -36,9 +27,9 @@ $newGen = @'
 
   Etapa 'Atualizando autoridade ADM no Deno'
 '@
-$newGen = $newGen.TrimEnd("`r","`n")
-if (-not $text.Contains($oldGen)) { throw 'Bloco de geracao de senha FIX16 nao encontrado.' }
-$text = $text.Replace($oldGen,$newGen)
+$pendingBlock = $pendingBlock.TrimEnd("`r","`n")
+if (-not $text.Contains($marker)) { throw 'Marcador de update Deno FIX16 nao encontrado.' }
+$text = $text.Replace($marker,$pendingBlock)
 
 $oldWrite = '[IO.File]::WriteAllText($CredFile,$cred,(New-Object Text.UTF8Encoding($true)))'
 $newWrite = $oldWrite + "`n  Remove-Item `$PendingCredFile -Force -ErrorAction SilentlyContinue"
@@ -61,12 +52,13 @@ foreach ($needle in @(
   if (-not $text.Contains($needle)) { throw "Contrato FIX17 ausente: $needle" }
 }
 
+$iPassword = $text.IndexOf("`$adminPassword = 'RT!' + (Novo-Segredo 30)")
 $iPending = $text.IndexOf('[IO.File]::WriteAllText($PendingCredFile')
 $iUpdate = $text.IndexOf("'deploy','env','update-value','RT_ADMIN_PASSWORD'")
 $iFinal = $text.IndexOf('[IO.File]::WriteAllText($CredFile,$cred')
 $iRemove = $text.IndexOf('Remove-Item $PendingCredFile -Force')
-if ($iPending -lt 0 -or $iUpdate -lt 0 -or $iFinal -lt 0 -or $iRemove -lt 0 -or -not ($iPending -lt $iUpdate -and $iUpdate -lt $iFinal -and $iFinal -lt $iRemove)) {
-  throw 'Ordem FIX17 invalida: pending -> update Deno -> credencial valida -> remover pending.'
+if ($iPassword -lt 0 -or $iPending -lt 0 -or $iUpdate -lt 0 -or $iFinal -lt 0 -or $iRemove -lt 0 -or -not ($iPassword -lt $iPending -and $iPending -lt $iUpdate -and $iUpdate -lt $iFinal -and $iFinal -lt $iRemove)) {
+  throw 'Ordem FIX17 invalida: gerar senha -> pending -> update Deno -> credencial valida -> remover pending.'
 }
 
 [IO.File]::WriteAllText($dst,$text,(New-Object Text.UTF8Encoding($false)))
