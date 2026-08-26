@@ -27,7 +27,8 @@ jobs:
           node --check rt85-auth-bridge.js
           $bridge=Get-Content rt85-auth-bridge.js -Raw
           if($bridge -notmatch '__RT89_RECOVERY_SAFE__'){throw 'RT89 recovery marker ausente'}
-          if($bridge -notmatch "version:'1.0.5-turso-recovery-safe'"){throw 'Versão Turso recovery-safe ausente'}
+          if($bridge -notmatch "version:'1.0.6-turso-recovery-complete'"){throw 'Versão Turso recovery-complete ausente'}
+          if($bridge -notmatch 'data-rt64-recovery'){throw 'Conversão RT64 recovery ausente'}
       - name: Wait for GitHub Pages to publish RT89 bridge
         shell: pwsh
         run: |
@@ -38,11 +39,11 @@ jobs:
             try{
               $stamp=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
               $text=(Invoke-WebRequest -UseBasicParsing ($url+'?rt89='+$stamp) -TimeoutSec 15).Content
-              if($text -match '__RT89_RECOVERY_SAFE__' -and $text -match '1.0.5-turso-recovery-safe'){$ok=$true;break}
+              if($text -match '__RT89_RECOVERY_SAFE__' -and $text -match '1.0.6-turso-recovery-complete'){$ok=$true;break}
             }catch{}
             Start-Sleep -Seconds 3
           }
-          if(-not $ok){throw 'GitHub Pages não publicou o bridge RT89 dentro do gate.'}
+          if(-not $ok){throw 'GitHub Pages não publicou o bridge RT89 final dentro do gate.'}
           Write-Host 'RT89_PAGES_PUBLISHED_PASS'
       - name: Install Selenium
         run: python -m pip install --disable-pip-version-check --quiet selenium
