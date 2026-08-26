@@ -8,6 +8,7 @@ on:
       - 'tools/rt91_process_helpers.ps1'
       - 'tools/rt90_admin_public_proof.mjs'
       - 'tools/rt79_edge_public_regression.py'
+      - 'tools/rt80_edge_clean_public_regression.py'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - 'tools/rt91_process_helpers.ps1'
       - 'tools/rt90_admin_public_proof.mjs'
       - 'tools/rt79_edge_public_regression.py'
+      - 'tools/rt80_edge_clean_public_regression.py'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
   workflow_dispatch:
 
@@ -93,11 +95,13 @@ jobs:
         shell: pwsh
         run: |
           node --check tools/rt90_admin_public_proof.mjs
-          python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py
+          python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py tools/rt80_edge_clean_public_regression.py
           $js=Get-Content tools/rt90_admin_public_proof.mjs -Raw
           $mobile=Get-Content tools/rt79_edge_public_regression.py -Raw
+          $clean=Get-Content tools/rt80_edge_clean_public_regression.py -Raw
           foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network','RT90_VALIDATE_ONLY','setEdgeService','matching EdgeDriver resolved without Selenium Manager','sendDevToolsCommand','Emulation.setDeviceMetricsOverride','mobile CDP device metrics 390x844')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
           foreach($needle in @('mobile_gameplay_e2e','mobile_online_e2e','provision_mobile_player','execute_cdp_cmd','Emulation.setDeviceMetricsOverride','mobile online viewport 390','RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png','RT80_MOBILE_ONLINE_TURSO_E2E.png')){if(-not $mobile.Contains($needle)){throw "Runner mobile sem contrato: $needle"}}
+          foreach($needle in @('mobile-e2e=clean-entry','mobile clean production entry','edge.mobile_gameplay_e2e = clean_mobile_gameplay_e2e')){if(-not $clean.Contains($needle)){throw "Wrapper mobile limpo sem contrato: $needle"}}
           Write-Host 'RT90_CDP_BROWSER_RUNNER_STATIC_PASS'
       - name: Run real Edge/Selenium runtime without credentials
         shell: pwsh
@@ -123,7 +127,7 @@ jobs:
           python -m pip install --disable-pip-version-check --quiet selenium
           $env:RT79_TEST_URL='https://kaalflash12.github.io/reinos-tribais-online/'
           $env:RT79_REQUIRE_MOBILE_ONLINE='1'
-          python tools/rt79_edge_public_regression.py
+          python tools/rt80_edge_clean_public_regression.py
           if($LASTEXITCODE -ne 0){throw "RT80 mobile E2E exit code $LASTEXITCODE"}
           $proofPath=Join-Path $env:RUNNER_TEMP 'RT79_BROWSER_REGRESSION\PROVA_BROWSER_RT79.json'
           if(-not (Test-Path $proofPath)){throw 'Prova RT80 mobile ausente.'}
