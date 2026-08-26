@@ -1,6 +1,7 @@
 import reinoHandler from '../api/reino.js';
 import adminHandler from '../api/admin.js';
 import realtimeHandler from '../api/realtime.js';
+import strategyHandler from '../api/strategy.js';
 
 class CompatResponse {
   constructor() {
@@ -76,6 +77,7 @@ Deno.serve(async (request) => {
     if (pathname === '/ws' || pathname === '/api/realtime/ws') return realtimeHandler(request);
     if (pathname === '/api/reino') return await runHandler(reinoHandler, request);
     if (pathname === '/api/admin') return await runHandler(adminHandler, request);
+    if (pathname === '/api/strategy') return await runHandler(strategyHandler, request);
     if (pathname === '/' || pathname === '/health') {
       return new Response(JSON.stringify({
         ok: true,
@@ -84,6 +86,8 @@ Deno.serve(async (request) => {
         database: 'turso',
         realtime: true,
         websocket: '/ws',
+        strategy: true,
+        strategy_endpoint: '/api/strategy',
         version: '1.0.4-turso',
       }), {
         status: 200,
