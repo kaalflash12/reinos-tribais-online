@@ -72,7 +72,7 @@ jobs:
             "`$CanonicalVersion = 'RT91'",
             "`$CanonicalRevision = 'SAFE-CLI-AUTH-4'",
             "`$CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",
-            "`$CanonicalGate = 'AUTH4_PATCH_POSTVALIDATION'",
+            "`$CanonicalGate = 'AUTH4_PATCH_POSTVALIDATION_V2'",
             "`$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1'",
             'DENO_ENV_LIST_AUTH_CONTRACT',
             'DENO_DOCUMENTED_CLI_ONLY_CONTRACT',
