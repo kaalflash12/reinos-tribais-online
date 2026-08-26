@@ -18,7 +18,7 @@ permissions:
 jobs:
   powershell-51-native-stderr:
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +28,29 @@ jobs:
           $PSVersionTable | Format-List
           if ($PSVersionTable.PSEdition -ne 'Desktop') { throw 'Este gate exige Windows PowerShell Desktop 5.1.' }
           if ($PSVersionTable.PSVersion.Major -ne 5) { throw 'Versao inesperada do Windows PowerShell.' }
+      - name: Install exact Deno 2.9.5
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+      - name: Verify exact Deno Deploy CLI surface used by AUTH10
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $v = (& deno --version | Select-Object -First 1)
+          if ($v -notmatch '^deno 2\.9\.5$') { throw "Deno inesperado: $v" }
+          $checks = @(
+            @{Label='whoami'; Args=@('deploy','whoami','--help'); Need=@('--json')},
+            @{Label='orgs list'; Args=@('deploy','orgs','list','--help'); Need=@('--json')},
+            @{Label='apps get'; Args=@('deploy','apps','get','--help'); Need=@('--json','--non-interactive')},
+            @{Label='env list'; Args=@('deploy','env','list','--help'); Need=@('--json','--non-interactive')},
+            @{Label='env update-value'; Args=@('deploy','env','update-value','--help'); Need=@('--json','--non-interactive')}
+          )
+          foreach($check in $checks){
+            $text = (& deno @($check.Args) 2>&1 | Out-String)
+            if($LASTEXITCODE -ne 0){throw ("Deno CLI surface falhou em "+$check.Label+": `n"+$text)}
+            foreach($needle in $check.Need){if(-not $text.Contains($needle)){throw ("Deno CLI "+$check.Label+" nao expoe "+$needle+": `n"+$text)}}
+            Write-Host ('PASS: Deno 2.9.5 '+$check.Label)
+          }
       - name: Run exact AUTH10 native stderr selftest
         shell: powershell
         run: .\tools\rt91_windows_native_stderr_selftest.ps1
