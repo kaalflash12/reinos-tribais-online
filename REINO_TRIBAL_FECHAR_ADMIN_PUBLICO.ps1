@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 
 $Repo='kaalflash12/reinos-tribais-online'
+$BundleCommit='f952bc960cb63e3c7cb5177539cb6b19c728c804'
 $Frontend='https://kaalflash12.github.io/reinos-tribais-online/'
 $Api='https://reino-tribal-api.mestrederpg35.deno.net'
 $CredDir=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal'
@@ -23,16 +24,17 @@ function Download([string]$Url,[string]$Out){
 try{
   New-Item -ItemType Directory -Force -Path $Tmp,$CredDir,$ProofDir | Out-Null
   Write-Host '=== REINOS TRIBAIS - FECHAMENTO TOTAL ADM + MOBILE RT90/RT91 ===' -ForegroundColor Cyan
+  Write-Host ('BUNDLE PINADO: '+$BundleCommit) -ForegroundColor DarkGray
 
-  Download "https://raw.githubusercontent.com/$Repo/main/REINO_TRIBAL_CONTINUAR.ps1" $Launcher
+  Download "https://raw.githubusercontent.com/$Repo/$BundleCommit/REINO_TRIBAL_CONTINUAR.ps1" $Launcher
   $parsed=$null;$errs=$null
   [Management.Automation.Language.Parser]::ParseFile($Launcher,[ref]$parsed,[ref]$errs)|Out-Null
   if($errs.Count){Fail ('Launcher canonico possui erro de parser: '+($errs|Out-String))}
   $launcherText=[IO.File]::ReadAllText($Launcher)
-  foreach($needle in @("`$CanonicalVersion = 'RT91'","`$CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT')){
+  foreach($needle in @("`$CanonicalVersion = 'RT91'","`$CanonicalRevision = 'SAFE-CLI-AUTH-4'","`$CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",'AUTH4_PATCH_POSTVALIDATION_V2','ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT')){
     if(-not $launcherText.Contains($needle)){Fail ('Launcher não cumpre RT91 seguro: '+$needle)}
   }
-  Pass 'launcher RT91 SAFE baixado, parseado e protegido contra downgrade'
+  Pass 'launcher RT91 AUTH4 pinado, parseado e protegido contra downgrade'
 
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Launcher
   if($LASTEXITCODE -ne 0){Fail ('RT91 terminou com exit code '+$LASTEXITCODE)}
@@ -53,12 +55,12 @@ try{
 
   $Deno=Join-Path (Join-Path $env:LOCALAPPDATA 'ReinoTribalTools\deno-2.9.5') 'deno.exe'
   if(-not (Test-Path $Deno)){$dc=Get-Command deno.exe -ErrorAction SilentlyContinue;if($dc){$Deno=$dc.Source}else{Fail 'Deno 2.9.5 não encontrado após RT91.'}}
-  Download "https://raw.githubusercontent.com/$Repo/main/tools/rt90_admin_public_proof.mjs" $BrowserTest
+  Download "https://raw.githubusercontent.com/$Repo/$BundleCommit/tools/rt90_admin_public_proof.mjs" $BrowserTest
   $runnerText=[IO.File]::ReadAllText($BrowserTest)
   foreach($needle in @('temporary player registered in production','temporary player joined Mundo 1','mobile player login through public UI','mobile player save routed to Turso','mobile player load matches marker','mobile zero legacy Supabase network','RT90_MOBILE_PLAYER_TURSO_E2E.png')){
     if(-not $runnerText.Contains($needle)){Fail ('Runner público não contém contrato mobile: '+$needle)}
   }
-  Pass 'runner público ADM + mobile baixado e contrato mobile confirmado'
+  Pass 'runner público ADM + mobile pinado e contrato mobile confirmado'
 
   $env:RT_FINAL_ADMIN_PASSWORD=$password
   $env:RT_FINAL_FRONTEND=$Frontend
