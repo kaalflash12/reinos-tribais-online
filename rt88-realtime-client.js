@@ -6,6 +6,7 @@
   const SESSION_KEY='reinos_tribais_supabase_session_v60_browser';
   const DEFAULT_WORLD='d5a546fb-316d-4332-ae92-1886d80b07df';
   const MAX_BACKOFF=15000;
+  const CAPABILITY_TTL=30000;
 
   let socket=null;
   let state='idle';
@@ -15,6 +16,8 @@
   let reconnectAttempt=0;
   let manualClose=false;
   let seq=0;
+  let capabilityCheckedAt=0;
+  let realtimeSupported=false;
   const pending=new Map();
 
   const session=()=>{try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null')}catch{return null}};
@@ -37,6 +40,20 @@
       u.pathname='/ws';u.search='';u.hash='';
       return u.toString();
     }catch{return ''}
+  }
+
+  async function supportsRealtime(force=false){
+    const base=apiBase();
+    if(!base){realtimeSupported=false;return false}
+    const now=Date.now();
+    if(!force&&capabilityCheckedAt&&now-capabilityCheckedAt<CAPABILITY_TTL)return realtimeSupported;
+    capabilityCheckedAt=now;
+    try{
+      const response=await fetch(`${base}/health`,{method:'GET',cache:'no-store',headers:{Accept:'application/json'}});
+      const data=await response.json().catch(()=>null);
+      realtimeSupported=Boolean(response.ok&&data?.ok===true&&data?.realtime===true&&data?.websocket==='/ws');
+    }catch{realtimeSupported=false}
+    return realtimeSupported;
   }
 
   function send(type,data={},id=''){
@@ -97,20 +114,26 @@
     setState('online',{world_id:selectedWorld,user:auth?.data?.user||null});
   }
 
-  function scheduleReconnect(){
+  function scheduleReconnect(delayOverride=0){
     if(manualClose||reconnectTimer)return;
     const current=session();
     if(!current?.access_token){setState('waiting-session');return}
-    const delay=Math.min(MAX_BACKOFF,750*Math.pow(2,Math.min(5,reconnectAttempt++)));
-    setState('reconnecting',{delay});
+    const delay=delayOverride||Math.min(MAX_BACKOFF,750*Math.pow(2,Math.min(5,reconnectAttempt++)));
+    setState(realtimeSupported?'reconnecting':'unavailable',{delay,reason:realtimeSupported?'socket':'backend-capability'});
     reconnectTimer=setTimeout(()=>{reconnectTimer=0;connect()},delay);
   }
 
-  function connect(){
+  async function connect(){
     manualClose=false;
     const url=wsUrl();
     if(!url){setState('unavailable',{reason:'api-base'});return false}
     if(socket&&(socket.readyState===WebSocket.OPEN||socket.readyState===WebSocket.CONNECTING))return true;
+
+    if(!(await supportsRealtime())){
+      setState('unavailable',{reason:'backend-no-realtime'});
+      scheduleReconnect(CAPABILITY_TTL);
+      return false;
+    }
 
     try{
       setState('connecting',{url});
@@ -158,11 +181,12 @@
 
   window.ReinoTribalRealtime={
     version:'rt88-v1',
-    connect,disconnect,notify,ping,
+    connect,disconnect,notify,ping,supportsRealtime,
     get state(){return state},
     get online(){return state==='online'},
     get authenticated(){return authenticated},
     get worldId(){return selectedWorld},
+    get supported(){return realtimeSupported},
     get url(){return wsUrl()},
   };
 
