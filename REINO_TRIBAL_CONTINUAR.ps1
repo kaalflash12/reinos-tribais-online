@@ -1,3 +1,4 @@
+# RT91 AUTH4 canonical gate retrigger; sem alteracao de comportamento.
 param(
   [switch]$IdentityOnly,
   [switch]$PreflightOnly,
