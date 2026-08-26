@@ -1,0 +1,312 @@
+param(
+  [string]$Repositorio = 'kaalflash12/reinos-tribais-online',
+  [string]$DenoOrg = 'mestrederpg35',
+  [string]$DenoApp = 'reino-tribal-api',
+  [string]$DenoVersion = '2.9.5',
+  [string]$DenoExeOverride = '',
+  [switch]$ValidateOnly,
+  [switch]$PreflightOnly,
+  [switch]$IdentityOnly
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$ToolRoot = Join-Path $env:LOCALAPPDATA 'ReinoTribalTools'
+$PortableDeno = Join-Path (Join-Path $ToolRoot ("deno-$DenoVersion")) 'deno.exe'
+$DenoExe = if ($DenoExeOverride) { $DenoExeOverride } elseif (Test-Path $PortableDeno) { $PortableDeno } else { $cmd = Get-Command deno.exe -ErrorAction SilentlyContinue; if ($cmd) { $cmd.Source } else { $PortableDeno } }
+$CurlCmd = Get-Command curl.exe -ErrorAction SilentlyContinue
+$WorkRoot = Join-Path $env:TEMP ('reino-tribal-admin-rt91-cli-' + [Guid]::NewGuid().ToString('N'))
+$Backend = "https://$DenoApp.$DenoOrg.deno.net"
+$Frontend = 'https://kaalflash12.github.io/reinos-tribais-online/'
+$CredDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal'
+$CredFile = Join-Path $CredDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL.txt'
+$PendingCredFile = Join-Path $CredDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt'
+$ExecutionMarker = Join-Path $env:TEMP 'REINO_TRIBAL_EXECUTOR_ATIVO.txt'
+$ExecutorVersion = 'RT91'
+$ExecutorRevision = 'SAFE-CLI-AUTH-2'
+$ExecutorContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'
+$ExpectedBackend = 'https://reino-tribal-api.mestrederpg35.deno.net'
+$MainCommit = ''
+
+function Etapa([string]$Texto) { Write-Host "`n=== $Texto ===" -ForegroundColor Cyan }
+function Ok([string]$Texto) { Write-Host ('PASS: ' + $Texto) -ForegroundColor Green }
+function Falhar([string]$Texto) { throw $Texto }
+
+function Quote-Arg([string]$Value) {
+  if ($null -eq $Value) { return '""' }
+  if ($Value -notmatch '[\s"]') { return $Value }
+  return '"' + ($Value -replace '(\\*)"','$1$1\"' -replace '(\\+)$','$1$1') + '"'
+}
+
+function Stop-Tree([int]$ProcessId) {
+  try { & "$env:SystemRoot\System32\taskkill.exe" /PID $ProcessId /T /F *> $null } catch {}
+}
+
+function Executar-Nativo {
+  param(
+    [Parameter(Mandatory=$true)][string]$Exe,
+    [string[]]$Args = @(),
+    [int]$TimeoutSec = 90,
+    [string]$Diretorio = '',
+    [string]$Rotulo = ''
+  )
+  $label = if ($Rotulo) { $Rotulo } else { Split-Path $Exe -Leaf }
+  Write-Host "EXECUTANDO [limite ${TimeoutSec}s]: $label" -ForegroundColor DarkCyan
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $Exe
+  $psi.Arguments = (($Args | ForEach-Object { Quote-Arg ([string]$_) }) -join ' ')
+  $psi.UseShellExecute = $false
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.RedirectStandardInput = $true
+  $psi.CreateNoWindow = $true
+  if ($Diretorio) { $psi.WorkingDirectory = $Diretorio }
+  $p = New-Object System.Diagnostics.Process
+  $p.StartInfo = $psi
+  if (-not $p.Start()) { Falhar "Nao foi possivel iniciar $label." }
+  $p.StandardInput.Close()
+  $outTask = $p.StandardOutput.ReadToEndAsync()
+  $errTask = $p.StandardError.ReadToEndAsync()
+  $elapsed = 0
+  while (-not $p.WaitForExit(5000)) {
+    $elapsed += 5
+    Write-Host "... ainda executando: $label (${elapsed}s/${TimeoutSec}s)" -ForegroundColor DarkGray
+    if ($elapsed -ge $TimeoutSec) {
+      Stop-Tree $p.Id
+      return [pscustomobject]@{ Code=124; Stdout=''; Stderr=''; Text="TIMEOUT apos ${TimeoutSec}s: $label" }
+    }
+  }
+  $stdout = $outTask.GetAwaiter().GetResult()
+  $stderr = $errTask.GetAwaiter().GetResult()
+  return [pscustomobject]@{ Code=[int]$p.ExitCode; Stdout=([string]$stdout).Trim(); Stderr=([string]$stderr).Trim(); Text=(($stdout + "`n" + $stderr).Trim()) }
+}
+
+function Executar-Deno-Interativo {
+  param([string[]]$Args,[int]$TimeoutSec=420,[string]$Rotulo='Deno Deploy login oficial')
+  Write-Host "EXECUTANDO INTERATIVO [limite ${TimeoutSec}s]: $Rotulo" -ForegroundColor Yellow
+  Write-Host 'Se o navegador do Deno abrir, autorize a conta e volte para esta janela. O CLI continua sozinho.' -ForegroundColor Yellow
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $DenoExe
+  $psi.Arguments = (($Args | ForEach-Object { Quote-Arg ([string]$_) }) -join ' ')
+  $psi.UseShellExecute = $false
+  $psi.RedirectStandardInput = $false
+  $psi.RedirectStandardOutput = $false
+  $psi.RedirectStandardError = $false
+  $psi.CreateNoWindow = $false
+  $p = New-Object System.Diagnostics.Process
+  $p.StartInfo = $psi
+  if (-not $p.Start()) { Falhar 'Nao foi possivel iniciar o Deno interativo.' }
+  $elapsed = 0
+  while (-not $p.WaitForExit(5000)) {
+    $elapsed += 5
+    if (($elapsed % 30) -eq 0) { Write-Host "... aguardando autenticacao Deno (${elapsed}s/${TimeoutSec}s)" -ForegroundColor DarkGray }
+    if ($elapsed -ge $TimeoutSec) { Stop-Tree $p.Id; Falhar 'Tempo de autenticacao Deno expirou.' }
+  }
+  if ($p.ExitCode -ne 0) { Falhar "Deno interativo terminou com codigo $($p.ExitCode)." }
+}
+
+function Exigir-Sucesso($Resultado,[string]$Mensagem) {
+  if ($Resultado.Code -ne 0) { Falhar "$Mensagem`n$($Resultado.Text)" }
+}
+
+function Novo-Segredo([int]$Bytes = 32) {
+  $buf = New-Object byte[] $Bytes
+  $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+  try { $rng.GetBytes($buf) } finally { $rng.Dispose() }
+  return ([Convert]::ToBase64String($buf).TrimEnd('=').Replace('+','-').Replace('/','_'))
+}
+
+function Curl-Json {
+  param([string]$Url,[string]$Json,[string]$Bearer='',[int]$Attempts=4)
+  $id = [Guid]::NewGuid().ToString('N')
+  $reqFile = Join-Path $env:TEMP ("rt91-$id-request.json")
+  $respFile = Join-Path $env:TEMP ("rt91-$id-response.json")
+  [IO.File]::WriteAllText($reqFile,$Json,(New-Object Text.UTF8Encoding($false)))
+  try {
+    $last=''
+    for($i=1;$i -le $Attempts;$i++){
+      Remove-Item $respFile -Force -ErrorAction SilentlyContinue
+      $args=@('--silent','--show-error','--location','--http1.1','--tlsv1.2','--connect-timeout','20','--max-time','60','-H','Content-Type: application/json','-H','Accept: application/json')
+      if($Bearer){$args+=@('-H',('Authorization: Bearer '+$Bearer))}
+      $args+=@('--data-binary',('@'+$reqFile),'--output',$respFile,'--write-out','%{http_code}',$Url)
+      $r=Executar-Nativo -Exe $CurlCmd.Source -Args $args -TimeoutSec 75 -Rotulo "HTTPS API tentativa $i/$Attempts"
+      $body=if(Test-Path $respFile){[IO.File]::ReadAllText($respFile)}else{''}
+      $status=0;if($r.Stdout -match '^[0-9]{3}$'){$status=[int]$r.Stdout}
+      if($r.Code -eq 0 -and $status -gt 0){return [pscustomobject]@{Ok=($status -ge 200 -and $status -lt 300);Status=$status;Text=$body}}
+      $last="curl exit=$($r.Code); http=$status; stderr=$($r.Stderr); body=$body"
+      if($i -lt $Attempts){Start-Sleep -Seconds ([Math]::Min(6,$i*2))}
+    }
+    return [pscustomobject]@{Ok=$false;Status=0;Text=$last}
+  } finally { Remove-Item $reqFile,$respFile -Force -ErrorAction SilentlyContinue }
+}
+
+function Parse-JsonResult($Resultado,[string]$Rotulo){
+  if(-not $Resultado.Ok){Falhar "$Rotulo falhou HTTP $($Resultado.Status).`n$($Resultado.Text)"}
+  try{return ($Resultado.Text|ConvertFrom-Json)}catch{Falhar "$Rotulo retornou JSON invalido.`n$($Resultado.Text)"}
+}
+
+function Get-JsonUrl([string]$Url){
+  $out=Join-Path $env:TEMP ('rt91-get-'+[Guid]::NewGuid().ToString('N')+'.json')
+  try{
+    $r=Executar-Nativo -Exe $CurlCmd.Source -Args @('--fail','--silent','--show-error','--location','--http1.1','--tlsv1.2','--retry','4','--retry-all-errors','--connect-timeout','20','--max-time','90','-H','Accept: application/vnd.github+json','-H','User-Agent: ReinoTribal-RT91','--output',$out,$Url) -TimeoutSec 110 -Rotulo 'Consultar GitHub'
+    Exigir-Sucesso $r 'Falha consultando GitHub.'
+    return ([IO.File]::ReadAllText($out)|ConvertFrom-Json)
+  }finally{Remove-Item $out -Force -ErrorAction SilentlyContinue}
+}
+
+function Garantir-DenoAuth {
+  $probe=Executar-Nativo -Exe $DenoExe -Args @('deploy','apps','get','--org',$DenoOrg,'--app',$DenoApp,'--json','--non-interactive') -TimeoutSec 60 -Rotulo 'Verificar sessao Deno existente'
+  if($probe.Code -eq 0){Ok 'Sessao Deno existente aceita pelo CLI.';return}
+  $env:DENO_DEPLOY_TOKEN=''
+  Etapa 'Autenticacao oficial do Deno Deploy CLI'
+  Executar-Deno-Interativo -Args @('deploy','apps','get','--org',$DenoOrg,'--app',$DenoApp,'--json') -TimeoutSec 420 -Rotulo 'Deno CLI + navegador'
+  $verify=Executar-Nativo -Exe $DenoExe -Args @('deploy','apps','get','--org',$DenoOrg,'--app',$DenoApp,'--json','--non-interactive') -TimeoutSec 60 -Rotulo 'Confirmar keyring Deno'
+  Exigir-Sucesso $verify 'O CLI terminou a autenticacao, mas o keyring Deno nao ficou utilizavel.'
+  Ok 'Login Deno confirmado pelo CLI oficial e armazenado no keyring.'
+}
+
+function Baixar-E-Validar-MainAtual([string]$Destino){
+  $meta=Get-JsonUrl "https://api.github.com/repos/$Repositorio/commits/main"
+  $script:MainCommit=[string]$meta.sha
+  if($script:MainCommit -notmatch '^[0-9a-f]{40}$'){Falhar 'Nao foi possivel fixar o SHA atual do main.'}
+  foreach($relative in @('deno.json','package.json','deno/main.js','api/reino.js','api/admin.js','api/realtime.js','backend/turso/schema.sql')){
+    $dest=Join-Path $Destino ($relative -replace '/','\')
+    New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent)|Out-Null
+    $url="https://raw.githubusercontent.com/$Repositorio/$script:MainCommit/$relative"
+    $r=Executar-Nativo -Exe $CurlCmd.Source -Args @('--fail','--silent','--show-error','--location','--http1.1','--tlsv1.2','--retry','4','--retry-all-errors','--connect-timeout','20','--max-time','120','--output',$dest,$url) -TimeoutSec 150 -Rotulo "Baixar main/$relative"
+    Exigir-Sucesso $r "Falha baixando main atual: $relative"
+  }
+  $denoMain=[IO.File]::ReadAllText((Join-Path $Destino 'deno\main.js'))
+  foreach($needle in @("import realtimeHandler from '../api/realtime.js';","pathname === '/ws'","pathname === '/api/realtime/ws'")){if(-not $denoMain.Contains($needle)){Falhar "ANTI-DOWNGRADE: main atual sem realtime: $needle"}}
+  $reino=[IO.File]::ReadAllText((Join-Path $Destino 'api\reino.js'))
+  foreach($needle in @('const passwordMatches = verifyPassword(password, existing.password_hash);',"role='admin',disabled=0",'DELETE FROM rt_sessions WHERE user_id=?','normalizeUsername(identifier) === ADMIN_USERNAME) await ensureAdmin();')){if(-not $reino.Contains($needle)){Falhar "main atual sem contrato ADM: $needle"}}
+  $check=Executar-Nativo -Exe $DenoExe -Args @('check','deno/main.js') -Diretorio $Destino -TimeoutSec 180 -Rotulo 'Deno check main atual'
+  Exigir-Sucesso $check 'Backend atual nao passou no deno check.'
+  Ok ('ANTI-DOWNGRADE main atual validado: '+$script:MainCommit)
+}
+
+function Testar-Preflight {
+  $headers=Join-Path $env:TEMP ('rt91-cors-'+[Guid]::NewGuid().ToString('N')+'.txt')
+  try{
+    $r=Executar-Nativo -Exe $CurlCmd.Source -Args @('--silent','--show-error','--http1.1','--tlsv1.2','--connect-timeout','20','--max-time','30','-X','OPTIONS','-D',$headers,'-o','NUL','-H','Origin: https://kaalflash12.github.io','-H','Access-Control-Request-Method: POST','-H','Access-Control-Request-Headers: content-type,authorization','--write-out','%{http_code}',($Backend+'/api/reino')) -TimeoutSec 45 -Rotulo 'CORS preflight publico'
+    if($r.Code -ne 0 -or $r.Stdout.Trim() -ne '204'){Falhar "CORS preflight nao retornou 204. curl=$($r.Code) http=$($r.Stdout) $($r.Stderr)"}
+    $h=if(Test-Path $headers){[IO.File]::ReadAllText($headers)}else{''}
+    if($h -notmatch '(?im)^access-control-allow-origin:\s*\*'){Falhar 'CORS sem Access-Control-Allow-Origin esperado.'}
+    Ok 'CORS publico 204.'
+  }finally{Remove-Item $headers -Force -ErrorAction SilentlyContinue}
+}
+
+function Gravar-CheckpointCredencial([string]$Password,[string]$Recovery,[string]$Status){
+  New-Item -ItemType Directory -Force -Path $CredDir|Out-Null
+  $pending=@(
+    'REINO TRIBAL - CHECKPOINT DE CREDENCIAL ADMINISTRATIVA',
+    ('Atualizado em: '+(Get-Date).ToString('yyyy-MM-dd HH:mm:ss')),
+    ('Status: '+$Status),
+    ('Executor: '+$ExecutorVersion+' / '+$ExecutorRevision),
+    ('Contrato: '+$ExecutorContract),
+    ('Backend source validado: '+$script:MainCommit),
+    ('Backend: '+$Backend),
+    'Usuario ADM: reinos_admin',
+    ('Senha ADM: '+$Password),
+    ('Recovery Key: '+$Recovery),
+    'ATENCAO: este arquivo so vira VALIDADO quando login + admin_status + dashboard passarem.'
+  ) -join [Environment]::NewLine
+  [IO.File]::WriteAllText($PendingCredFile,$pending,(New-Object Text.UTF8Encoding($true)))
+  Ok ('Checkpoint de credencial salvo: '+$Status)
+}
+
+Write-Host ''
+Write-Host '=== REINO TRIBAL EXECUTOR SEGURO RT91 CLI-AUTH ===' -ForegroundColor Cyan
+Write-Host ('VERSAO: '+$ExecutorVersion) -ForegroundColor Green
+Write-Host ('REVISAO: '+$ExecutorRevision) -ForegroundColor Green
+Write-Host ('CONTRATO: '+$ExecutorContract) -ForegroundColor DarkGray
+Write-Host ('BACKEND: '+$Backend) -ForegroundColor DarkGray
+if($Backend -ne $ExpectedBackend){Falhar ('Backend inesperado: '+$Backend)}
+[IO.File]::WriteAllText($ExecutionMarker,(@('version='+$ExecutorVersion,'revision='+$ExecutorRevision,'contract='+$ExecutorContract,'backend='+$Backend,'started_utc='+[DateTime]::UtcNow.ToString('o')) -join [Environment]::NewLine),(New-Object Text.UTF8Encoding($false)))
+if($IdentityOnly){Ok 'REINO_TRIBAL_RT91_IDENTITY_PASS';return}
+if(-not $CurlCmd){Falhar 'curl.exe nao encontrado no Windows.'}
+if(-not(Test-Path $DenoExe)){Falhar "Deno $DenoVersion nao encontrado em $DenoExe"}
+$version=Executar-Nativo -Exe $DenoExe -Args @('--version') -TimeoutSec 20 -Rotulo "Deno $DenoVersion"
+Exigir-Sucesso $version 'Deno nao executou.'
+if($version.Text -notmatch "deno $([regex]::Escape($DenoVersion))"){Falhar "Versao Deno inesperada: $($version.Text)"}
+
+try{
+  New-Item -ItemType Directory -Force -Path $WorkRoot|Out-Null
+  Baixar-E-Validar-MainAtual -Destino $WorkRoot
+  if($PreflightOnly){Testar-Preflight;Ok 'RT91_PREFLIGHT_PUBLICO_PASS';return}
+  if($ValidateOnly){Testar-Preflight;Ok 'RT91_VALIDATE_NO_DEPLOY_PASS';return}
+
+  Garantir-DenoAuth
+  $app=Executar-Nativo -Exe $DenoExe -Args @('deploy','apps','get','--org',$DenoOrg,'--app',$DenoApp,'--json','--non-interactive') -TimeoutSec 60 -Rotulo 'Validar app Deno existente'
+  Exigir-Sucesso $app 'App Deno reino-tribal-api nao foi encontrado.'
+
+  Etapa 'Validando producao antes de alterar secrets'
+  $healthBefore=Parse-JsonResult (Curl-Json -Url ($Backend+'/api/reino') -Json '{"action":"health"}' -Attempts 3) 'health pre-change'
+  if(-not $healthBefore.ok -or $healthBefore.database -ne 'turso'){Falhar 'Health pre-change nao confirmou Turso.'}
+  Testar-Preflight
+
+  $adminPassword='RT!'+(Novo-Segredo 30)
+  $recoveryKey=Novo-Segredo 48
+  Gravar-CheckpointCredencial -Password $adminPassword -Recovery $recoveryKey -Status 'GERADA_LOCALMENTE_ANTES_DO_DENO'
+
+  Etapa 'Atualizando somente secrets ADM; nenhum source deploy sera executado'
+  $up1=Executar-Nativo -Exe $DenoExe -Args @('deploy','env','update-value','RT_ADMIN_PASSWORD',$adminPassword,'--org',$DenoOrg,'--app',$DenoApp,'--non-interactive') -TimeoutSec 90 -Rotulo 'Atualizar RT_ADMIN_PASSWORD'
+  Exigir-Sucesso $up1 'Deno recusou RT_ADMIN_PASSWORD.'
+  Gravar-CheckpointCredencial -Password $adminPassword -Recovery $recoveryKey -Status 'SENHA_DENO_ATUALIZADA_SEM_SOURCE_DEPLOY'
+  $up2=Executar-Nativo -Exe $DenoExe -Args @('deploy','env','update-value','RT_ADMIN_RECOVERY_KEY',$recoveryKey,'--org',$DenoOrg,'--app',$DenoApp,'--non-interactive') -TimeoutSec 90 -Rotulo 'Atualizar RT_ADMIN_RECOVERY_KEY'
+  Exigir-Sucesso $up2 'Deno recusou RT_ADMIN_RECOVERY_KEY.'
+  Gravar-CheckpointCredencial -Password $adminPassword -Recovery $recoveryKey -Status 'SECRETS_DENO_ATUALIZADOS_SEM_SOURCE_DEPLOY'
+  Ok 'Secrets atualizados. Fonte de producao nao foi redeployada pelo executor.'
+
+  Etapa 'Validacao publica e login ADM real'
+  $login=$null
+  for($i=1;$i -le 30;$i++){
+    $loginJson=@{action='login';identifier='reinos_admin';password=$adminPassword}|ConvertTo-Json -Compress
+    $lr=Curl-Json -Url ($Backend+'/api/reino') -Json $loginJson -Attempts 1
+    if($lr.Ok){try{$candidate=$lr.Text|ConvertFrom-Json}catch{$candidate=$null};if($candidate -and [string]$candidate.access_token){$login=$candidate;break}}
+    Start-Sleep -Seconds 3
+  }
+  if(-not $login -or -not [string]$login.access_token){Falhar 'Nova credencial nao ficou ativa; use o arquivo PENDENTES para recuperacao.'}
+  if([string]$login.user.username -ne 'reinos_admin'){Falhar 'Login retornou usuario incorreto.'}
+  $adminToken=[string]$login.access_token
+  Ok 'Login reinos_admin passou com a nova senha.'
+
+  $status=Parse-JsonResult (Curl-Json -Url ($Backend+'/api/reino') -Json '{"action":"admin_status"}' -Bearer $adminToken -Attempts 3) 'admin_status'
+  if(-not $status.ok){Falhar 'admin_status nao confirmou ok.'}
+  $dash=Parse-JsonResult (Curl-Json -Url ($Backend+'/api/admin') -Json '{"action":"dashboard"}' -Bearer $adminToken -Attempts 3) 'dashboard ADM'
+  if($null -eq $dash){Falhar 'Dashboard ADM nao retornou dados.'}
+  Testar-Preflight
+  Gravar-CheckpointCredencial -Password $adminPassword -Recovery $recoveryKey -Status 'LOGIN_ADMIN_STATUS_DASHBOARD_PASS_SEM_SOURCE_DOWNGRADE'
+
+  New-Item -ItemType Directory -Force -Path $CredDir|Out-Null
+  $cred=@(
+    'REINO TRIBAL - CREDENCIAIS ADMINISTRATIVAS VALIDAS',
+    ('Validado em: '+(Get-Date).ToString('yyyy-MM-dd HH:mm:ss')),
+    ('Executor: '+$ExecutorVersion+' / '+$ExecutorRevision),
+    ('Contrato: '+$ExecutorContract),
+    ('Backend source validado: '+$script:MainCommit),
+    ('Backend: '+$Backend),
+    ('Frontend: '+$Frontend),
+    'Usuario ADM: reinos_admin',
+    ('Senha ADM: '+$adminPassword),
+    ('Recovery Key: '+$recoveryKey),
+    'VALIDACAO: login + admin_status + dashboard = PASS',
+    'ANTI_DOWNGRADE: nenhum source deploy executado = PASS'
+  ) -join [Environment]::NewLine
+  [IO.File]::WriteAllText($CredFile,$cred,(New-Object Text.UTF8Encoding($true)))
+  Remove-Item -LiteralPath $PendingCredFile -Force -ErrorAction SilentlyContinue
+  Ok ('Credenciais validas gravadas em: '+$CredFile)
+  try{Start-Process notepad.exe -ArgumentList ('"'+$CredFile+'"')}catch{}
+  Write-Host "`nREINO_TRIBAL_ADMIN_RT91_VALIDADO" -ForegroundColor Green
+  Write-Host 'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_PASS' -ForegroundColor Green
+  Write-Host ('Frontend: '+$Frontend) -ForegroundColor Green
+  Write-Host 'Usuario: reinos_admin' -ForegroundColor Green
+}catch{
+  if(Test-Path $PendingCredFile){Write-Host '';Write-Host 'CREDENCIAL PRESERVADA APOS A FALHA:' -ForegroundColor Yellow;Write-Host $PendingCredFile -ForegroundColor Yellow}
+  throw
+}finally{
+  $env:DENO_DEPLOY_TOKEN=''
+  Remove-Item $WorkRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
