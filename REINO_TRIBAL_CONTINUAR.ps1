@@ -9,10 +9,10 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$CanonicalCommit = 'bd08d847698e52a56b442a369e9d112e1702e417'
-$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91.ps1'
+$CanonicalCommit = '133abc213cc3f269e1a5019a7c361847f8f72abe'
+$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'
 $CanonicalVersion = 'RT91'
-$CanonicalRevision = 'SAFE-NO-DOWNGRADE-1'
+$CanonicalRevision = 'SAFE-CLI-AUTH-2'
 $CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'
 $ExpectedBackend = 'https://reino-tribal-api.mestrederpg35.deno.net'
 $Repo = 'kaalflash12/reinos-tribais-online'
@@ -56,7 +56,9 @@ foreach ($needle in @(
   'REINO_TRIBAL_EXECUTOR_ATIVO.txt',
   'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt',
   'ANTI_DOWNGRADE: nenhum source deploy executado = PASS',
-  'REINO_TRIBAL_ADMIN_RT91_VALIDADO'
+  'REINO_TRIBAL_ADMIN_RT91_VALIDADO',
+  'Executar-Deno-Interativo',
+  'Deno CLI + navegador'
 )) {
   if (-not $text.Contains($needle)) { throw "Executor baixado nao cumpre contrato canonico RT91: $needle" }
 }
@@ -65,6 +67,9 @@ if ($text.Contains("'deploy','--org'")) {
 }
 if (-not $text.Contains("'deploy','env','update-value'")) {
   throw 'Executor RT91 nao contem atualizacao segura de secrets.'
+}
+if ($text.Contains('console.deno.com/auth/interactive') -or $text.Contains('console.deno.com/auth/exchange')) {
+  throw 'Executor RT91 voltou a usar auth HTTP manual proibido.'
 }
 
 $tokens = $null
@@ -75,8 +80,9 @@ if ($errors.Count -gt 0) {
   throw 'Executor canonico RT91 nao passou no parser PowerShell.'
 }
 
-Write-Host 'PASS: arquivo RT91 SAFE baixado e validado.' -ForegroundColor Green
+Write-Host 'PASS: arquivo RT91 SAFE CLI-AUTH baixado e validado.' -ForegroundColor Green
 Write-Host 'PASS: ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT' -ForegroundColor Green
+Write-Host 'PASS: DENO_AUTH_OFICIAL_CLI_CONTRACT' -ForegroundColor Green
 
 $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$target)
 if ($IdentityOnly) { $args += '-IdentityOnly' }
