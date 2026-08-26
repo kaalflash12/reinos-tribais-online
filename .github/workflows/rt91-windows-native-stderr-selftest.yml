@@ -37,7 +37,7 @@ jobs:
         run: |
           $ErrorActionPreference='Stop'
           $v = (& deno --version | Select-Object -First 1)
-          if ($v -notmatch '^deno 2\.9\.5$') { throw "Deno inesperado: $v" }
+          if ($v -notmatch '^deno 2\.9\.5\b') { throw "Deno inesperado: $v" }
           $checks = @(
             @{Label='whoami'; Args=@('deploy','whoami','--help'); Need=@('--json')},
             @{Label='orgs list'; Args=@('deploy','orgs','list','--help'); Need=@('--json')},
