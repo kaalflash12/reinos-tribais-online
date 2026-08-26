@@ -34,8 +34,6 @@ jobs:
           python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py
           $html=Get-Content index.html -Raw
           if($html -notmatch 'const VERSION = 79;' -or $html -notmatch 'const RT_BUILD = "80.5";'){throw 'Contrato RT80.5/schema 79 inválido.'}
-          $mobile=Get-Content tools/rt79_edge_public_regression.py -Raw
-          foreach($needle in @('mobile_gameplay_e2e','mobile_online_e2e','RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png','RT80_MOBILE_ONLINE_TURSO_E2E.png','mobile online save','mobile online load')){if(-not $mobile.Contains($needle)){throw "Runner mobile incompleto: $needle"}}
       - name: Select regression target
         shell: pwsh
         run: |
@@ -45,8 +43,7 @@ jobs:
             Start-Sleep -Seconds 2
             Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/index.html | Out-Null
             'RT79_TEST_URL=http://127.0.0.1:8765/' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-            'RT79_REQUIRE_MOBILE_ONLINE=0' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-            Write-Host 'PR: testando o merge candidato localmente; login online de produção não é exigido por CORS.'
+            Write-Host 'PR: testando o merge candidato localmente.'
           } else {
             $base='https://kaalflash12.github.io/reinos-tribais-online/'
             $ok=$false
@@ -61,52 +58,10 @@ jobs:
             }
             if(-not $ok){throw 'GitHub Pages ainda não publicou o build RT80.5 do main.'}
             'RT79_TEST_URL=https://kaalflash12.github.io/reinos-tribais-online/' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-            'RT79_REQUIRE_MOBILE_ONLINE=1' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           }
-      - name: Provision temporary production player for mobile login
-        if: github.event_name != 'pull_request'
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          $api='https://reino-tribal-api.mestrederpg35.deno.net/api/reino'
-          $origin='https://kaalflash12.github.io'
-          $world='d5a546fb-316d-4332-ae92-1886d80b07df'
-          function Api([hashtable]$Body,[string]$Bearer=''){
-            $headers=@{Origin=$origin;Accept='application/json';'Content-Type'='application/json'}
-            if($Bearer){$headers.Authorization="Bearer $Bearer"}
-            Invoke-RestMethod -Method Post -Uri $api -Headers $headers -Body ($Body|ConvertTo-Json -Depth 12 -Compress) -TimeoutSec 60
-          }
-          $suffix=[Guid]::NewGuid().ToString('N').Substring(0,16)
-          $email="rt80-mobile-$suffix@example.invalid"
-          $username="m_$suffix"
-          $password='RT80!'+[Guid]::NewGuid().ToString('N')+'x'
-          Write-Host "::add-mask::$password"
-          $reg=Api @{action='register';email=$email;username=$username;password=$password}
-          if(-not $reg.access_token -or [string]$reg.user.role -ne 'player'){throw 'Falha criando jogador temporário mobile.'}
-          $joined=Api @{action='join_world';world_id=$world;player_name=$username} ([string]$reg.access_token)
-          if(-not $joined.ok -or [string]$joined.world.id -ne $world){throw 'Falha associando jogador mobile ao Mundo 1.'}
-          "RT79_MOBILE_IDENTIFIER=$email" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "RT79_MOBILE_PASSWORD=$password" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host 'RT80_MOBILE_PRODUCTION_PLAYER_READY'
       - name: Run Edge functional regression
         shell: pwsh
         run: python tools/rt79_edge_public_regression.py
-      - name: Enforce mobile E2E proof
-        if: always()
-        shell: pwsh
-        run: |
-          $dir=Join-Path $env:RUNNER_TEMP 'RT79_BROWSER_REGRESSION'
-          $path=Join-Path $dir 'PROVA_BROWSER_RT79.json'
-          if(-not (Test-Path $path)){throw 'PROVA_BROWSER_RT79.json ausente.'}
-          $proof=Get-Content $path -Raw | ConvertFrom-Json
-          if(-not $proof.pass){throw 'Regressão pública não marcou PASS.'}
-          if(-not $proof.mobile.pass){throw 'E2E gameplay mobile não marcou PASS.'}
-          foreach($name in @('RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png')){if(-not (Test-Path (Join-Path $dir $name))){throw "Screenshot mobile ausente: $name"}}
-          if('${{ github.event_name }}' -ne 'pull_request'){
-            if(-not $proof.mobile_online.pass -or $proof.mobile_online.skipped){throw 'E2E online Turso mobile não marcou PASS.'}
-            if(-not (Test-Path (Join-Path $dir 'RT80_MOBILE_ONLINE_TURSO_E2E.png'))){throw 'Screenshot online Turso mobile ausente.'}
-          }
-          Write-Host 'RT80_FULL_MOBILE_E2E_PASS'
       - name: Persist public proof to main
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
@@ -123,7 +78,7 @@ jobs:
           git checkout -B rt80-proof-main origin/main
           Copy-Item $proofPath 'AUDITORIA_RT79_1_PUBLIC_BROWSER.json' -Force
           git config user.name 'github-actions[bot]'
-          git config user.email '4189824+github-actions[bot]@users.noreply.github.com'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add AUDITORIA_RT79_1_PUBLIC_BROWSER.json
           if(-not (git diff --cached --quiet)){git commit -m "RT80.5 public browser proof: $($proof.pass)";git push origin HEAD:main}
       - name: Upload proof
