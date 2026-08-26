@@ -22,7 +22,7 @@ function Download([string]$Url,[string]$Out){
 
 try{
   New-Item -ItemType Directory -Force -Path $Tmp,$CredDir,$ProofDir | Out-Null
-  Write-Host '=== REINOS TRIBAIS - FECHAMENTO ADM PUBLICO RT90/RT91 ===' -ForegroundColor Cyan
+  Write-Host '=== REINOS TRIBAIS - FECHAMENTO TOTAL ADM + MOBILE RT90/RT91 ===' -ForegroundColor Cyan
 
   Download "https://raw.githubusercontent.com/$Repo/main/REINO_TRIBAL_CONTINUAR.ps1" $Launcher
   $parsed=$null;$errs=$null
@@ -54,7 +54,11 @@ try{
   $Deno=Join-Path (Join-Path $env:LOCALAPPDATA 'ReinoTribalTools\deno-2.9.5') 'deno.exe'
   if(-not (Test-Path $Deno)){$dc=Get-Command deno.exe -ErrorAction SilentlyContinue;if($dc){$Deno=$dc.Source}else{Fail 'Deno 2.9.5 não encontrado após RT91.'}}
   Download "https://raw.githubusercontent.com/$Repo/main/tools/rt90_admin_public_proof.mjs" $BrowserTest
-  Pass 'runner de navegador público baixado'
+  $runnerText=[IO.File]::ReadAllText($BrowserTest)
+  foreach($needle in @('temporary player registered in production','temporary player joined Mundo 1','mobile player login through public UI','mobile player save routed to Turso','mobile player load matches marker','mobile zero legacy Supabase network','RT90_MOBILE_PLAYER_TURSO_E2E.png')){
+    if(-not $runnerText.Contains($needle)){Fail ('Runner público não contém contrato mobile: '+$needle)}
+  }
+  Pass 'runner público ADM + mobile baixado e contrato mobile confirmado'
 
   $env:RT_FINAL_ADMIN_PASSWORD=$password
   $env:RT_FINAL_FRONTEND=$Frontend
@@ -84,17 +88,40 @@ try{
     'admin overview exists',
     'authenticated admin_status from public browser',
     'zero legacy Supabase network',
-    'public admin screenshot captured'
+    'public admin screenshot captured',
+    'temporary player registered in production',
+    'temporary player joined Mundo 1',
+    'mobile viewport 390x844',
+    'mobile Turso bridge active',
+    'mobile public login UI visible',
+    'mobile player login through public UI',
+    'mobile production health Turso',
+    'mobile player save routed to Turso',
+    'mobile player load matches marker',
+    'mobile zero legacy Supabase network',
+    'mobile screenshot captured'
   )){
     if(-not @($proof.checks|Where-Object{$_.name -eq $required -and $_.pass}).Count){Fail ('Checkpoint ausente: '+$required)}
   }
+  if(-not $proof.mobile_player -or [string]$proof.mobile_player.world_id -ne 'd5a546fb-316d-4332-ae92-1886d80b07df'){Fail 'Objeto mobile_player não confirma Mundo 1.'}
+  if([string]::IsNullOrWhiteSpace([string]$proof.mobile_player.marker)){Fail 'Objeto mobile_player não contém marcador de persistência.'}
+  $adminShot=Join-Path $ProofDir 'RT90_ADMIN_DASHBOARD_PUBLICO.png'
+  $mobileShot=Join-Path $ProofDir 'RT90_MOBILE_PLAYER_TURSO_E2E.png'
+  if(-not (Test-Path $adminShot)){Fail 'Screenshot do dashboard ADM ausente.'}
+  if(-not (Test-Path $mobileShot)){Fail 'Screenshot do jogador mobile ausente.'}
+
   Pass 'login reinos_admin no GitHub Pages'
   Pass 'dashboard ADM público real'
   Pass 'admin_status público autenticado'
-  Pass 'zero tráfego Supabase legado'
-  Pass ('screenshot: '+(Join-Path $ProofDir 'RT90_ADMIN_DASHBOARD_PUBLICO.png'))
+  Pass 'jogador temporário mobile autenticado pela UI pública'
+  Pass 'jogador mobile no Mundo 1'
+  Pass 'save/load mobile persistido no Turso com o mesmo marcador'
+  Pass 'zero tráfego Supabase legado no ADM e no mobile'
+  Pass ('screenshot ADM: '+$adminShot)
+  Pass ('screenshot mobile: '+$mobileShot)
   Write-Host ''
   Write-Host 'REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS' -ForegroundColor Green
+  Write-Host 'REINO_TRIBAL_MOBILE_PLAYER_TURSO_E2E_PASS' -ForegroundColor Green
   Write-Host 'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_PASS' -ForegroundColor Green
   Write-Host ('PROVA: '+$proofFile) -ForegroundColor Green
 }finally{
