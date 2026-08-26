@@ -1,4 +1,4 @@
-# RT91 AUTH4 canonical gate retrigger; sem alteracao de comportamento.
+# RT91 AUTH5 canonical launcher: passa argv do Deno diretamente, sem ProcessStartInfo.Arguments.
 param(
   [switch]$IdentityOnly,
   [switch]$PreflightOnly,
@@ -10,12 +10,12 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$CanonicalCommit = '19d827b0a226a025372da090270de7765473a96c'
-$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1'
+$CanonicalCommit = 'd53de26bf4abb243bb1fbb612e7e7e1a670364f1'
+$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH5.ps1'
 $CanonicalVersion = 'RT91'
-$CanonicalRevision = 'SAFE-CLI-AUTH-4'
+$CanonicalRevision = 'SAFE-CLI-AUTH-5'
 $CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'
-$CanonicalGate = 'AUTH4_PATCH_POSTVALIDATION_V2'
+$CanonicalGate = 'AUTH5_DIRECT_DENO_ARGV'
 $ExpectedBackend = 'https://reino-tribal-api.mestrederpg35.deno.net'
 $Repo = 'kaalflash12/reinos-tribais-online'
 $Curl = Get-Command curl.exe -ErrorAction SilentlyContinue
@@ -29,7 +29,8 @@ $legacyPatterns = @(
   'REINO_TRIBAL_ADMIN_ATUAL_FIX17*.ps1',
   'REINO_TRIBAL_RESUMIR_POS_DEPLOY_FIX11*.ps1',
   'RT_FIX13*.ps1',
-  'RT_FIX14*.ps1'
+  'RT_FIX14*.ps1',
+  'REINO_TRIBAL_ADMIN_RT91_SAFE_19d827b0.ps1'
 )
 foreach ($pattern in $legacyPatterns) {
   Get-ChildItem -LiteralPath $env:TEMP -Filter $pattern -File -ErrorAction SilentlyContinue |
@@ -43,6 +44,7 @@ $url = "https://raw.githubusercontent.com/$Repo/$CanonicalCommit/$CanonicalFile"
 Write-Host ''
 Write-Host '=== REINO TRIBAL LAUNCHER CANONICO RT91 ===' -ForegroundColor Cyan
 Write-Host ('CANONICAL COMMIT: ' + $CanonicalCommit) -ForegroundColor DarkGray
+Write-Host ('REVISAO: ' + $CanonicalRevision) -ForegroundColor Green
 Write-Host ('DESTINO: ' + $target) -ForegroundColor Yellow
 
 & $Curl.Source --fail --silent --show-error --location --http1.1 --tlsv1.2 --retry 5 --retry-all-errors --connect-timeout 20 --max-time 120 --output $target $url
@@ -61,6 +63,8 @@ foreach ($needle in @(
   '$newApp =',
   '$newPass =',
   '$newRecovery =',
+  '& $DenoExe deploy env list --org $DenoOrg --app $DenoApp',
+  'DENO_DIRECT_ARGUMENT_FORWARDING_CONTRACT',
   'DENO_ENV_LIST_AUTH_CONTRACT',
   'DENO_DOCUMENTED_CLI_ONLY_CONTRACT',
   'ANTI_DOWNGRADE: nenhum source deploy executado = PASS',
@@ -68,7 +72,7 @@ foreach ($needle in @(
   'CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT',
   'Subcomando Deno apps get nao documentado ainda presente.',
   'Flag Deno --non-interactive nao documentada ainda presente.',
-  'ANTI-DOWNGRADE: source deploy apareceu apos patch.',
+  'ANTI_DOWNGRADE: source deploy apareceu apos patch.',
   'Auth HTTP manual reapareceu.'
 )) {
   if (-not $text.Contains($needle)) { throw "Executor baixado nao cumpre contrato canonico RT91: $needle" }
@@ -82,19 +86,20 @@ if ($errors.Count -gt 0) {
   throw 'Executor canonico RT91 nao passou no parser PowerShell.'
 }
 
-Write-Host 'PASS: arquivo RT91 SAFE CLI-AUTH-4 baixado e validado.' -ForegroundColor Green
+Write-Host 'PASS: arquivo RT91 SAFE CLI-AUTH-5 baixado e validado.' -ForegroundColor Green
+Write-Host 'PASS: DENO_DIRECT_ARGUMENT_FORWARDING_CONTRACT' -ForegroundColor Green
 Write-Host 'PASS: CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT' -ForegroundColor Green
 Write-Host 'PASS: ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT' -ForegroundColor Green
 Write-Host 'PASS: DENO_ENV_LIST_AUTH_CONTRACT' -ForegroundColor Green
 Write-Host 'PASS: DENO_DOCUMENTED_CLI_ONLY_CONTRACT' -ForegroundColor Green
 
-$args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$target)
-if ($IdentityOnly) { $args += '-IdentityOnly' }
-if ($PreflightOnly) { $args += '-PreflightOnly' }
-if ($ValidateOnly) { $args += '-ValidateOnly' }
-if ($DenoExeOverride) { $args += @('-DenoExeOverride',$DenoExeOverride) }
+$childArgs = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$target)
+if ($IdentityOnly) { $childArgs += '-IdentityOnly' }
+if ($PreflightOnly) { $childArgs += '-PreflightOnly' }
+if ($ValidateOnly) { $childArgs += '-ValidateOnly' }
+if ($DenoExeOverride) { $childArgs += @('-DenoExeOverride',$DenoExeOverride) }
 
-& powershell.exe @args
+& powershell.exe @childArgs
 $code = $LASTEXITCODE
 if ($code -ne 0) {
   $pending = Join-Path (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal') 'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt'
