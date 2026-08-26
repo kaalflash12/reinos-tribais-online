@@ -4,7 +4,7 @@ Data: 2026-08-26
 
 ## Estado geral
 
-**NÃO CONCLUÍDO.** Todo o bloco público e automatizável está comprovado: Turso/Deno, jogador público, persistência, isolamento de Supabase, desktop, mobile, GitHub Pages, Edge/Selenium e o fechamento administrativo protegido contra downgrade. Resta uma única prova privada: executar `REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1` em um Windows autorizado na conta Deno, gerar a credencial real `reinos_admin` e comprovar o dashboard administrativo pelo GitHub Pages.
+**NÃO CONCLUÍDO.** Todo o bloco público e automatizável está comprovado: Turso/Deno, jogador público, persistência, isolamento de Supabase, desktop, mobile, GitHub Pages, Edge/Selenium e o fechamento administrativo protegido contra downgrade. Também foi tentado o fechamento integral via GitHub Actions, mas o repositório não possui secret Deno configurado. Nenhuma mutação foi executada nessa tentativa. Resta uma única prova privada: autorizar a conta Deno em um Windows e executar `REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1` para gerar a credencial real `reinos_admin` e comprovar o dashboard administrativo pelo GitHub Pages.
 
 ## Concluído e comprovado
 
@@ -22,7 +22,7 @@ Data: 2026-08-26
 - [x] RT91 valida o SHA atual do `main`, baixa e verifica `deno/main.js`, `api/reino.js`, `api/admin.js`, `api/realtime.js` e schema Turso antes de qualquer alteração privada.
 - [x] RT91 exige as rotas realtime `/ws` e `/api/realtime/ws` e executa `deno check deno/main.js`.
 - [x] RT91 não contém source deploy; a única mutação Deno permitida é `deno deploy env update-value` para `RT_ADMIN_PASSWORD` e `RT_ADMIN_RECOVERY_KEY`.
-- [x] `REINO_TRIBAL_CONTINUAR.ps1` agora aponta exclusivamente para RT91 e rejeita executor que contenha source deploy.
+- [x] `REINO_TRIBAL_CONTINUAR.ps1` aponta exclusivamente para RT91 e rejeita executor que contenha source deploy.
 - [x] `REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1` exige `Contrato: ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91` e `ANTI_DOWNGRADE: nenhum source deploy executado = PASS` antes de aceitar a credencial.
 - [x] RT90/RT91 gate — run `32971460199`, head `eedb994be627a091f4d60285c5ad3720d3cbfec0` — **SUCCESS**.
 - [x] No gate RT90/RT91 passaram: parsers PowerShell, contrato anti-downgrade, launcher canônico RT91 `ValidateOnly`, `deno check` do `main` atual, CORS, sintaxe do runner e Edge/Selenium público real.
@@ -30,9 +30,15 @@ Data: 2026-08-26
 - [x] RT80 Functional Browser Regression — run `32971460073` — **SUCCESS**.
 - [x] RT80 Public/PR Edge Regression — run `32971460117` — **SUCCESS**.
 - [x] Diagnose Reino Tribal Pages — run `32971460113` — **SUCCESS**.
-- [x] O Pages do commit de gate foi substituído por um commit automático de prova; a publicação sucessora do `main` `83fc0451447d0ac80d7d805409abd328d703d935` — run `32971563865` — **SUCCESS**.
+- [x] Public Edge do checkpoint RT91 — run `32971882617` — **SUCCESS**, incluindo Edge functional, persistência da prova e upload do artefato.
+- [x] Functional Browser do checkpoint RT91 — run `32971882506` — **SUCCESS**.
+- [x] Diagnose do checkpoint RT91 — run `32971882530` — **SUCCESS**.
 - [x] O runner RT90 usa senha somente via variável de ambiente temporária e não a imprime.
 - [x] O fechamento final exige `rt60_admin_token`, `.rt60-admin-shell`, `admin_status.ok`, dashboard, zero rede Supabase e screenshot real.
+- [x] Criado workflow `RT91 Final Admin Authorized` para tentar o fechamento sem depender do PC quando houver secret Deno válido no GitHub Actions.
+- [x] Probe seguro do GitHub Actions — run `32972268802`, job `98188563681` — executado.
+- [x] O probe confirmou `RT91_NO_DENO_SECRET_CONFIGURED`: `DENO_DEPLOY_TOKEN`, `DENO_TOKEN`, `DENO_ACCESS_TOKEN` e `DENO_AUTH_TOKEN` estavam vazios no runner.
+- [x] Como o probe falhou na primeira etapa, setup Deno, validação do app, troca de secrets e fechamento RT90 foram todos **SKIPPED**; portanto essa tentativa realizou **zero mutações de produção**.
 
 ## Única pendência
 
