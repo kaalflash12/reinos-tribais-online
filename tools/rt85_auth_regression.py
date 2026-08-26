@@ -20,19 +20,27 @@ def main():
         d.get(BASE+'?rt-turso-auth=1')
         check(d,'Turso bridge loaded before app','return window.__RT_TURSO_BRIDGE__===true')
         check(d,'legacy Supabase blocked','return window.ReinoTribalTurso?.blockLegacySupabase===true')
+        check(d,'recovery safety marker','return window.__RT89_RECOVERY_SAFE__===true && window.ReinoTribalTurso?.recoveryMode==="admin-reset"')
         check(d,'landing','return !!document.querySelector("[data-entry-online]")')
         d.execute_script('document.querySelector("[data-entry-online]").click()')
         check(d,'login form visible','return !!document.querySelector("#rt18-login-form") && getComputedStyle(document.querySelector("#rt18-login-form")).display!=="none"')
         check(d,'identifier input','return !!document.querySelector("#rt18-login-form [name=email]")')
         check(d,'password input','return !!document.querySelector("#rt18-login-form [name=password]")')
         check(d,'Turso status note','return !!document.querySelector("[data-rt-turso-note]")')
-        time.sleep(2)
-        resources=d.execute_script('return performance.getEntriesByType("resource").map(x=>x.name)') or []
-        leaked=[u for u in resources if 'rlyiwlwzrdgvcwawrnpl.supabase.co' in u]
+        check(d,'legacy recovery code panel disabled','const p=document.querySelector("[data-recovery-code-panel]"); return !p || p.hidden || getComputedStyle(p).display==="none"')
+        check(d,'recovery button converted','const b=document.querySelector("[data-forgot-password]"); return !!b && b.textContent.includes("administrador") && b.dataset.rtTursoRecoveryGuard==="1"')
+        before=d.execute_script('return performance.getEntriesByType("resource").map(x=>x.name)') or []
+        d.execute_script('document.querySelector("#rt18-login-form [name=email]").value="recovery-test@example.invalid";document.querySelector("[data-forgot-password]").click()')
+        check(d,'safe recovery notice','const m=document.querySelector("#rt18-auth-message"); return !!m && m.textContent.includes("administrador") && m.textContent.includes("Turso")')
+        time.sleep(1)
+        after=d.execute_script('return performance.getEntriesByType("resource").map(x=>x.name)') or []
+        leaked=[u for u in after if 'rlyiwlwzrdgvcwawrnpl.supabase.co' in u]
         if leaked:
             raise AssertionError('Requisição real ao Supabase legado detectada: '+repr(leaked[:5]))
+        if len(after)<len(before):
+            raise AssertionError('Resource timing regressivo inesperado')
         proof['checks'].append({'name':'zero network requests to legacy Supabase','pass':True})
-        proof['resources_checked']=len(resources)
+        proof['resources_checked']=len(after)
         proof['api_base']=d.execute_script('return window.ReinoTribalTurso?.apiBase||""')
         d.save_screenshot(str(OUT/'RT_TURSO_LOGIN_UI.png'))
         proof['pass']=all(x['pass'] for x in proof['checks'])
