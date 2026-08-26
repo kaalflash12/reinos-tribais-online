@@ -6,6 +6,8 @@ on:
     paths:
       - 'api/strategy.js'
       - 'deno/main.js'
+      - 'rt89-strategy-client.js'
+      - 'reino-tribal-config.js'
       - 'tests/rt89-strategy-*.js'
       - '.github/workflows/rt89-strategy-commands.yml'
   pull_request:
@@ -13,6 +15,8 @@ on:
     paths:
       - 'api/strategy.js'
       - 'deno/main.js'
+      - 'rt89-strategy-client.js'
+      - 'reino-tribal-config.js'
       - 'tests/rt89-strategy-*.js'
       - '.github/workflows/rt89-strategy-commands.yml'
   workflow_dispatch:
@@ -30,9 +34,9 @@ jobs:
         with:
           deno-version: v2.9.5
 
-      - name: Deno check strategy backend
+      - name: Deno check strategy backend and browser client
         run: |
-          deno check deno/main.js api/strategy.js tests/rt89-strategy-unit.js tests/rt89-strategy-http-smoke.js
+          deno check deno/main.js api/strategy.js rt89-strategy-client.js tests/rt89-strategy-unit.js tests/rt89-strategy-http-smoke.js
 
       - name: Validate seven strategic payload contracts
         run: |
@@ -50,7 +54,10 @@ jobs:
           grep -F 'CREATE TABLE IF NOT EXISTS rt_strategy_audit' api/strategy.js
           grep -F 'idx_rt_strategy_idempotency' api/strategy.js
           grep -F "if (pathname === '/api/strategy')" deno/main.js
+          grep -F 'window.ReinoTribalStrategy' rt89-strategy-client.js
+          grep -F 'rt89-strategy-client.js?v=rt89-v1' reino-tribal-config.js
           for type in build_upgrade recruit_units attack spy support transfer_resources collect_deposit; do
             grep -F "$type" api/strategy.js
+            grep -F "$type" rt89-strategy-client.js
           done
           echo RT89_STRATEGY_PERSISTENCE_CONTRACT_PASS
