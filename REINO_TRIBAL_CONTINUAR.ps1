@@ -60,17 +60,16 @@ foreach ($needle in @(
   "'deploy','env','update-value'",
   'ANTI_DOWNGRADE: nenhum source deploy executado = PASS',
   'REINO_TRIBAL_ADMIN_RT91_VALIDADO',
-  'CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT'
+  'CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT',
+  'ANTI-DOWNGRADE: source deploy detectado no executor-base.',
+  'Auth HTTP manual proibido detectado no executor-base.'
 )) {
   if (-not $text.Contains($needle)) { throw "Executor baixado nao cumpre contrato canonico RT91: $needle" }
 }
-if ($text.Contains("'deploy','--org'")) {
-  throw 'ANTI-DOWNGRADE: executor contem source deploy. Nada sera executado.'
-}
-if ($text.Contains('console.deno.com/auth/interactive') -or $text.Contains('console.deno.com/auth/exchange')) {
-  throw 'Executor RT91 voltou a usar auth HTTP manual proibido.'
-}
 
+# O arquivo canonico e um wrapper pinado. As strings de source deploy/auth legado aparecem
+# somente dentro das guardas que inspecionam e recusam o executor-base; por isso nao se faz
+# busca cega dessas strings aqui. A propria guarda do wrapper e obrigatoria acima.
 $tokens = $null
 $errors = $null
 [System.Management.Automation.Language.Parser]::ParseFile($target,[ref]$tokens,[ref]$errors) | Out-Null
