@@ -19,20 +19,6 @@ jobs:
       RT_DENO_ACCESS_TOKEN: ${{ secrets.DENO_ACCESS_TOKEN }}
       RT_DENO_AUTH_TOKEN: ${{ secrets.DENO_AUTH_TOKEN }}
     steps:
-      - name: Probe Deno public autodeploy marker
-        shell: pwsh
-        run: |
-          $url='https://reino-tribal-api.mestrederpg35.deno.net/health'
-          $marker='rt92-oidc-autodeploy-probe-20260826'
-          $body=''
-          try { $body=(curl.exe --fail --silent --show-error --location --max-time 20 $url | Out-String).Trim() } catch {}
-          Write-Host "DENO_HEALTH=$body"
-          if($body.Contains($marker)){
-            Write-Host 'RT92_DENO_GIT_AUTODEPLOY_PASS'
-          } else {
-            Write-Host 'RT92_DENO_GIT_AUTODEPLOY_NOT_YET_VISIBLE'
-          }
-
       - name: Select configured Deno secret without exposing it
         shell: pwsh
         run: |
