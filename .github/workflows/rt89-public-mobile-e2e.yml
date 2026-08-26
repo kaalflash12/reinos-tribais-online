@@ -1,0 +1,60 @@
+name: RT89 Public Mobile E2E
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'rt85-auth-bridge.js'
+      - 'reino-tribal-config.js'
+      - 'index.html'
+      - 'JOGAR_REINOS_TRIBAIS.html'
+      - 'tools/rt89_public_mobile_e2e.py'
+      - '.github/workflows/rt89-public-mobile-e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  public-mobile:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Static mobile test contract
+        shell: pwsh
+        run: |
+          python -m py_compile tools/rt89_public_mobile_e2e.py
+          node --check rt85-auth-bridge.js
+          $bridge=Get-Content rt85-auth-bridge.js -Raw
+          if($bridge -notmatch '__RT89_RECOVERY_SAFE__'){throw 'RT89 recovery marker ausente'}
+          if($bridge -notmatch "version:'1.0.5-turso-recovery-safe'"){throw 'Versão Turso recovery-safe ausente'}
+      - name: Wait for GitHub Pages to publish RT89 bridge
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $url='https://kaalflash12.github.io/reinos-tribais-online/rt85-auth-bridge.js'
+          $ok=$false
+          for($i=0;$i -lt 90 -and -not $ok;$i++){
+            try{
+              $stamp=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+              $text=(Invoke-WebRequest -UseBasicParsing ($url+'?rt89='+$stamp) -TimeoutSec 15).Content
+              if($text -match '__RT89_RECOVERY_SAFE__' -and $text -match '1.0.5-turso-recovery-safe'){$ok=$true;break}
+            }catch{}
+            Start-Sleep -Seconds 3
+          }
+          if(-not $ok){throw 'GitHub Pages não publicou o bridge RT89 dentro do gate.'}
+          Write-Host 'RT89_PAGES_PUBLISHED_PASS'
+      - name: Install Selenium
+        run: python -m pip install --disable-pip-version-check --quiet selenium
+      - name: Run public mobile production E2E
+        env:
+          RT89_URL: https://kaalflash12.github.io/reinos-tribais-online/
+          RT89_API: https://reino-tribal-api.mestrederpg35.deno.net
+        run: python tools/rt89_public_mobile_e2e.py
+      - name: Upload mobile proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT89_PUBLIC_MOBILE_PROOF
+          path: ${{ runner.temp }}/RT89_PUBLIC_MOBILE_PROOF
+          if-no-files-found: error
