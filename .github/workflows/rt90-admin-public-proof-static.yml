@@ -16,9 +16,12 @@ on:
 jobs:
   validate:
     runs-on: windows-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
       - name: PowerShell parser
         shell: powershell
         run: |
@@ -32,7 +35,32 @@ jobs:
           node --check tools/rt90_admin_public_proof.mjs
           $js=Get-Content tools/rt90_admin_public_proof.mjs -Raw
           $ps=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -Raw
-          foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
+          foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network','RT90_VALIDATE_ONLY')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
           foreach($needle in @('CREDENCIAIS_ADMIN_REINO_TRIBAL.txt','VALIDACAO: login','RT_FINAL_ADMIN_PASSWORD','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS')){if(-not $ps.Contains($needle)){throw "PowerShell RT90 sem contrato: $needle"}}
           if($ps -match '(?im)Write-Host[^\r\n]*\$password'){throw 'RT90 não pode imprimir a senha'}
           Write-Host 'RT90_BROWSER_RUNNER_STATIC_PASS'
+      - name: Run real Edge/Selenium runtime without credentials
+        shell: pwsh
+        run: |
+          $out=Join-Path $env:RUNNER_TEMP 'RT90_VALIDATE_ONLY'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $env:RT90_VALIDATE_ONLY='1'
+          $env:RT_FINAL_PROOF_DIR=$out
+          try {
+            deno run --allow-all tools/rt90_admin_public_proof.mjs
+            if($LASTEXITCODE -ne 0){throw "RT90 validate-only exit code $LASTEXITCODE"}
+          } finally {
+            $env:RT90_VALIDATE_ONLY=''
+            $env:RT_FINAL_PROOF_DIR=''
+          }
+          $p=Get-Content (Join-Path $out 'PROVA_RT90_ADMIN_PUBLICO.json') -Raw | ConvertFrom-Json
+          if(-not $p.pass -or -not $p.validate_only){throw 'RT90 validate-only não marcou PASS.'}
+          if(-not (Test-Path (Join-Path $out 'RT90_VALIDATE_ONLY_PUBLIC_LOGIN.png'))){throw 'Screenshot validate-only ausente.'}
+          Write-Host 'RT90_EDGE_SELENIUM_RUNTIME_PASS'
+      - name: Upload validate-only proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT90_VALIDATE_ONLY_PROOF
+          path: ${{ runner.temp }}/RT90_VALIDATE_ONLY
+          if-no-files-found: error
