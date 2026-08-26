@@ -1,0 +1,52 @@
+name: RT94 Turso Admin Authority Probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rt94-turso-admin-authority-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+      TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+    steps:
+      - name: Check Turso secrets without exposing values
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${TURSO_DATABASE_URL:-}" || { echo 'RT94_NO_TURSO_DATABASE_URL'; exit 1; }
+          test -n "${TURSO_AUTH_TOKEN:-}" || { echo 'RT94_NO_TURSO_AUTH_TOKEN'; exit 1; }
+          echo 'RT94_TURSO_SECRETS_PRESENT'
+
+      - name: Query production admin metadata read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rt94"
+          cd "$RUNNER_TEMP/rt94"
+          npm init -y >/dev/null 2>&1
+          npm install --no-audit --no-fund @tursodatabase/serverless >/dev/null 2>&1
+          node --input-type=module <<'NODE'
+          import { connect } from '@tursodatabase/serverless';
+          const db=connect({url:process.env.TURSO_DATABASE_URL,authToken:process.env.TURSO_AUTH_TOKEN});
+          const stmt=await Promise.resolve(db.prepare("SELECT id,username,role,disabled,last_login_at FROM rt_users WHERE username='reinos_admin' LIMIT 1"));
+          const row=await stmt.get();
+          if(!row) throw new Error('RT94_REINOS_ADMIN_MISSING');
+          const sessStmt=await Promise.resolve(db.prepare("SELECT COUNT(*) AS n FROM rt_sessions WHERE user_id=? AND expires_at>datetime('now')"));
+          const sess=await sessStmt.get([row.id]);
+          console.log('RT94_TURSO_LIVE_SELECT_PASS');
+          console.log('RT94_ADMIN_USERNAME='+row.username);
+          console.log('RT94_ADMIN_ROLE='+row.role);
+          console.log('RT94_ADMIN_DISABLED='+Number(row.disabled||0));
+          console.log('RT94_ADMIN_ACTIVE_SESSIONS='+Number(sess?.n||0));
+          console.log('RT94_ADMIN_LAST_LOGIN_PRESENT='+(row.last_login_at?1:0));
+          await db.close?.();
+          NODE
