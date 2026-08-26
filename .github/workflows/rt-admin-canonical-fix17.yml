@@ -25,26 +25,39 @@ permissions:
 jobs:
   windows-rt91:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     steps:
-      - uses: actions/checkout@v4
-
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.5
+
+      - name: Download only canonical RT91 files
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:RUNNER_TEMP 'rt91-canonical'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          foreach($file in @('REINO_TRIBAL_CONTINUAR.ps1','REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1','REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1')){
+            $out=Join-Path $root $file
+            curl.exe --fail --silent --show-error --location --retry 5 --retry-all-errors --connect-timeout 20 --max-time 120 --output $out "https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/main/$file"
+            if($LASTEXITCODE -ne 0 -or -not (Test-Path $out)){throw "Falha baixando $file"}
+          }
+          "RT91_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host 'RT91_CANONICAL_FILES_DOWNLOAD_PASS'
 
       - name: Parse current RT91 canonical contract
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
           foreach($file in @('REINO_TRIBAL_CONTINUAR.ps1','REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1','REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1')){
+            $path=Join-Path $env:RT91_ROOT $file
             $tokens=$null;$errors=$null
-            [Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
+            [Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)|Out-Null
             if($errors.Count){$errors|Format-List|Out-String|Write-Host;throw "PowerShell parser falhou: $file"}
           }
-          $launcher=Get-Content REINO_TRIBAL_CONTINUAR.ps1 -Raw
-          $wrapper=Get-Content REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1 -Raw
-          $close=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -Raw
+          $launcher=Get-Content (Join-Path $env:RT91_ROOT 'REINO_TRIBAL_CONTINUAR.ps1') -Raw
+          $wrapper=Get-Content (Join-Path $env:RT91_ROOT 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1') -Raw
+          $close=Get-Content (Join-Path $env:RT91_ROOT 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1') -Raw
           foreach($needle in @(
             "`$CanonicalVersion = 'RT91'",
             "`$CanonicalRevision = 'SAFE-CLI-AUTH-3'",
@@ -70,7 +83,8 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -IdentityOnly
+          $launcher=Join-Path $env:RT91_ROOT 'REINO_TRIBAL_CONTINUAR.ps1'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $launcher -IdentityOnly
           if($LASTEXITCODE -ne 0){throw "RT91 IdentityOnly falhou: $LASTEXITCODE"}
           $marker=Join-Path $env:TEMP 'REINO_TRIBAL_EXECUTOR_ATIVO.txt'
           if(-not (Test-Path $marker)){throw 'RT91 nao produziu marcador de executor ativo'}
@@ -82,7 +96,8 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -PreflightOnly
+          $launcher=Join-Path $env:RT91_ROOT 'REINO_TRIBAL_CONTINUAR.ps1'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $launcher -PreflightOnly
           if($LASTEXITCODE -ne 0){throw "RT91 PreflightOnly falhou: $LASTEXITCODE"}
           Write-Host 'RT91_PUBLIC_PREFLIGHT_PASS'
 
@@ -90,7 +105,8 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
+          $launcher=Join-Path $env:RT91_ROOT 'REINO_TRIBAL_CONTINUAR.ps1'
           $deno=(Get-Command deno -ErrorAction Stop).Source
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -ValidateOnly -DenoExeOverride $deno
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $launcher -ValidateOnly -DenoExeOverride $deno
           if($LASTEXITCODE -ne 0){throw "RT91 ValidateOnly falhou: $LASTEXITCODE"}
           Write-Host 'RT91_VALIDATE_NO_SOURCE_DEPLOY_PASS'
