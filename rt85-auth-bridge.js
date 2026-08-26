@@ -166,15 +166,33 @@
     if(panel){panel.hidden=true;panel.style.display='none';panel.setAttribute('aria-hidden','true');}
   }
 
+  function convertAdminRecoveryButton(btn,id){
+    id=String(id||'');if(!btn||!id)return;
+    btn.setAttribute('data-admin-set-password',id);
+    btn.removeAttribute('data-admin-recovery');
+    btn.removeAttribute('data-rt64-recovery');
+    if(btn.textContent!=='Definir nova senha')btn.textContent='Definir nova senha';
+  }
+
+  function normalizeTursoLabels(){
+    const landing=document.querySelector('.rt55-entry-copy > p');
+    if(landing&&/Supabase Realtime/i.test(landing.textContent))landing.textContent=landing.textContent.replace(/Supabase Realtime/ig,'Turso + Deno');
+    const live=document.querySelector('.rt55-status .rt55-live');
+    if(live&&/Supabase/i.test(live.textContent))live.textContent='Turso • Deno Deploy';
+    const badge=document.querySelector('.rt18-online-badge');
+    if(badge&&/Supabase Realtime/i.test(badge.textContent))badge.textContent=badge.textContent.replace(/Supabase Realtime/ig,'Turso + Deno');
+    const modalText=document.querySelector('#rt60-admin-password-modal form p');
+    if(modalText&&/Supabase Auth/i.test(modalText.textContent))modalText.textContent='A senha vai direto ao servidor Turso. Sessões anteriores serão revogadas.';
+  }
+
   function hardenRecoveryUi(){
     const forgot=document.querySelector('[data-forgot-password]');
     if(forgot){if(forgot.textContent!=='Recuperação pelo administrador')forgot.textContent='Recuperação pelo administrador';forgot.dataset.rtTursoRecoveryGuard='1';}
     const panel=document.querySelector('[data-recovery-code-panel]');
     if(panel){panel.hidden=true;panel.style.display='none';panel.setAttribute('aria-hidden','true');}
-    document.querySelectorAll('[data-admin-recovery]').forEach(btn=>{
-      const id=String(btn.dataset.adminRecovery||'');
-      if(id){btn.setAttribute('data-admin-set-password',id);btn.removeAttribute('data-admin-recovery');if(btn.textContent!=='Definir nova senha')btn.textContent='Definir nova senha';}
-    });
+    document.querySelectorAll('[data-admin-recovery]').forEach(btn=>convertAdminRecoveryButton(btn,btn.dataset.adminRecovery));
+    document.querySelectorAll('[data-rt64-recovery]').forEach(btn=>convertAdminRecoveryButton(btn,btn.dataset.rt64Recovery));
+    normalizeTursoLabels();
   }
 
   document.addEventListener('click',event=>{
@@ -199,7 +217,7 @@
   const pulse=()=>enhance();new MutationObserver(pulse).observe(document.documentElement,{childList:true,subtree:true});setInterval(pulse,1200);pulse();
 
   window.ReinoTribalTurso={
-    version:'1.0.5-turso-recovery-safe',
+    version:'1.0.6-turso-recovery-complete',
     get apiBase(){return apiBase()},
     configure(base){const v=cleanBase(base);if(v)localStorage.setItem(API_BASE_KEY,v);else localStorage.removeItem(API_BASE_KEY);location.reload()},
     health(){return api('health')},
