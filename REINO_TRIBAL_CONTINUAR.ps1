@@ -9,10 +9,11 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$CanonicalCommit = 'e57caab5f36096575902438e9ec2145c1b90ef8f'
-$CanonicalFile = 'REINO_TRIBAL_ADMIN_ATUAL.ps1'
-$CanonicalVersion = 'FIX17'
-$CanonicalRevision = 'CHECKPOINT-1'
+$CanonicalCommit = 'bd08d847698e52a56b442a369e9d112e1702e417'
+$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91.ps1'
+$CanonicalVersion = 'RT91'
+$CanonicalRevision = 'SAFE-NO-DOWNGRADE-1'
+$CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'
 $ExpectedBackend = 'https://reino-tribal-api.mestrederpg35.deno.net'
 $Repo = 'kaalflash12/reinos-tribais-online'
 $Curl = Get-Command curl.exe -ErrorAction SilentlyContinue
@@ -23,6 +24,7 @@ $legacyPatterns = @(
   'RT_ADMIN_FIX16*.ps1',
   'REINO_TRIBAL_ADMIN_FIX15*.ps1',
   'REINO_TRIBAL_ADMIN_FIX16*.ps1',
+  'REINO_TRIBAL_ADMIN_ATUAL_FIX17*.ps1',
   'REINO_TRIBAL_RESUMIR_POS_DEPLOY_FIX11*.ps1',
   'RT_FIX13*.ps1',
   'RT_FIX14*.ps1'
@@ -32,12 +34,12 @@ foreach ($pattern in $legacyPatterns) {
     Remove-Item -Force -ErrorAction SilentlyContinue
 }
 
-$target = Join-Path $env:TEMP ('REINO_TRIBAL_ADMIN_ATUAL_FIX17_CHECKPOINT1_' + $CanonicalCommit.Substring(0,8) + '.ps1')
+$target = Join-Path $env:TEMP ('REINO_TRIBAL_ADMIN_RT91_SAFE_' + $CanonicalCommit.Substring(0,8) + '.ps1')
 Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
 $url = "https://raw.githubusercontent.com/$Repo/$CanonicalCommit/$CanonicalFile"
 
 Write-Host ''
-Write-Host '=== REINO TRIBAL LAUNCHER CANONICO ===' -ForegroundColor Cyan
+Write-Host '=== REINO TRIBAL LAUNCHER CANONICO RT91 ===' -ForegroundColor Cyan
 Write-Host ('CANONICAL COMMIT: ' + $CanonicalCommit) -ForegroundColor DarkGray
 Write-Host ('DESTINO: ' + $target) -ForegroundColor Yellow
 
@@ -49,17 +51,20 @@ $text = [IO.File]::ReadAllText($target)
 foreach ($needle in @(
   "`$ExecutorVersion = '$CanonicalVersion'",
   "`$ExecutorRevision = '$CanonicalRevision'",
+  "`$ExecutorContract = '$CanonicalContract'",
   "`$ExpectedBackend = '$ExpectedBackend'",
   'REINO_TRIBAL_EXECUTOR_ATIVO.txt',
   'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt',
-  '$preflightUrl = $preflightUri.AbsoluteUri',
-  'CREDENCIAL PRESERVADA APOS A FALHA:',
-  'REINO_TRIBAL_ADMIN_FIX17_VALIDADO'
+  'ANTI_DOWNGRADE: nenhum source deploy executado = PASS',
+  'REINO_TRIBAL_ADMIN_RT91_VALIDADO'
 )) {
-  if (-not $text.Contains($needle)) { throw "Executor baixado nao cumpre contrato canonico: $needle" }
+  if (-not $text.Contains($needle)) { throw "Executor baixado nao cumpre contrato canonico RT91: $needle" }
 }
-if ($text.Contains("`$ExecutorVersion = 'FIX15'") -or $text.Contains("`$ExecutorVersion = 'FIX16'")) {
-  throw 'Executor legado detectado. Nada sera executado.'
+if ($text.Contains("'deploy','--org'")) {
+  throw 'ANTI-DOWNGRADE: executor contem source deploy. Nada sera executado.'
+}
+if (-not $text.Contains("'deploy','env','update-value'")) {
+  throw 'Executor RT91 nao contem atualizacao segura de secrets.'
 }
 
 $tokens = $null
@@ -67,10 +72,11 @@ $errors = $null
 [System.Management.Automation.Language.Parser]::ParseFile($target,[ref]$tokens,[ref]$errors) | Out-Null
 if ($errors.Count -gt 0) {
   $errors | Format-List
-  throw 'Executor canonico nao passou no parser PowerShell.'
+  throw 'Executor canonico RT91 nao passou no parser PowerShell.'
 }
 
-Write-Host 'PASS: arquivo FIX17/CHECKPOINT-1 baixado e validado.' -ForegroundColor Green
+Write-Host 'PASS: arquivo RT91 SAFE baixado e validado.' -ForegroundColor Green
+Write-Host 'PASS: ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT' -ForegroundColor Green
 
 $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$target)
 if ($IdentityOnly) { $args += '-IdentityOnly' }
@@ -87,7 +93,7 @@ if ($code -ne 0) {
     Write-Host 'A CREDENCIAL GERADA FOI PRESERVADA EM:' -ForegroundColor Yellow
     Write-Host $pending -ForegroundColor Yellow
   }
-  throw "Executor canonico FIX17 terminou com codigo $code"
+  throw "Executor canonico RT91 terminou com codigo $code"
 }
 
-Write-Host 'PASS: REINO_TRIBAL_LAUNCHER_CANONICO_CONCLUIDO' -ForegroundColor Green
+Write-Host 'PASS: REINO_TRIBAL_LAUNCHER_CANONICO_RT91_CONCLUIDO' -ForegroundColor Green
