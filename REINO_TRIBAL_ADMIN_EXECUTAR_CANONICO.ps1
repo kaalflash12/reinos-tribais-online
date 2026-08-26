@@ -9,7 +9,7 @@ Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $ExecutorCommit = 'e86544bcf3902c1e2600f5efc76cee09fdddb02c'
-$ExpectedSha256 = '8a9a93e0cee6f0f63e6df37ffeb60704d19cd7e287de0617d4fd924516bedfc2'
+$ExpectedSha256 = '18394c86be63f10765af13dc80e3e33889731122ceb4e9eefcf4624a27c745bb'
 $Repo = 'kaalflash12/reinos-tribais-online'
 $TargetName = 'RT_ADMIN_CANONICO_e86544bc.ps1'
 $Target = Join-Path $env:TEMP $TargetName
@@ -67,7 +67,7 @@ foreach($needle in @(
 
 Write-Host "`n=== REINO TRIBAL ADMIN CANONICO ===" -ForegroundColor Cyan
 Write-Host "Commit executor: $ExecutorCommit" -ForegroundColor DarkGray
-Write-Host "SHA256 validado: $actualSha" -ForegroundColor Green
+Write-Host "SHA256 RAW validado: $actualSha" -ForegroundColor Green
 Write-Host "Arquivo executado: $Target" -ForegroundColor Yellow
 
 $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$Target)
