@@ -4,11 +4,15 @@ on:
     branches: [main]
     paths:
       - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
+      - 'REINO_TRIBAL_CONTINUAR.ps1'
+      - 'REINO_TRIBAL_ADMIN_SAFE_RT91.ps1'
       - 'tools/rt90_admin_public_proof.mjs'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
   pull_request:
     paths:
       - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
+      - 'REINO_TRIBAL_CONTINUAR.ps1'
+      - 'REINO_TRIBAL_ADMIN_SAFE_RT91.ps1'
       - 'tools/rt90_admin_public_proof.mjs'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
   workflow_dispatch:
@@ -16,19 +20,37 @@ on:
 jobs:
   validate:
     runs-on: windows-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.5
-      - name: PowerShell parser
+      - name: PowerShell parsers and anti-downgrade contract
         shell: powershell
         run: |
-          $tokens=$null;$errors=$null
-          [Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
-          if($errors.Count){$errors|Format-List|Out-String|Write-Host;throw 'RT90 PowerShell parser falhou'}
-          Write-Host 'RT90_POWERSHELL_PARSE_PASS'
+          foreach($file in @('REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1','REINO_TRIBAL_CONTINUAR.ps1','REINO_TRIBAL_ADMIN_SAFE_RT91.ps1')){
+            $tokens=$null;$errors=$null
+            [Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count){$errors|Format-List|Out-String|Write-Host;throw "PowerShell parser falhou: $file"}
+          }
+          $safe=Get-Content REINO_TRIBAL_ADMIN_SAFE_RT91.ps1 -Raw
+          $launcher=Get-Content REINO_TRIBAL_CONTINUAR.ps1 -Raw
+          $close=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -Raw
+          foreach($needle in @("`$ExecutorVersion = 'RT91'","`$ExecutorContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",'ANTI_DOWNGRADE: nenhum source deploy executado = PASS',"'deploy','env','update-value'")){if(-not $safe.Contains($needle)){throw "RT91 sem contrato: $needle"}}
+          foreach($needle in @("`$CanonicalVersion = 'RT91'","`$CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT')){if(-not $launcher.Contains($needle)){throw "Launcher sem contrato RT91: $needle"}}
+          foreach($needle in @('ANTI_DOWNGRADE: nenhum source deploy executado = PASS','Contrato: ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS')){if(-not $close.Contains($needle)){throw "Fechamento RT90 sem anti-downgrade: $needle"}}
+          if($safe.Contains("'deploy','--org'")){throw 'ANTI-DOWNGRADE: RT91 contém source deploy.'}
+          if($safe -match "(?s)Executar-Nativo[^\r\n]+-Args\s+@\('deploy'\s*,\s*'--org'"){throw 'ANTI-DOWNGRADE: source deploy detectado por regex.'}
+          if($close -match '(?im)Write-Host[^\r\n]*\$password'){throw 'RT90 não pode imprimir a senha'}
+          Write-Host 'RT91_ANTI_DOWNGRADE_STATIC_PASS'
+      - name: Execute canonical RT91 validate-only
+        shell: powershell
+        run: |
+          $deno=(Get-Command deno -ErrorAction Stop).Source
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -ValidateOnly -DenoExeOverride $deno
+          if($LASTEXITCODE -ne 0){throw "RT91 validate-only exit code $LASTEXITCODE"}
+          Write-Host 'RT91_CANONICAL_VALIDATE_NO_DEPLOY_PASS'
       - name: Browser runner syntax
         shell: pwsh
         run: |
@@ -36,8 +58,7 @@ jobs:
           $js=Get-Content tools/rt90_admin_public_proof.mjs -Raw
           $ps=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -Raw
           foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network','RT90_VALIDATE_ONLY')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
-          foreach($needle in @('CREDENCIAIS_ADMIN_REINO_TRIBAL.txt','VALIDACAO: login','RT_FINAL_ADMIN_PASSWORD','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS')){if(-not $ps.Contains($needle)){throw "PowerShell RT90 sem contrato: $needle"}}
-          if($ps -match '(?im)Write-Host[^\r\n]*\$password'){throw 'RT90 não pode imprimir a senha'}
+          foreach($needle in @('CREDENCIAIS_ADMIN_REINO_TRIBAL.txt','VALIDACAO: login','RT_FINAL_ADMIN_PASSWORD','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS','ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_PASS')){if(-not $ps.Contains($needle)){throw "PowerShell RT90 sem contrato: $needle"}}
           Write-Host 'RT90_BROWSER_RUNNER_STATIC_PASS'
       - name: Run real Edge/Selenium runtime without credentials
         shell: pwsh
