@@ -13,12 +13,83 @@ const proof={pass:false,validate_only:VALIDATE_ONLY,frontend:FRONTEND,api:API,br
 const pass=name=>proof.checks.push({name,pass:true});
 async function screenshot(driver,name){const shot=await driver.takeScreenshot();const raw=Uint8Array.from(atob(shot),c=>c.charCodeAt(0));await Deno.writeFile(`${OUT}/${name}`,raw)}
 
+const decoder=new TextDecoder();
+async function exists(path){try{await Deno.stat(path);return true}catch{return false}}
+async function edgeVersionFromExe(edgeExe){
+  const r=await new Deno.Command('powershell.exe',{
+    args:['-NoProfile','-ExecutionPolicy','Bypass','-Command','(Get-Item -LiteralPath $env:RT90_EDGE_EXE).VersionInfo.ProductVersion'],
+    env:{RT90_EDGE_EXE:edgeExe},stdout:'piped',stderr:'piped'
+  }).output();
+  const text=(decoder.decode(r.stdout)+' '+decoder.decode(r.stderr)).trim();
+  const m=text.match(/\b(\d+\.\d+\.\d+\.\d+)\b/);
+  if(!r.success||!m)throw new Error(`Não foi possível detectar a versão do Edge em ${edgeExe}: ${text}`);
+  return m[1];
+}
+async function detectEdge(){
+  const candidates=[];
+  const pf86=Deno.env.get('PROGRAMFILES(X86)');
+  const pf=Deno.env.get('PROGRAMFILES');
+  const local=Deno.env.get('LOCALAPPDATA');
+  if(pf86)candidates.push(`${pf86}\\Microsoft\\Edge\\Application\\msedge.exe`);
+  if(pf)candidates.push(`${pf}\\Microsoft\\Edge\\Application\\msedge.exe`);
+  if(local)candidates.push(`${local}\\Microsoft\\Edge\\Application\\msedge.exe`);
+  for(const exe of candidates){if(await exists(exe))return {exe,version:await edgeVersionFromExe(exe)}}
+  throw new Error('Microsoft Edge não encontrado nos caminhos padrão do Windows.');
+}
+async function curlDownload(url,out){
+  const r=await new Deno.Command('curl.exe',{
+    args:['--fail','--silent','--show-error','--location','--http1.1','--tlsv1.2','--retry','3','--retry-all-errors','--connect-timeout','20','--max-time','180','--output',out,url],
+    stdout:'piped',stderr:'piped'
+  }).output();
+  if(!r.success||!(await exists(out))){
+    const err=(decoder.decode(r.stderr)||decoder.decode(r.stdout)).trim();
+    throw new Error(`download falhou: ${url} :: ${err}`);
+  }
+}
+async function resolveEdgeDriver(){
+  const explicit=Deno.env.get('RT90_EDGE_DRIVER');
+  if(explicit&&await exists(explicit))return {path:explicit,source:'RT90_EDGE_DRIVER',edge:null};
+  if(Deno.build.os!=='windows')return {path:null,source:'selenium-manager-non-windows',edge:null};
+
+  const edgeInfo=await detectEdge();
+  const dir=await Deno.makeTempDir({prefix:'rt90-msedgedriver-'});
+  const zip=`${dir}\\edgedriver_win64.zip`;
+  const urls=[
+    `https://msedgedriver.microsoft.com/${edgeInfo.version}/edgedriver_win64.zip`,
+    `https://msedgedriver.azureedge.net/${edgeInfo.version}/edgedriver_win64.zip`
+  ];
+  let last;
+  let source='';
+  for(const url of urls){
+    try{await curlDownload(url,zip);source=url;last=null;break}catch(e){last=e;try{await Deno.remove(zip)}catch{}}
+  }
+  if(last)throw new Error(`Não foi possível baixar o EdgeDriver ${edgeInfo.version} por nenhum endpoint oficial/fallback. ${String(last?.message||last)}`);
+
+  const x=await new Deno.Command('powershell.exe',{
+    args:['-NoProfile','-ExecutionPolicy','Bypass','-Command','Expand-Archive -LiteralPath $env:RT90_EDGE_ZIP -DestinationPath $env:RT90_EDGE_DIR -Force'],
+    env:{RT90_EDGE_ZIP:zip,RT90_EDGE_DIR:dir},stdout:'piped',stderr:'piped'
+  }).output();
+  if(!x.success)throw new Error('Falha extraindo EdgeDriver: '+decoder.decode(x.stderr));
+  const driverPath=`${dir}\\msedgedriver.exe`;
+  if(!(await exists(driverPath)))throw new Error('msedgedriver.exe não apareceu após a extração.');
+  return {path:driverPath,source,edge:edgeInfo};
+}
+
 const opts = new edge.Options();
 opts.addArguments('--window-size=1440,1000','--no-first-run','--disable-features=EdgeFirstRunExperience','--disable-dev-shm-usage');
 if(VALIDATE_ONLY)opts.addArguments('--headless=new');
 let driver;
 try{
-  driver = await new Builder().forBrowser(Browser.EDGE).setEdgeOptions(opts).build();
+  const driverInfo=await resolveEdgeDriver();
+  if(driverInfo.edge){
+    proof.edge_version=driverInfo.edge.version;
+    proof.edge_binary=driverInfo.edge.exe;
+    proof.edgedriver_source=driverInfo.source;
+    pass('matching EdgeDriver resolved without Selenium Manager');
+  }
+  let builder=new Builder().forBrowser(Browser.EDGE).setEdgeOptions(opts);
+  if(driverInfo.path)builder=builder.setEdgeService(new edge.ServiceBuilder(driverInfo.path));
+  driver = await builder.build();
   await driver.manage().setTimeouts({pageLoad:60000,script:60000,implicit:0});
   await driver.get(`${FRONTEND}?rt90-admin=${Date.now()}`);
 
