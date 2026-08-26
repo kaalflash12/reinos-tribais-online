@@ -54,10 +54,12 @@ async function resolveEdgeDriver(){
   const edgeInfo=await detectEdge();
   const dir=await Deno.makeTempDir({prefix:'rt90-msedgedriver-'});
   const zip=`${dir}\\edgedriver_win64.zip`;
-  const urls=[
-    `https://msedgedriver.microsoft.com/${edgeInfo.version}/edgedriver_win64.zip`,
-    `https://msedgedriver.azureedge.net/${edgeInfo.version}/edgedriver_win64.zip`
-  ];
+  const versions=[edgeInfo.version];
+  if(edgeInfo.version.startsWith('146.0.3856.') && edgeInfo.version!=='146.0.3856.109')versions.push('146.0.3856.109');
+  const urls=versions.flatMap(version=>[
+    `https://msedgedriver.microsoft.com/${version}/edgedriver_win64.zip`,
+    `https://msedgedriver.azureedge.net/${version}/edgedriver_win64.zip`
+  ]);
   let last;
   let source='';
   for(const url of urls){
