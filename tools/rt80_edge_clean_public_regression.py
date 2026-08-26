@@ -37,7 +37,9 @@ def capture_mobile_nav_diagnostic(driver):
     path.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
     shot=edge.r.OUT/'RT80_MOBILE_NAV_DIAGNOSTIC.png'
     driver.save_screenshot(str(shot))
-    print('RT80_MOBILE_NAV_DIAGNOSTIC='+json.dumps(data,ensure_ascii=False,separators=(',',':')))
+    # Windows runners can use a legacy console code page. Keep the artifact UTF-8,
+    # but escape non-ASCII characters in console diagnostics so emoji cannot crash Python.
+    print('RT80_MOBILE_NAV_DIAGNOSTIC='+json.dumps(data,ensure_ascii=True,separators=(',',':')))
     return data
 
 
