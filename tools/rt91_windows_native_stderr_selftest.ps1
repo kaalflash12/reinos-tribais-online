@@ -7,6 +7,8 @@ $Auth=Join-Path $RepoRoot 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1'
 $Tmp=Join-Path $env:TEMP ('rt91-win-selftest-'+[Guid]::NewGuid().ToString('N'))
 $Fake=Join-Path $Tmp 'fake-deno.exe'
 $Log=Join-Path $Tmp 'fake-deno.log'
+$BundleAuth=Join-Path $Tmp 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1'
+$BundleHelper=Join-Path $Tmp 'rt91_process_helpers.ps1'
 
 function Assert-True([bool]$Condition,[string]$Message){if(-not $Condition){throw $Message}}
 
@@ -18,6 +20,12 @@ try{
     [Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)|Out-Null
     Assert-True ($errors.Count -eq 0) ("Parser PowerShell falhou em $path : "+(($errors|Out-String)))
   }
+
+  # Monta exatamente o layout do pacote final: executor e helper lado a lado.
+  Copy-Item -LiteralPath $Auth -Destination $BundleAuth -Force
+  Copy-Item -LiteralPath $Helper -Destination $BundleHelper -Force
+  Assert-True (Test-Path $BundleAuth) 'AUTH10 nao foi empacotado no bundle temporario.'
+  Assert-True (Test-Path $BundleHelper) 'Helper nao foi empacotado ao lado do AUTH10.'
 
   $source=@'
 using System;
@@ -73,10 +81,10 @@ public static class Program {
   Assert-True $good.Ok 'org correto deveria passar apesar do stderr.'
   Assert-True (($good.Data|ConvertTo-Json -Compress) -match 'reino-tribal-api\.mestrederpg35\.deno\.net') 'productionUrl canonica ausente.'
 
-  # Executa o AUTH10 real em modo de descoberta e testa update-value pelo helper real.
+  # Executa o AUTH10 real no layout final e testa update-value pelo helper real.
   $env:RT91_FAKE_DENO_SELFTEST='1'
   Remove-Item $Log -Force -ErrorAction SilentlyContinue
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Auth -DenoExeOverride $Fake -DiscoveryTestOnly -PreferredDenoOrg mestrederpg35
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $BundleAuth -DenoExeOverride $Fake -DiscoveryTestOnly -PreferredDenoOrg mestrederpg35
   $code=$LASTEXITCODE
   Assert-True ($code -eq 0) ("AUTH10 discovery selftest falhou exit=$code")
   $calls=if(Test-Path $Log){[IO.File]::ReadAllText($Log)}else{''}
@@ -90,7 +98,7 @@ public static class Program {
   $env:RT91_FAKE_DENO_SELFTEST=''
   $env:FAKE_DENO_NO_APP='1'
   Remove-Item $Log -Force -ErrorAction SilentlyContinue
-  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Auth -DenoExeOverride $Fake -DiscoveryTestOnly -PreferredDenoOrg mestrederpg35
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $BundleAuth -DenoExeOverride $Fake -DiscoveryTestOnly -PreferredDenoOrg mestrederpg35
   $negativeCode=$LASTEXITCODE
   Assert-True ($negativeCode -ne 0) 'Cenario sem app deveria falhar.'
   $negativeCalls=if(Test-Path $Log){[IO.File]::ReadAllText($Log)}else{''}
