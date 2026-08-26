@@ -1,197 +1,96 @@
-name: RT Admin Canonical FIX17
+name: RT91 Admin Canonical Gate
 
 on:
   push:
     branches: [main]
     paths:
-      - 'RT_ADMIN_CANONICAL_FIX17.ps1'
       - 'REINO_TRIBAL_CONTINUAR.ps1'
+      - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'
+      - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1'
+      - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
+      - '.github/workflows/rt-admin-canonical-fix17.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'REINO_TRIBAL_CONTINUAR.ps1'
+      - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'
+      - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1'
+      - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
       - '.github/workflows/rt-admin-canonical-fix17.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  windows-fix17:
+  windows-rt91:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.5
 
-      - name: Generate canonical FIX17
+      - name: Parse current RT91 canonical contract
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\RT_ADMIN_CANONICAL_FIX17.ps1
-          if($LASTEXITCODE -ne 0){throw "FIX17 transform falhou: $LASTEXITCODE"}
-
-      - name: Parse and verify FIX17 contract
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          $p=Resolve-Path '.\REINO_TRIBAL_ADMIN_ATUAL.ps1'
-          $tokens=$null;$errors=$null
-          [System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$tokens,[ref]$errors)|Out-Null
-          if($errors.Count){$errors|Format-List;throw 'FIX17 nao passou no parser PowerShell'}
-          $t=[IO.File]::ReadAllText($p)
-          foreach($needle in @(
-            "`$ExecutorVersion = 'FIX17'",
-            "`$ExecutorRevision = 'CHECKPOINT-1'",
-            "`$ExecutorContract = 'ADMIN_AUTHORITY_CORS_CANONICAL'",
-            '[switch]$IdentityOnly',
-            '[switch]$CheckpointFailureTestOnly',
-            'REINO_TRIBAL_FIX17_IDENTITY_PASS',
-            'REINO_TRIBAL_EXECUTOR_ATIVO.txt',
-            'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt',
-            'function Gravar-CheckpointCredencial',
-            'GERADA_LOCALMENTE_ANTES_DO_DENO',
-            'SENHA_DENO_ATUALIZADA',
-            'SENHA_E_RECOVERY_DENO_ATUALIZADAS',
-            'DEPLOY_CONCLUIDO_AGUARDANDO_LOGIN',
-            'LOGIN_ADMIN_STATUS_DASHBOARD_PASS',
-            'CREDENCIAL PRESERVADA APOS A FALHA:',
-            "if (`$SelfLeaf -match '(?i)FIX1[56]')",
-            '$preflightUrl = $preflightUri.AbsoluteUri',
-            'FIX17_PREFLIGHT_PUBLICO_PASS',
-            'REINO_TRIBAL_ADMIN_FIX17_VALIDADO',
-            "[string]`$BackendCommit = 'd5d1edadd9f33b612a233c4feed0e06ec97203bc'"
-          )){if(-not $t.Contains($needle)){throw "Contrato FIX17 ausente: $needle"}}
-          Write-Host 'FIX17_PARSE_CONTRACT_PASS'
-
-      - name: Prove stale TEMP cleanup and identity
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          $stale15=Join-Path $env:TEMP 'RT_ADMIN_FIX15_STALE_TEST.ps1'
-          $stale16=Join-Path $env:TEMP 'RT_ADMIN_FIX16_STALE_TEST.ps1'
-          Set-Content -Path $stale15 -Value 'stale'
-          Set-Content -Path $stale16 -Value 'stale'
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_ATUAL.ps1 -IdentityOnly
-          if($LASTEXITCODE -ne 0){throw "FIX17 IdentityOnly falhou: $LASTEXITCODE"}
-          if(Test-Path $stale15){throw 'FIX17 nao removeu stale FIX15 do TEMP'}
-          if(Test-Path $stale16){throw 'FIX17 nao removeu stale FIX16 do TEMP'}
-          $marker=Join-Path $env:TEMP 'REINO_TRIBAL_EXECUTOR_ATIVO.txt'
-          if(-not (Test-Path $marker)){throw 'FIX17 nao gravou marcador de executor ativo'}
-          $m=[IO.File]::ReadAllText($marker)
-          foreach($needle in @('version=FIX17','revision=CHECKPOINT-1','contract=ADMIN_AUTHORITY_CORS_CANONICAL','backend=https://reino-tribal-api.mestrederpg35.deno.net')){if(-not $m.Contains($needle)){throw "Marcador FIX17 ausente: $needle"}}
-          Write-Host 'FIX17_IDENTITY_STALE_CLEANUP_PASS'
-
-      - name: Prove credential checkpoint survives failure
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          $credDir=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal'
-          $pending=Join-Path $credDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt'
-          Remove-Item $pending -Force -ErrorAction SilentlyContinue
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_ATUAL.ps1 -CheckpointFailureTestOnly
-          $code=$LASTEXITCODE
-          if($code -eq 0){throw 'FIX17 teste de falha deveria retornar codigo diferente de zero'}
-          if(-not (Test-Path $pending)){throw 'FIX17 perdeu a credencial no teste de falha simulada'}
-          $p=[IO.File]::ReadAllText($pending)
-          foreach($needle in @(
-            'Status: CI_FALHA_SIMULADA_ANTES_DO_DENO',
-            'Usuario ADM: reinos_admin',
-            'Senha ADM: RT!CHECKPOINT_FAILURE_TEST_1234567890',
-            'Recovery Key: CHECKPOINT_FAILURE_TEST_RECOVERY_1234567890'
-          )){if(-not $p.Contains($needle)){throw "Checkpoint FIX17 incompleto: $needle"}}
-          Remove-Item $pending -Force
-          Write-Host 'FIX17_CREDENTIAL_CHECKPOINT_FAILURE_SURVIVAL_PASS'
-          $global:LASTEXITCODE=0
-          exit 0
-
-      - name: Execute exact public preflight on Windows
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_ATUAL.ps1 -PreflightOnly
-          if($LASTEXITCODE -ne 0){throw "FIX17 PreflightOnly falhou: $LASTEXITCODE"}
-          Write-Host 'FIX17_PUBLIC_PREFLIGHT_WINDOWS_PASS'
-
-      - name: Validate pinned backend with Deno 2.9.5
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          $deno=(Get-Command deno).Source
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_ADMIN_ATUAL.ps1 -ValidateOnly -DenoExeOverride $deno
-          if($LASTEXITCODE -ne 0){throw "FIX17 ValidateOnly falhou: $LASTEXITCODE"}
-          Write-Host 'FIX17_PINNED_BACKEND_DENO_CHECK_PASS'
-
-      - name: Parse and verify canonical launcher
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          $p=Resolve-Path '.\REINO_TRIBAL_CONTINUAR.ps1'
-          $tokens=$null;$errors=$null
-          [System.Management.Automation.Language.Parser]::ParseFile($p,[ref]$tokens,[ref]$errors)|Out-Null
-          if($errors.Count){$errors|Format-List;throw 'Launcher nao passou no parser PowerShell'}
-          $t=[IO.File]::ReadAllText($p)
-          foreach($needle in @(
-            "`$CanonicalCommit = 'e57caab5f36096575902438e9ec2145c1b90ef8f'",
-            "`$CanonicalVersion = 'FIX17'",
-            "`$CanonicalRevision = 'CHECKPOINT-1'",
-            'REINO_TRIBAL_ADMIN_ATUAL_FIX17_CHECKPOINT1_',
-            'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt',
-            'REINO_TRIBAL_LAUNCHER_CANONICO_CONCLUIDO'
-          )){if(-not $t.Contains($needle)){throw "Contrato launcher ausente: $needle"}}
-          Write-Host 'LAUNCHER_PARSE_PIN_CONTRACT_PASS'
-
-      - name: Prove launcher cleanup and identity
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          foreach($name in @('RT_ADMIN_FIX15_STALE.ps1','RT_ADMIN_FIX16_STALE.ps1','REINO_TRIBAL_ADMIN_FIX15_STALE.ps1','REINO_TRIBAL_ADMIN_FIX16_STALE.ps1')){
-            Set-Content -Path (Join-Path $env:TEMP $name) -Value 'stale'
+          foreach($file in @('REINO_TRIBAL_CONTINUAR.ps1','REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1','REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1')){
+            $tokens=$null;$errors=$null
+            [Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count){$errors|Format-List|Out-String|Write-Host;throw "PowerShell parser falhou: $file"}
           }
+          $launcher=Get-Content REINO_TRIBAL_CONTINUAR.ps1 -Raw
+          $wrapper=Get-Content REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1 -Raw
+          $close=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -Raw
+          foreach($needle in @(
+            "`$CanonicalVersion = 'RT91'",
+            "`$CanonicalRevision = 'SAFE-CLI-AUTH-3'",
+            "`$CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",
+            "`$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1'",
+            'DENO_AUTH_OFICIAL_CLI_CONTRACT',
+            'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT'
+          )){if(-not $launcher.Contains($needle)){throw "Launcher RT91 sem contrato: $needle"}}
+          foreach($needle in @(
+            "`$ExecutorVersion = 'RT91'",
+            "`$ExecutorRevision = 'SAFE-CLI-AUTH-3'",
+            "`$ExecutorContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",
+            "`$BaseCommit = '133abc213cc3f269e1a5019a7c361847f8f72abe'",
+            'CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT',
+            'ANTI-DOWNGRADE: source deploy detectado no executor-base.',
+            'Auth HTTP manual proibido detectado no executor-base.'
+          )){if(-not $wrapper.Contains($needle)){throw "Wrapper RT91 sem contrato: $needle"}}
+          foreach($needle in @('ANTI_DOWNGRADE: nenhum source deploy executado = PASS','Contrato: ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS')){if(-not $close.Contains($needle)){throw "Fechamento RT90 sem contrato: $needle"}}
+          if($close -match '(?im)Write-Host[^\r\n]*\$password'){throw 'RT90 nao pode imprimir a senha'}
+          Write-Host 'RT91_CANONICAL_STATIC_PASS'
+
+      - name: Prove canonical identity
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -IdentityOnly
-          if($LASTEXITCODE -ne 0){throw "Launcher IdentityOnly falhou: $LASTEXITCODE"}
-          foreach($name in @('RT_ADMIN_FIX15_STALE.ps1','RT_ADMIN_FIX16_STALE.ps1','REINO_TRIBAL_ADMIN_FIX15_STALE.ps1','REINO_TRIBAL_ADMIN_FIX16_STALE.ps1')){
-            if(Test-Path (Join-Path $env:TEMP $name)){throw "Launcher deixou stale no TEMP: $name"}
-          }
+          if($LASTEXITCODE -ne 0){throw "RT91 IdentityOnly falhou: $LASTEXITCODE"}
           $marker=Join-Path $env:TEMP 'REINO_TRIBAL_EXECUTOR_ATIVO.txt'
-          if(-not (Test-Path $marker)){throw 'Launcher nao produziu marcador do executor canonico'}
-          $m=[IO.File]::ReadAllText($marker)
-          foreach($needle in @('version=FIX17','revision=CHECKPOINT-1','backend=https://reino-tribal-api.mestrederpg35.deno.net')){if(-not $m.Contains($needle)){throw "Marcador launcher ausente: $needle"}}
-          Write-Host 'LAUNCHER_STALE_CLEANUP_IDENTITY_PASS'
+          if(-not (Test-Path $marker)){throw 'RT91 nao produziu marcador de executor ativo'}
+          $m=Get-Content $marker -Raw
+          foreach($needle in @('version=RT91','revision=SAFE-CLI-AUTH-3','contract=ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91','backend=https://reino-tribal-api.mestrederpg35.deno.net')){if(-not $m.Contains($needle)){throw "Marcador RT91 ausente: $needle"}}
+          Write-Host 'RT91_CANONICAL_IDENTITY_PASS'
 
-      - name: Execute public preflight through launcher
+      - name: Execute public preflight through RT91 launcher
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -PreflightOnly
-          if($LASTEXITCODE -ne 0){throw "Launcher PreflightOnly falhou: $LASTEXITCODE"}
-          Write-Host 'LAUNCHER_PUBLIC_PREFLIGHT_PASS'
+          if($LASTEXITCODE -ne 0){throw "RT91 PreflightOnly falhou: $LASTEXITCODE"}
+          Write-Host 'RT91_PUBLIC_PREFLIGHT_PASS'
 
-      - name: Validate backend through launcher with Deno 2.9.5
+      - name: Validate current backend source without deploy
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          $deno=(Get-Command deno).Source
+          $deno=(Get-Command deno -ErrorAction Stop).Source
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -ValidateOnly -DenoExeOverride $deno
-          if($LASTEXITCODE -ne 0){throw "Launcher ValidateOnly falhou: $LASTEXITCODE"}
-          Write-Host 'LAUNCHER_DENO_PINNED_BACKEND_PASS'
-
-      - name: Publish canonical executor
-        shell: powershell
-        run: |
-          $ErrorActionPreference='Stop'
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add REINO_TRIBAL_ADMIN_ATUAL.ps1
-          if(git diff --cached --quiet){ Write-Host 'Executor canonico FIX17 ja publicado.'; exit 0 }
-          git commit -m 'fix: publicar executor admin canonico FIX17 checkpoint'
-          for($i=1;$i -le 5;$i++){
-            git fetch origin main
-            git rebase origin/main
-            if($LASTEXITCODE -ne 0){throw 'Rebase FIX17 falhou.'}
-            git push origin HEAD:main
-            if($LASTEXITCODE -eq 0){exit 0}
-            Start-Sleep -Seconds (2*$i)
-          }
-          throw 'Nao foi possivel publicar FIX17 apos 5 tentativas.'
+          if($LASTEXITCODE -ne 0){throw "RT91 ValidateOnly falhou: $LASTEXITCODE"}
+          Write-Host 'RT91_VALIDATE_NO_SOURCE_DEPLOY_PASS'
