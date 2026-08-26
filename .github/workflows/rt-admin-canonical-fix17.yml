@@ -82,13 +82,17 @@ jobs:
             "`$ExecutorRevision = 'SAFE-CLI-AUTH-4'",
             "`$ExecutorContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",
             "`$BaseCommit = '133abc213cc3f269e1a5019a7c361847f8f72abe'",
-            "@('deploy','env','list','--org',`$DenoOrg,'--app',`$DenoApp)",
-            "@('deploy','env','update-value','RT_ADMIN_PASSWORD',`$adminPassword,'--org',`$DenoOrg,'--app',`$DenoApp)",
+            '$newAuth =',
+            '$newApp =',
+            '$newPass =',
+            '$newRecovery =',
             'CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT',
-            'DENO_DOCUMENTED_CLI_ONLY_CONTRACT'
+            'DENO_DOCUMENTED_CLI_ONLY_CONTRACT',
+            'Subcomando Deno apps get nao documentado ainda presente.',
+            'Flag Deno --non-interactive nao documentada ainda presente.',
+            'ANTI-DOWNGRADE: source deploy apareceu apos patch.',
+            'Auth HTTP manual reapareceu.'
           )){if(-not $wrapper.Contains($needle)){throw "Wrapper RT91 sem contrato: $needle"}}
-          if($launcher.Contains("'deploy','apps','get'") -or $wrapper.Contains("'deploy','apps','get'")){throw 'apps get nao documentado reapareceu'}
-          if($launcher.Contains('--non-interactive') -or $wrapper.Contains('--non-interactive')){throw '--non-interactive nao documentado reapareceu'}
           foreach($needle in @('ANTI_DOWNGRADE: nenhum source deploy executado = PASS','Contrato: ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS')){if(-not $close.Contains($needle)){throw "Fechamento RT90 sem contrato: $needle"}}
           if($close -match '(?im)Write-Host[^\r\n]*\$password'){throw 'RT90 nao pode imprimir a senha'}
           Write-Host 'RT91_CANONICAL_STATIC_PASS'
