@@ -3,6 +3,7 @@
   if(window.__RT_TURSO_BRIDGE__) return;
   window.__RT_TURSO_BRIDGE__=true;
   window.__RT85_AUTH_BRIDGE__=true; // marcador legado; backend continua Turso
+  window.__RT89_RECOVERY_SAFE__=true;
   window.__RT_SERVER_ACTIONS_ENABLED__=false;
 
   const ORIGINAL_FETCH=window.fetch.bind(window);
@@ -10,6 +11,7 @@
   const SESSION_KEY='reinos_tribais_supabase_session_v60_browser';
   const API_BASE_KEY='reino_tribal_api_base';
   const DEFAULT_WORLD='d5a546fb-316d-4332-ae92-1886d80b07df';
+  const RECOVERY_NOTICE='A recuperação automática por e-mail foi removida na migração para Turso. Solicite ao administrador a redefinição da senha da sua conta.';
 
   const cleanBase=v=>String(v||'').trim().replace(/\/$/,'');
   function apiBase(){
@@ -81,6 +83,7 @@
       const data=await api('me',{},token);return jsonResponse(data?.user||data);
     }
     if(url.endsWith('/auth/v1/user')&&method==='PUT')return errorResponse('Troca de senha de jogador por link ainda não está habilitada no Turso.',501);
+    if(url.includes('/auth/v1/recover'))return errorResponse(RECOVERY_NOTICE,410);
     if(url.includes('/auth/v1/otp')||url.includes('/auth/v1/verify'))return errorResponse('Login por código de e-mail foi removido nesta migração. Use usuário/e-mail e senha.',501);
     return null;
   }
@@ -156,7 +159,37 @@
     }catch(e){return errorResponse(e?.message||e,e?.status||500)}
   };
 
+  function setRecoveryNotice(){
+    const global=document.querySelector('#rt18-auth-message');
+    if(global){global.textContent=RECOVERY_NOTICE;global.className='rt18-auth-message';}
+    const panel=document.querySelector('[data-recovery-code-panel]');
+    if(panel){panel.hidden=true;panel.style.display='none';panel.setAttribute('aria-hidden','true');}
+  }
+
+  function hardenRecoveryUi(){
+    const forgot=document.querySelector('[data-forgot-password]');
+    if(forgot){forgot.textContent='Recuperação pelo administrador';forgot.dataset.rtTursoRecoveryGuard='1';}
+    const panel=document.querySelector('[data-recovery-code-panel]');
+    if(panel){panel.hidden=true;panel.style.display='none';panel.setAttribute('aria-hidden','true');}
+    document.querySelectorAll('[data-admin-recovery]').forEach(btn=>{
+      const id=String(btn.dataset.adminRecovery||'');
+      if(id){btn.setAttribute('data-admin-set-password',id);btn.removeAttribute('data-admin-recovery');btn.textContent='Definir nova senha';}
+    });
+  }
+
+  document.addEventListener('click',event=>{
+    const forgot=event.target.closest?.('[data-forgot-password]');
+    if(forgot){event.preventDefault();event.stopImmediatePropagation();setRecoveryNotice();return;}
+  },true);
+
+  document.addEventListener('submit',event=>{
+    if(event.target?.id==='rt64-recovery-code-form'||event.target?.id==='rt59-recovery-password'){
+      event.preventDefault();event.stopImmediatePropagation();setRecoveryNotice();
+    }
+  },true);
+
   function enhance(){
+    hardenRecoveryUi();
     const form=document.querySelector('#rt18-login-form');if(!form||form.dataset.rtTurso==='1')return;
     form.dataset.rtTurso='1';
     document.querySelectorAll('[data-rt85-code],[data-rt85-code-panel]').forEach(x=>x.remove());
@@ -166,10 +199,11 @@
   const pulse=()=>enhance();new MutationObserver(pulse).observe(document.documentElement,{childList:true,subtree:true});setInterval(pulse,1200);pulse();
 
   window.ReinoTribalTurso={
-    version:'1.0.4-turso',
+    version:'1.0.5-turso-recovery-safe',
     get apiBase(){return apiBase()},
     configure(base){const v=cleanBase(base);if(v)localStorage.setItem(API_BASE_KEY,v);else localStorage.removeItem(API_BASE_KEY);location.reload()},
     health(){return api('health')},
     blockLegacySupabase:true,
+    recoveryMode:'admin-reset',
   };
 })();
