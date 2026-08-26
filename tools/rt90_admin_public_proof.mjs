@@ -7,11 +7,37 @@ const PASSWORD = Deno.env.get('RT_FINAL_ADMIN_PASSWORD') || '';
 const VALIDATE_ONLY = Deno.env.get('RT90_VALIDATE_ONLY') === '1';
 const OUT = Deno.env.get('RT_FINAL_PROOF_DIR') || `${Deno.env.get('TEMP') || '.'}/RT90_ADMIN_PUBLIC_PROOF`;
 const USERNAME = 'reinos_admin';
+const WORLD_ID = 'd5a546fb-316d-4332-ae92-1886d80b07df';
+const PUBLIC_ORIGIN = 'https://kaalflash12.github.io';
+const LEGACY_ORIGIN = 'https://rlyiwlwzrdgvcwawrnpl.supabase.co';
+const SESSION_KEY = 'reinos_tribais_supabase_session_v60_browser';
 if (!PASSWORD && !VALIDATE_ONLY) throw new Error('RT_FINAL_ADMIN_PASSWORD ausente.');
 await Deno.mkdir(OUT,{recursive:true});
 const proof={pass:false,validate_only:VALIDATE_ONLY,frontend:FRONTEND,api:API,browser:'edge',checks:[],generated_at:new Date().toISOString()};
 const pass=name=>proof.checks.push({name,pass:true});
 async function screenshot(driver,name){const shot=await driver.takeScreenshot();const raw=Uint8Array.from(atob(shot),c=>c.charCodeAt(0));await Deno.writeFile(`${OUT}/${name}`,raw)}
+
+async function apiReino(action,payload={},token=''){
+  const headers={'Content-Type':'application/json','Accept':'application/json','Origin':PUBLIC_ORIGIN};
+  if(token)headers.Authorization=`Bearer ${token}`;
+  const r=await fetch(`${API}/api/reino`,{method:'POST',headers,body:JSON.stringify({action,...payload}),cache:'no-store'});
+  const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data={error:text}}
+  if(!r.ok)throw new Error(`API ${action} HTTP ${r.status}: ${text.slice(0,700)}`);
+  return data;
+}
+async function provisionMobilePlayer(){
+  const suffix=crypto.randomUUID().replaceAll('-','').slice(0,16);
+  const email=`rt90-mobile-${suffix}@example.invalid`;
+  const username=`m_${suffix}`;
+  const password=`RT90!${crypto.randomUUID().replaceAll('-','')}x`;
+  const reg=await apiReino('register',{email,username,password});
+  if(!reg?.access_token||reg?.user?.role!=='player')throw new Error('Registro temporário mobile não retornou jogador/token válido.');
+  pass('temporary player registered in production');
+  const joined=await apiReino('join_world',{world_id:WORLD_ID,player_name:username},reg.access_token);
+  if(!joined?.ok||joined?.world?.id!==WORLD_ID)throw new Error('Jogador temporário mobile não entrou no Mundo 1.');
+  pass('temporary player joined Mundo 1');
+  return {email,username,password};
+}
 
 const decoder=new TextDecoder();
 async function exists(path){try{await Deno.stat(path);return true}catch{return false}}
@@ -103,7 +129,7 @@ try{
   await driver.wait(until.elementIsVisible(form),30000);
   pass('public login UI visible');
 
-  const legacyBefore=await driver.executeScript("return performance.getEntriesByType('resource').map(x=>x.name).filter(x=>x.includes('rlyiwlwzrdgvcwawrnpl.supabase.co'))");
+  const legacyBefore=await driver.executeScript(`return performance.getEntriesByType('resource').map(x=>x.name).filter(x=>x.includes(${JSON.stringify(LEGACY_ORIGIN)}))`);
   if(Array.isArray(legacyBefore)&&legacyBefore.length)throw new Error('Tráfego Supabase legado detectado antes do login: '+legacyBefore.slice(0,5).join(', '));
   pass('zero legacy Supabase network before admin login');
 
@@ -139,12 +165,91 @@ try{
     if(!status?.ok || !status?.data?.ok)throw new Error('admin_status público autenticado falhou: '+JSON.stringify(status));
     pass('authenticated admin_status from public browser');
 
-    const legacyNet=await driver.executeScript("return performance.getEntriesByType('resource').map(x=>x.name).filter(x=>x.includes('rlyiwlwzrdgvcwawrnpl.supabase.co'))");
+    const legacyNet=await driver.executeScript(`return performance.getEntriesByType('resource').map(x=>x.name).filter(x=>x.includes(${JSON.stringify(LEGACY_ORIGIN)}))`);
     if(Array.isArray(legacyNet)&&legacyNet.length)throw new Error('Tráfego Supabase legado detectado: '+legacyNet.slice(0,5).join(', '));
     pass('zero legacy Supabase network');
 
     await screenshot(driver,'RT90_ADMIN_DASHBOARD_PUBLICO.png');
     pass('public admin screenshot captured');
+
+    const mobile=await provisionMobilePlayer();
+    proof.mobile_player={username:mobile.username,world_id:WORLD_ID,viewport:'390x844'};
+    await driver.executeScript('sessionStorage.clear()');
+    await driver.manage().deleteAllCookies();
+    await driver.manage().window().setRect({width:390,height:844,x:0,y:0});
+    await driver.get(`${FRONTEND}?rt90-mobile-player=${Date.now()}`);
+    const viewport=await driver.executeScript('return {width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth}');
+    if(Number(viewport?.width)<360||Number(viewport?.width)>420||Number(viewport?.height)<650)throw new Error('Viewport mobile inesperado: '+JSON.stringify(viewport));
+    proof.mobile_player.viewport_measured=viewport;
+    pass('mobile viewport 390x844');
+
+    await driver.wait(async()=>await driver.executeScript("return window.__RT_TURSO_BRIDGE__===true && window.__RT85_AUTH_BRIDGE__===true && window.ReinoTribalTurso?.blockLegacySupabase===true"),60000);
+    pass('mobile Turso bridge active');
+    await driver.wait(until.elementLocated(By.css('[data-entry-online]')),30000);
+    await driver.findElement(By.css('[data-entry-online]')).click();
+    const mobileForm=await driver.wait(until.elementLocated(By.css('#rt18-login-form')),30000);
+    await driver.wait(until.elementIsVisible(mobileForm),30000);
+    pass('mobile public login UI visible');
+
+    const mu=await driver.findElement(By.css('#rt18-login-form [name=email]'));
+    const mp=await driver.findElement(By.css('#rt18-login-form [name=password]'));
+    await mu.clear(); await mu.sendKeys(mobile.email);
+    await mp.clear(); await mp.sendKeys(mobile.password);
+    await driver.findElement(By.css('#rt18-login-form button[type=submit]')).click();
+    await driver.wait(async()=>await driver.executeScript(`
+      try{const s=JSON.parse(sessionStorage.getItem(${JSON.stringify(SESSION_KEY)})||'null');return !!s?.access_token && s?.user?.role==='player'}catch{return false}
+    `),60000);
+    pass('mobile player login through public UI');
+
+    const mobileHealth=await driver.executeAsyncScript(`
+      const done=arguments[arguments.length-1];
+      window.ReinoTribalTurso.health().then(data=>done({ok:true,data})).catch(e=>done({ok:false,error:String(e?.message||e)}));
+    `);
+    if(!mobileHealth?.ok||!mobileHealth?.data?.ok||mobileHealth?.data?.database!=='turso')throw new Error('Health Turso no browser mobile falhou: '+JSON.stringify(mobileHealth));
+    pass('mobile production health Turso');
+
+    const marker=`rt90-mobile-${Date.now()}-${crypto.randomUUID().slice(0,8)}`;
+    proof.mobile_player.marker=marker;
+    const save=await driver.executeAsyncScript(`
+      const done=arguments[arguments.length-1];
+      let s=null;try{s=JSON.parse(sessionStorage.getItem(${JSON.stringify(SESSION_KEY)})||'null')}catch{}
+      const token=s?.access_token||'';
+      fetch(${JSON.stringify(LEGACY_ORIGIN)}+'/rest/v1/game_saves',{
+        method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body:JSON.stringify({world_id:${JSON.stringify(WORLD_ID)},state:{mobile_e2e_marker:${JSON.stringify(marker)},probe:'rt90-public-mobile-player'}})
+      }).then(async r=>{let data=null;try{data=await r.json()}catch{};done({ok:r.ok,status:r.status,data})})
+        .catch(e=>done({ok:false,status:0,error:String(e?.message||e)}));
+    `);
+    if(!save?.ok)throw new Error('Save mobile via bridge falhou: '+JSON.stringify(save));
+    proof.mobile_player.save_status=save.status;
+    pass('mobile player save routed to Turso');
+
+    const loaded=await driver.executeAsyncScript(`
+      const done=arguments[arguments.length-1];
+      let s=null;try{s=JSON.parse(sessionStorage.getItem(${JSON.stringify(SESSION_KEY)})||'null')}catch{}
+      const token=s?.access_token||'';
+      fetch(${JSON.stringify(LEGACY_ORIGIN)}+'/rest/v1/game_saves?world_id=eq.'+encodeURIComponent(${JSON.stringify(WORLD_ID)}),{
+        headers:{'Authorization':'Bearer '+token},cache:'no-store'
+      }).then(async r=>{
+        let data=null;try{data=await r.json()}catch{}
+        const row=Array.isArray(data)?data[0]:data;
+        let state=row?.state??row?.state_json??{};
+        if(typeof state==='string'){try{state=JSON.parse(state)}catch{}}
+        done({ok:r.ok,status:r.status,marker:state?.mobile_e2e_marker||'',data});
+      }).catch(e=>done({ok:false,status:0,error:String(e?.message||e)}));
+    `);
+    if(!loaded?.ok||loaded?.marker!==marker)throw new Error('Load mobile não retornou marcador salvo: '+JSON.stringify(loaded));
+    proof.mobile_player.load_status=loaded.status;
+    pass('mobile player load matches marker');
+
+    const mobileLegacy=await driver.executeScript(`return performance.getEntriesByType('resource').map(x=>x.name).filter(x=>x.includes(${JSON.stringify(LEGACY_ORIGIN)}))`);
+    if(Array.isArray(mobileLegacy)&&mobileLegacy.length)throw new Error('Tráfego Supabase legado detectado no mobile: '+mobileLegacy.slice(0,5).join(', '));
+    pass('mobile zero legacy Supabase network');
+    await screenshot(driver,'RT90_MOBILE_PLAYER_TURSO_E2E.png');
+    pass('mobile screenshot captured');
+
+    const playerToken=await driver.executeScript(`try{return JSON.parse(sessionStorage.getItem(${JSON.stringify(SESSION_KEY)})||'null')?.access_token||''}catch{return ''}`);
+    if(playerToken)await apiReino('logout',{},String(playerToken)).catch(()=>null);
     proof.pass=true;
   }
 }catch(e){
@@ -155,4 +260,4 @@ try{
   await Deno.writeTextFile(`${OUT}/PROVA_RT90_ADMIN_PUBLICO.json`,JSON.stringify(proof,null,2));
   if(driver)try{await driver.quit()}catch{}
 }
-console.log(JSON.stringify({pass:proof.pass,validate_only:proof.validate_only,checks:proof.checks.length,browser:proof.browser}));
+console.log(JSON.stringify({pass:proof.pass,validate_only:proof.validate_only,checks:proof.checks.length,browser:proof.browser,mobile_player:!!proof.mobile_player}));
