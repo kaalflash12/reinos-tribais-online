@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 
 $Repo='kaalflash12/reinos-tribais-online'
-$BundleCommit='975da8d0cfdc436080ce42462166e0c97fc4ed24'
+$BundleCommit='16df1e125143eeaaabf649069cb6f5954314a4e8'
 $AuthFile='REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1'
 $HelperRepoPath='tools/rt91_process_helpers.ps1'
 $BrowserRepoPath='tools/rt90_admin_public_proof.mjs'
@@ -48,7 +48,7 @@ function Assert-Parser([string]$Path,[string]$Label){
 try{
   New-Item -ItemType Directory -Force -Path $Tmp,$CredDir,$ProofDir|Out-Null
   Write-Host '=== REINOS TRIBAIS - FECHAMENTO TOTAL AUTH10 + ADM + MOBILE ===' -ForegroundColor Cyan
-  Write-Host ('BUNDLE WINDOWS-GREEN PINADO: '+$BundleCommit) -ForegroundColor DarkGray
+  Write-Host ('BUNDLE WINDOWS+CDP GREEN PINADO: '+$BundleCommit) -ForegroundColor DarkGray
 
   Download-Pinned $AuthFile $AuthScript
   Download-Pinned $HelperRepoPath $HelperScript
@@ -84,6 +84,9 @@ try{
     'real admin dashboard rendered',
     'temporary player registered in production',
     'temporary player joined Mundo 1',
+    'mobile CDP device metrics 390x844',
+    'Emulation.setDeviceMetricsOverride',
+    'sendDevToolsCommand',
     'mobile viewport 390x844',
     'mobile player login through public UI',
     'mobile production health Turso',
@@ -95,8 +98,8 @@ try{
   )){if(-not $runnerText.Contains($needle)){Fail ('Runner publico sem contrato: '+$needle)}}
 
   Pass 'AUTH10 + helper empacotados lado a lado e parseados'
-  Pass 'bundle pinado no commit Windows-green'
-  Pass 'runner Edge ADM + mobile pinado e validado'
+  Pass 'bundle pinado no commit Windows+CDP-green candidate'
+  Pass 'runner Edge ADM + mobile CDP pinado e validado'
   Pass 'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT'
 
   if($PackageValidateOnly){
@@ -169,6 +172,7 @@ try{
     'public admin screenshot captured',
     'temporary player registered in production',
     'temporary player joined Mundo 1',
+    'mobile CDP device metrics 390x844',
     'mobile viewport 390x844',
     'mobile Turso bridge active',
     'mobile public login UI visible',
