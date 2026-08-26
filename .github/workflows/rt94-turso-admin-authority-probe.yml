@@ -1,5 +1,5 @@
 name: RT95 Turso Admin Reset + Public Proof
-
+# trigger: 2026-08-26T13:44Z
 on:
   push:
     branches: [main]
