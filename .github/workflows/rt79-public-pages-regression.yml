@@ -31,7 +31,7 @@ jobs:
           node --check rt79-logistics-ai-addon.js
           node --check rt80-visual-system.js
           node --check rt80-admin-runtime.js
-          python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py
+          python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py tools/rt80_edge_clean_public_regression.py
           $html=Get-Content index.html -Raw
           if($html -notmatch 'const VERSION = 79;' -or $html -notmatch 'const RT_BUILD = "80.5";'){throw 'Contrato RT80.5/schema 79 inválido.'}
       - name: Select regression target
@@ -61,7 +61,7 @@ jobs:
           }
       - name: Run Edge functional regression
         shell: pwsh
-        run: python tools/rt79_edge_public_regression.py
+        run: python tools/rt80_edge_clean_public_regression.py
       - name: Persist public proof to main
         if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
