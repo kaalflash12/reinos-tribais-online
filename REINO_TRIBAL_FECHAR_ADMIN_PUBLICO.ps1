@@ -3,7 +3,7 @@ Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 
 $Repo='kaalflash12/reinos-tribais-online'
-$BundleCommit='f952bc960cb63e3c7cb5177539cb6b19c728c804'
+$BundleCommit='364de71d6f97e9a6b94f38a9ddfec9e1382be463'
 $Frontend='https://kaalflash12.github.io/reinos-tribais-online/'
 $Api='https://reino-tribal-api.mestrederpg35.deno.net'
 $CredDir=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal'
@@ -31,10 +31,10 @@ try{
   [Management.Automation.Language.Parser]::ParseFile($Launcher,[ref]$parsed,[ref]$errs)|Out-Null
   if($errs.Count){Fail ('Launcher canonico possui erro de parser: '+($errs|Out-String))}
   $launcherText=[IO.File]::ReadAllText($Launcher)
-  foreach($needle in @("`$CanonicalVersion = 'RT91'","`$CanonicalRevision = 'SAFE-CLI-AUTH-4'","`$CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",'AUTH4_PATCH_POSTVALIDATION_V2','ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT')){
-    if(-not $launcherText.Contains($needle)){Fail ('Launcher não cumpre RT91 seguro: '+$needle)}
+  foreach($needle in @("`$CanonicalVersion = 'RT91'","`$CanonicalRevision = 'SAFE-CLI-AUTH-5'","`$CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",'AUTH5_DIRECT_DENO_ARGV','DENO_DIRECT_ARGUMENT_FORWARDING_CONTRACT','ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT')){
+    if(-not $launcherText.Contains($needle)){Fail ('Launcher não cumpre RT91 seguro AUTH5: '+$needle)}
   }
-  Pass 'launcher RT91 AUTH4 pinado, parseado e protegido contra downgrade'
+  Pass 'launcher RT91 AUTH5 pinado, parseado e protegido contra perda de argv/downgrade'
 
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Launcher
   if($LASTEXITCODE -ne 0){Fail ('RT91 terminou com exit code '+$LASTEXITCODE)}
