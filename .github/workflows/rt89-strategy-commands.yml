@@ -1,0 +1,56 @@
+name: RT89 Strategy Commands
+
+on:
+  push:
+    branches: [rt89-strategy-commands]
+    paths:
+      - 'api/strategy.js'
+      - 'deno/main.js'
+      - 'tests/rt89-strategy-*.js'
+      - '.github/workflows/rt89-strategy-commands.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/strategy.js'
+      - 'deno/main.js'
+      - 'tests/rt89-strategy-*.js'
+      - '.github/workflows/rt89-strategy-commands.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strategy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Deno check strategy backend
+        run: |
+          deno check deno/main.js api/strategy.js tests/rt89-strategy-unit.js tests/rt89-strategy-http-smoke.js
+
+      - name: Validate seven strategic payload contracts
+        run: |
+          deno run --allow-env tests/rt89-strategy-unit.js
+
+      - name: Real HTTP and CORS smoke
+        run: |
+          deno run --allow-run --allow-net --allow-env tests/rt89-strategy-http-smoke.js
+
+      - name: Verify persistent strategy contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'CREATE TABLE IF NOT EXISTS rt_strategy_commands' api/strategy.js
+          grep -F 'CREATE TABLE IF NOT EXISTS rt_strategy_audit' api/strategy.js
+          grep -F 'idx_rt_strategy_idempotency' api/strategy.js
+          grep -F "if (pathname === '/api/strategy')" deno/main.js
+          for type in build_upgrade recruit_units attack spy support transfer_resources collect_deposit; do
+            grep -F "$type" api/strategy.js
+          done
+          echo RT89_STRATEGY_PERSISTENCE_CONTRACT_PASS
