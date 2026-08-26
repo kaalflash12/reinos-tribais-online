@@ -19,16 +19,25 @@ def main():
     try:
         d.get(BASE+'?rt-turso-auth=1')
         check(d,'Turso bridge loaded before app','return window.__RT_TURSO_BRIDGE__===true')
+        check(d,'final bridge version','return window.ReinoTribalTurso?.version==="1.0.6-turso-recovery-complete"')
         check(d,'legacy Supabase blocked','return window.ReinoTribalTurso?.blockLegacySupabase===true')
         check(d,'recovery safety marker','return window.__RT89_RECOVERY_SAFE__===true && window.ReinoTribalTurso?.recoveryMode==="admin-reset"')
         check(d,'landing','return !!document.querySelector("[data-entry-online]")')
+        check(d,'landing backend label migrated','const x=document.querySelector(".rt55-status .rt55-live");return !!x && x.textContent.includes("Turso") && !/Supabase/i.test(x.textContent)')
+        check(d,'landing copy migrated','const x=document.querySelector(".rt55-entry-copy > p");return !x || !/Supabase/i.test(x.textContent)')
         d.execute_script('document.querySelector("[data-entry-online]").click()')
         check(d,'login form visible','return !!document.querySelector("#rt18-login-form") && getComputedStyle(document.querySelector("#rt18-login-form")).display!=="none"')
         check(d,'identifier input','return !!document.querySelector("#rt18-login-form [name=email]")')
         check(d,'password input','return !!document.querySelector("#rt18-login-form [name=password]")')
         check(d,'Turso status note','return !!document.querySelector("[data-rt-turso-note]")')
+        check(d,'login badge migrated','const x=document.querySelector(".rt18-online-badge");return !x || (!/Supabase/i.test(x.textContent) && x.textContent.includes("Turso"))')
         check(d,'legacy recovery code panel disabled','const p=document.querySelector("[data-recovery-code-panel]"); return !p || p.hidden || getComputedStyle(p).display==="none"')
         check(d,'recovery button converted','const b=document.querySelector("[data-forgot-password]"); return !!b && b.textContent.includes("administrador") && b.dataset.rtTursoRecoveryGuard==="1"')
+
+        d.execute_script("const b=document.createElement('button');b.id='rt85-rt64-probe';b.setAttribute('data-rt64-recovery','probe-user');b.textContent='Recuperar';document.body.appendChild(b)")
+        check(d,'RT64 admin recovery converted to Turso password reset','const b=document.querySelector("#rt85-rt64-probe");return !!b && b.getAttribute("data-admin-set-password")==="probe-user" && !b.hasAttribute("data-rt64-recovery") && b.textContent==="Definir nova senha"')
+        d.execute_script("document.querySelector('#rt85-rt64-probe')?.remove()")
+
         before=d.execute_script('return performance.getEntriesByType("resource").map(x=>x.name)') or []
         d.execute_script('document.querySelector("#rt18-login-form [name=email]").value="recovery-test@example.invalid";document.querySelector("[data-forgot-password]").click()')
         check(d,'safe recovery notice','const m=document.querySelector("#rt18-auth-message"); return !!m && m.textContent.includes("administrador") && m.textContent.includes("Turso")')
