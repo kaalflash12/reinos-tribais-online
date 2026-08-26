@@ -1,6 +1,9 @@
 import json
 import os
 import time
+import urllib.error
+import urllib.request
+import uuid
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.options import Options as EdgeOptions
@@ -8,9 +11,48 @@ from selenium.webdriver.support.ui import WebDriverWait
 import rt79_chrome_fast_regression as r
 
 API_BASE='https://reino-tribal-api.mestrederpg35.deno.net'
+API_REINO=API_BASE+'/api/reino'
+PUBLIC_ORIGIN='https://kaalflash12.github.io'
+PUBLIC_URL='https://kaalflash12.github.io/reinos-tribais-online/'
 LEGACY_ORIGIN='https://rlyiwlwzrdgvcwawrnpl.supabase.co'
 WORLD_ID='d5a546fb-316d-4332-ae92-1886d80b07df'
 SESSION_KEY='reinos_tribais_supabase_session_v60_browser'
+
+
+def api_post(payload, token=''):
+    headers={
+        'Origin':PUBLIC_ORIGIN,
+        'Accept':'application/json',
+        'Content-Type':'application/json'
+    }
+    if token:
+        headers['Authorization']='Bearer '+token
+    req=urllib.request.Request(
+        API_REINO,
+        data=json.dumps(payload,separators=(',',':')).encode('utf-8'),
+        headers=headers,
+        method='POST'
+    )
+    try:
+        with urllib.request.urlopen(req,timeout=60) as res:
+            body=res.read().decode('utf-8')
+            return res.status,json.loads(body or '{}')
+    except urllib.error.HTTPError as e:
+        body=e.read().decode('utf-8','replace')
+        raise RuntimeError(f'API {payload.get("action")} HTTP {e.code}: {body[:500]}') from e
+
+
+def provision_mobile_player():
+    suffix=uuid.uuid4().hex[:16]
+    identifier=f'rt80-mobile-{suffix}@example.invalid'
+    username=f'm_{suffix}'
+    password='RT80!'+uuid.uuid4().hex+'x'
+    status,reg=api_post({'action':'register','email':identifier,'username':username,'password':password})
+    r.rec('mobile provision register',200 <= int(status) < 300 and bool(reg.get('access_token')) and str((reg.get('user') or {}).get('role'))=='player')
+    token=str(reg.get('access_token') or '')
+    status,joined=api_post({'action':'join_world','world_id':WORLD_ID,'player_name':username},token)
+    r.rec('mobile provision Mundo 1',200 <= int(status) < 300 and bool(joined.get('ok')) and str((joined.get('world') or {}).get('id'))==WORLD_ID)
+    return identifier,password,username
 
 
 def visible_click_view(d, view):
@@ -29,14 +71,13 @@ def mobile_gameplay_e2e(d):
     d.set_window_size(390,844)
     time.sleep(.25)
     viewport=r.js(d,"return {w:innerWidth,h:innerHeight,sw:document.documentElement.scrollWidth,sh:document.documentElement.scrollHeight}")
-    r.rec('mobile viewport 390', 360 <= int(viewport['w']) <= 420, json.dumps(viewport))
-    r.rec('mobile viewport height', int(viewport['h']) >= 700, json.dumps(viewport))
+    r.rec('mobile viewport 390',360 <= int(viewport['w']) <= 420,json.dumps(viewport))
+    r.rec('mobile viewport height',int(viewport['h']) >= 700,json.dumps(viewport))
     r.rec('mobile suite',r.js(d,'return !!window.__RT79_STRATEGY_SUITE__'))
     r.js(d,"document.querySelector('[data-rt79-close]')?.click()")
 
     for view in ['overview','buildings','recruit','research','map','market','reports','settings']:
-        ok=visible_click_view(d,view)
-        r.rec('mobile view '+view,ok)
+        r.rec('mobile view '+view,visible_click_view(d,view))
         time.sleep(.06)
 
     r.js(d,"""
@@ -71,7 +112,8 @@ def mobile_gameplay_e2e(d):
     """))
 
     name=r.js(d,"RT76.save();return RT76.state().player.name")
-    d.save_screenshot(str(r.OUT/'RT80_MOBILE_E2E_BEFORE_RELOAD.png'))
+    before_path=r.OUT/'RT80_MOBILE_E2E_BEFORE_RELOAD.png'
+    r.rec('mobile screenshot before reload',d.save_screenshot(str(before_path)),str(before_path))
     r.nav(d,'?mobile-e2e=reload')
     d.set_window_size(390,844)
     WebDriverWait(d,25).until(lambda x:r.js(x,'return !!window.__RT79_STRATEGY_SUITE__'))
@@ -79,16 +121,21 @@ def mobile_gameplay_e2e(d):
     WebDriverWait(d,12).until(lambda x:r.js(x,'return !!window.RT76?.state?.()?.activeVillageId'))
     loaded=r.js(d,"return RT76.state()?.player?.name||''")
     r.rec('mobile save reload',loaded==name,f'{name} -> {loaded}')
-    d.save_screenshot(str(r.OUT/'RT80_MOBILE_E2E_AFTER_RELOAD.png'))
+    after_path=r.OUT/'RT80_MOBILE_E2E_AFTER_RELOAD.png'
+    r.rec('mobile screenshot after reload',d.save_screenshot(str(after_path)),str(after_path))
     return {'pass':True,'viewport':viewport,'player':loaded,'build_key':key}
 
 
 def mobile_online_e2e(d):
+    explicit=os.environ.get('RT79_REQUIRE_MOBILE_ONLINE','').strip()
+    required=(explicit=='1') if explicit else r.URL.startswith(PUBLIC_URL)
     identifier=os.environ.get('RT79_MOBILE_IDENTIFIER','').strip()
     password=os.environ.get('RT79_MOBILE_PASSWORD','')
-    required=os.environ.get('RT79_REQUIRE_MOBILE_ONLINE','0')=='1'
+    username=''
+    if required and (not identifier or not password):
+        identifier,password,username=provision_mobile_player()
     if not identifier or not password:
-        r.rec('mobile online auth skipped',not required,'credentials not provisioned for this event')
+        r.rec('mobile online auth skipped',not required,'local/PR target')
         return {'pass':not required,'skipped':True}
 
     d.set_window_size(390,844)
@@ -135,23 +182,24 @@ def mobile_online_e2e(d):
       let s=null;try{s=window.CLOUD?.session||JSON.parse(sessionStorage.getItem(sessionKey)||'null')}catch{}
       const token=s?.access_token||'';
       fetch(legacy+'/rest/v1/game_saves',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({world_id:world,state:{mobile_e2e_marker:marker,probe:'public-mobile-browser'}})})
-        .then(async r=>done({status:r.status,data:await r.json().catch(()=>null)})).catch(e=>done({status:0,error:String(e?.message||e)}));
+        .then(async z=>done({status:z.status,data:await z.json().catch(()=>null)})).catch(e=>done({status:0,error:String(e?.message||e)}));
     """,LEGACY_ORIGIN,WORLD_ID,marker,SESSION_KEY)
-    r.rec('mobile online save',int(save.get('status',0)) in range(200,300),json.dumps(save,ensure_ascii=False))
+    r.rec('mobile online save',200 <= int(save.get('status',0)) < 300,json.dumps(save,ensure_ascii=False))
 
     loaded=d.execute_async_script("""
       const legacy=arguments[0],world=arguments[1],sessionKey=arguments[2],done=arguments[arguments.length-1];
       let s=null;try{s=window.CLOUD?.session||JSON.parse(sessionStorage.getItem(sessionKey)||'null')}catch{}
       const token=s?.access_token||'';
       fetch(legacy+'/rest/v1/game_saves?world_id=eq.'+encodeURIComponent(world),{headers:{'Authorization':'Bearer '+token}})
-        .then(async r=>done({status:r.status,data:await r.json().catch(()=>null)})).catch(e=>done({status:0,error:String(e?.message||e)}));
+        .then(async z=>done({status:z.status,data:await z.json().catch(()=>null)})).catch(e=>done({status:0,error:String(e?.message||e)}));
     """,LEGACY_ORIGIN,WORLD_ID,SESSION_KEY)
     rows=loaded.get('data') or []
     row=rows[0] if isinstance(rows,list) and rows else (rows if isinstance(rows,dict) else {})
     state=row.get('state') or row.get('state_json') or {}
-    r.rec('mobile online load',int(loaded.get('status',0)) in range(200,300) and state.get('mobile_e2e_marker')==marker,json.dumps(loaded,ensure_ascii=False))
-    d.save_screenshot(str(r.OUT/'RT80_MOBILE_ONLINE_TURSO_E2E.png'))
-    return {'pass':True,'marker':marker,'api':api,'save_status':save.get('status'),'load_status':loaded.get('status')}
+    r.rec('mobile online load',200 <= int(loaded.get('status',0)) < 300 and isinstance(state,dict) and state.get('mobile_e2e_marker')==marker,json.dumps(loaded,ensure_ascii=False))
+    online_path=r.OUT/'RT80_MOBILE_ONLINE_TURSO_E2E.png'
+    r.rec('mobile online screenshot',d.save_screenshot(str(online_path)),str(online_path))
+    return {'pass':True,'marker':marker,'api':api,'save_status':save.get('status'),'load_status':loaded.get('status'),'player':username or identifier}
 
 
 def main():
