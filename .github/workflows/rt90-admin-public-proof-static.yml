@@ -1,3 +1,4 @@
+# PR-only trigger marker for the canonical RT90/mobile proof.
 name: RT90 Admin Public Proof Static
 on:
   push:
