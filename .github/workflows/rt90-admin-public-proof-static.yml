@@ -1,0 +1,38 @@
+name: RT90 Admin Public Proof Static
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
+      - 'tools/rt90_admin_public_proof.mjs'
+      - '.github/workflows/rt90-admin-public-proof-static.yml'
+  pull_request:
+    paths:
+      - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
+      - 'tools/rt90_admin_public_proof.mjs'
+      - '.github/workflows/rt90-admin-public-proof-static.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell parser
+        shell: powershell
+        run: |
+          $tokens=$null;$errors=$null
+          [Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List|Out-String|Write-Host;throw 'RT90 PowerShell parser falhou'}
+          Write-Host 'RT90_POWERSHELL_PARSE_PASS'
+      - name: Browser runner syntax
+        shell: pwsh
+        run: |
+          node --check tools/rt90_admin_public_proof.mjs
+          $js=Get-Content tools/rt90_admin_public_proof.mjs -Raw
+          $ps=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -Raw
+          foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
+          foreach($needle in @('CREDENCIAIS_ADMIN_REINO_TRIBAL.txt','VALIDACAO: login','RT_FINAL_ADMIN_PASSWORD','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS')){if(-not $ps.Contains($needle)){throw "PowerShell RT90 sem contrato: $needle"}}
+          if($ps -match '(?im)Write-Host[^\r\n]*\$password'){throw 'RT90 não pode imprimir a senha'}
+          Write-Host 'RT90_BROWSER_RUNNER_STATIC_PASS'
