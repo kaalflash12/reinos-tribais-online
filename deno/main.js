@@ -85,7 +85,6 @@ Deno.serve(async (request) => {
         realtime: true,
         websocket: '/ws',
         version: '1.0.4-turso',
-        git_probe: 'rt92-oidc-autodeploy-probe-20260826',
       }), {
         status: 200,
         headers: {
