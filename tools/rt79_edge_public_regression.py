@@ -57,13 +57,17 @@ def provision_mobile_player():
 
 def visible_click_view(d, view):
     return r.js(d, """
-      const e=document.querySelector('[data-view="'+arguments[0]+'"]');
-      if(!e)return false;
-      e.scrollIntoView({block:'center',inline:'nearest'});
-      const cs=getComputedStyle(e),b=e.getBoundingClientRect();
-      if(cs.display==='none'||cs.visibility==='hidden'||Number(cs.opacity)===0||b.width<1||b.height<1)return false;
-      e.click();
-      return true;
+      const all=[...document.querySelectorAll('[data-view="'+arguments[0]+'"]')];
+      for(const e of all){
+        let cs=getComputedStyle(e),b=e.getBoundingClientRect();
+        if(cs.display==='none'||cs.visibility==='hidden'||Number(cs.opacity)===0||b.width<1||b.height<1)continue;
+        e.scrollIntoView({block:'nearest',inline:'nearest'});
+        cs=getComputedStyle(e);b=e.getBoundingClientRect();
+        if(cs.display==='none'||cs.visibility==='hidden'||Number(cs.opacity)===0||b.width<1||b.height<1)continue;
+        e.click();
+        return true;
+      }
+      return false;
     """, view)
 
 
@@ -105,12 +109,16 @@ def mobile_gameplay_e2e(d):
     visible_click_view(d,'buildings')
     before=r.js(d,"const s=RT76.state(),v=s.villages[s.activeVillageId];return v.buildQueue.length")
     key=r.js(d,"""
-      const e=document.querySelector('[data-build]:not([disabled])');
-      if(!e)return '';
-      e.scrollIntoView({block:'center'});
-      const cs=getComputedStyle(e),b=e.getBoundingClientRect();
-      if(cs.display==='none'||cs.visibility==='hidden'||b.width<1||b.height<1)return '';
-      e.click();return e.dataset.build||'';
+      const all=[...document.querySelectorAll('[data-build]:not([disabled])')];
+      for(const e of all){
+        let cs=getComputedStyle(e),b=e.getBoundingClientRect();
+        if(cs.display==='none'||cs.visibility==='hidden'||b.width<1||b.height<1)continue;
+        e.scrollIntoView({block:'center',inline:'nearest'});
+        cs=getComputedStyle(e);b=e.getBoundingClientRect();
+        if(cs.display==='none'||cs.visibility==='hidden'||b.width<1||b.height<1)continue;
+        e.click();return e.dataset.build||'';
+      }
+      return '';
     """)
     after=r.js(d,"const s=RT76.state(),v=s.villages[s.activeVillageId];return v.buildQueue.length")
     r.rec('mobile build queue',bool(key) and after>before,key)
