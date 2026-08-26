@@ -9,10 +9,10 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$CanonicalCommit = '83bc11a4748915c6eaa203f791a68d4539259ec9'
-$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1'
+$CanonicalCommit = '19d827b0a226a025372da090270de7765473a96c'
+$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1'
 $CanonicalVersion = 'RT91'
-$CanonicalRevision = 'SAFE-CLI-AUTH-3'
+$CanonicalRevision = 'SAFE-CLI-AUTH-4'
 $CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'
 $ExpectedBackend = 'https://reino-tribal-api.mestrederpg35.deno.net'
 $Repo = 'kaalflash12/reinos-tribais-online'
@@ -55,9 +55,10 @@ foreach ($needle in @(
   "`$ExpectedBackend = '$ExpectedBackend'",
   "`$BaseCommit = '133abc213cc3f269e1a5019a7c361847f8f72abe'",
   "`$BaseFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'",
-  'Executar-Deno-Interativo',
-  'Deno CLI + navegador',
-  "'deploy','env','update-value'",
+  "@('deploy','env','list','--org',`$DenoOrg,'--app',`$DenoApp)",
+  "@('deploy','env','update-value','RT_ADMIN_PASSWORD',`$adminPassword,'--org',`$DenoOrg,'--app',`$DenoApp)",
+  'DENO_ENV_LIST_AUTH_CONTRACT',
+  'DENO_DOCUMENTED_CLI_ONLY_CONTRACT',
   'ANTI_DOWNGRADE: nenhum source deploy executado = PASS',
   'REINO_TRIBAL_ADMIN_RT91_VALIDADO',
   'CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT',
@@ -66,10 +67,9 @@ foreach ($needle in @(
 )) {
   if (-not $text.Contains($needle)) { throw "Executor baixado nao cumpre contrato canonico RT91: $needle" }
 }
+if ($text.Contains("'deploy','apps','get'")) { throw 'Executor canonico ainda referencia subcomando Deno apps get nao documentado.' }
+if ($text.Contains('--non-interactive')) { throw 'Executor canonico ainda referencia flag Deno --non-interactive nao documentada.' }
 
-# O arquivo canonico e um wrapper pinado. As strings de source deploy/auth legado aparecem
-# somente dentro das guardas que inspecionam e recusam o executor-base; por isso nao se faz
-# busca cega dessas strings aqui. A propria guarda do wrapper e obrigatoria acima.
 $tokens = $null
 $errors = $null
 [System.Management.Automation.Language.Parser]::ParseFile($target,[ref]$tokens,[ref]$errors) | Out-Null
@@ -78,10 +78,11 @@ if ($errors.Count -gt 0) {
   throw 'Executor canonico RT91 nao passou no parser PowerShell.'
 }
 
-Write-Host 'PASS: arquivo RT91 SAFE CLI-AUTH-3 baixado e validado.' -ForegroundColor Green
+Write-Host 'PASS: arquivo RT91 SAFE CLI-AUTH-4 baixado e validado.' -ForegroundColor Green
 Write-Host 'PASS: CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT' -ForegroundColor Green
 Write-Host 'PASS: ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT' -ForegroundColor Green
-Write-Host 'PASS: DENO_AUTH_OFICIAL_CLI_CONTRACT' -ForegroundColor Green
+Write-Host 'PASS: DENO_ENV_LIST_AUTH_CONTRACT' -ForegroundColor Green
+Write-Host 'PASS: DENO_DOCUMENTED_CLI_ONLY_CONTRACT' -ForegroundColor Green
 
 $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$target)
 if ($IdentityOnly) { $args += '-IdentityOnly' }
