@@ -161,19 +161,19 @@
 
   function setRecoveryNotice(){
     const global=document.querySelector('#rt18-auth-message');
-    if(global){global.textContent=RECOVERY_NOTICE;global.className='rt18-auth-message';}
+    if(global&&global.textContent!==RECOVERY_NOTICE){global.textContent=RECOVERY_NOTICE;global.className='rt18-auth-message';}
     const panel=document.querySelector('[data-recovery-code-panel]');
     if(panel){panel.hidden=true;panel.style.display='none';panel.setAttribute('aria-hidden','true');}
   }
 
   function hardenRecoveryUi(){
     const forgot=document.querySelector('[data-forgot-password]');
-    if(forgot){forgot.textContent='Recuperação pelo administrador';forgot.dataset.rtTursoRecoveryGuard='1';}
+    if(forgot){if(forgot.textContent!=='Recuperação pelo administrador')forgot.textContent='Recuperação pelo administrador';forgot.dataset.rtTursoRecoveryGuard='1';}
     const panel=document.querySelector('[data-recovery-code-panel]');
     if(panel){panel.hidden=true;panel.style.display='none';panel.setAttribute('aria-hidden','true');}
     document.querySelectorAll('[data-admin-recovery]').forEach(btn=>{
       const id=String(btn.dataset.adminRecovery||'');
-      if(id){btn.setAttribute('data-admin-set-password',id);btn.removeAttribute('data-admin-recovery');btn.textContent='Definir nova senha';}
+      if(id){btn.setAttribute('data-admin-set-password',id);btn.removeAttribute('data-admin-recovery');if(btn.textContent!=='Definir nova senha')btn.textContent='Definir nova senha';}
     });
   }
 
