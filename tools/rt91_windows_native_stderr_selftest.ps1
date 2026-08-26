@@ -111,3 +111,7 @@ public static class Program {
   Remove-Item Env:FAKE_DENO_NO_APP -ErrorAction SilentlyContinue
   Remove-Item $Tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+# O cenário negativo usa um processo filho que retorna 1 de propósito. Após todas as asserções,
+# o gate deve finalizar explicitamente em sucesso em vez de herdar esse LASTEXITCODE.
+exit 0
