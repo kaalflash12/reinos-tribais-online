@@ -9,10 +9,10 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$CanonicalCommit = '133abc213cc3f269e1a5019a7c361847f8f72abe'
-$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'
+$CanonicalCommit = '83bc11a4748915c6eaa203f791a68d4539259ec9'
+$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH3.ps1'
 $CanonicalVersion = 'RT91'
-$CanonicalRevision = 'SAFE-CLI-AUTH-2'
+$CanonicalRevision = 'SAFE-CLI-AUTH-3'
 $CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'
 $ExpectedBackend = 'https://reino-tribal-api.mestrederpg35.deno.net'
 $Repo = 'kaalflash12/reinos-tribais-online'
@@ -53,20 +53,19 @@ foreach ($needle in @(
   "`$ExecutorRevision = '$CanonicalRevision'",
   "`$ExecutorContract = '$CanonicalContract'",
   "`$ExpectedBackend = '$ExpectedBackend'",
-  'REINO_TRIBAL_EXECUTOR_ATIVO.txt',
-  'CREDENCIAIS_ADMIN_REINO_TRIBAL_PENDENTES.txt',
+  "`$BaseCommit = '133abc213cc3f269e1a5019a7c361847f8f72abe'",
+  "`$BaseFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'",
+  'Executar-Deno-Interativo',
+  'Deno CLI + navegador',
+  "'deploy','env','update-value'",
   'ANTI_DOWNGRADE: nenhum source deploy executado = PASS',
   'REINO_TRIBAL_ADMIN_RT91_VALIDADO',
-  'Executar-Deno-Interativo',
-  'Deno CLI + navegador'
+  'CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT'
 )) {
   if (-not $text.Contains($needle)) { throw "Executor baixado nao cumpre contrato canonico RT91: $needle" }
 }
 if ($text.Contains("'deploy','--org'")) {
   throw 'ANTI-DOWNGRADE: executor contem source deploy. Nada sera executado.'
-}
-if (-not $text.Contains("'deploy','env','update-value'")) {
-  throw 'Executor RT91 nao contem atualizacao segura de secrets.'
 }
 if ($text.Contains('console.deno.com/auth/interactive') -or $text.Contains('console.deno.com/auth/exchange')) {
   throw 'Executor RT91 voltou a usar auth HTTP manual proibido.'
@@ -80,7 +79,8 @@ if ($errors.Count -gt 0) {
   throw 'Executor canonico RT91 nao passou no parser PowerShell.'
 }
 
-Write-Host 'PASS: arquivo RT91 SAFE CLI-AUTH baixado e validado.' -ForegroundColor Green
+Write-Host 'PASS: arquivo RT91 SAFE CLI-AUTH-3 baixado e validado.' -ForegroundColor Green
+Write-Host 'PASS: CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT' -ForegroundColor Green
 Write-Host 'PASS: ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT' -ForegroundColor Green
 Write-Host 'PASS: DENO_AUTH_OFICIAL_CLI_CONTRACT' -ForegroundColor Green
 
