@@ -36,7 +36,11 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          $v = (& deno --version | Select-Object -First 1)
+          . .\tools\rt91_process_helpers.ps1
+          $denoExe=(Get-Command deno.exe -ErrorAction Stop).Source
+          $vr=Invoke-RTDenoText -DenoExe $denoExe -CommandArgs @('--version')
+          if($vr.Code -ne 0){throw ('deno --version falhou: '+$vr.Stderr)}
+          $v=($vr.Stdout -split "`r?`n")[0]
           if ($v -notmatch '^deno 2\.9\.5\b') { throw "Deno inesperado: $v" }
           $checks = @(
             @{Label='whoami'; Args=@('deploy','whoami','--help'); Need=@('--json')},
@@ -46,8 +50,9 @@ jobs:
             @{Label='env update-value'; Args=@('deploy','env','update-value','--help'); Need=@('--json','--non-interactive')}
           )
           foreach($check in $checks){
-            $text = (& deno @($check.Args) 2>&1 | Out-String)
-            if($LASTEXITCODE -ne 0){throw ("Deno CLI surface falhou em "+$check.Label+": `n"+$text)}
+            $r=Invoke-RTDenoText -DenoExe $denoExe -CommandArgs @($check.Args)
+            $text=($r.Stdout+"`n"+$r.Stderr)
+            if($r.Code -ne 0){throw ("Deno CLI surface falhou em "+$check.Label+" exit="+$r.Code+": `n"+$text)}
             foreach($needle in $check.Need){if(-not $text.Contains($needle)){throw ("Deno CLI "+$check.Label+" nao expoe "+$needle+": `n"+$text)}}
             Write-Host ('PASS: Deno 2.9.5 '+$check.Label)
           }
