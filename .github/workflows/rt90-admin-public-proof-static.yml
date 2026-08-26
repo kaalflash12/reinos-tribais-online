@@ -8,6 +8,7 @@ on:
       - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'
       - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1'
       - 'tools/rt90_admin_public_proof.mjs'
+      - 'tools/rt79_edge_public_regression.py'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'
       - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1'
       - 'tools/rt90_admin_public_proof.mjs'
+      - 'tools/rt79_edge_public_regression.py'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
   workflow_dispatch:
 
@@ -25,7 +27,7 @@ permissions:
 jobs:
   validate:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
@@ -89,10 +91,13 @@ jobs:
         shell: pwsh
         run: |
           node --check tools/rt90_admin_public_proof.mjs
+          python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py
           $js=Get-Content tools/rt90_admin_public_proof.mjs -Raw
           $ps=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -Raw
+          $mobile=Get-Content tools/rt79_edge_public_regression.py -Raw
           foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network','RT90_VALIDATE_ONLY','setEdgeService','matching EdgeDriver resolved without Selenium Manager')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
           foreach($needle in @('CREDENCIAIS_ADMIN_REINO_TRIBAL.txt','VALIDACAO: login','RT_FINAL_ADMIN_PASSWORD','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS','ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_PASS')){if(-not $ps.Contains($needle)){throw "PowerShell RT90 sem contrato: $needle"}}
+          foreach($needle in @('mobile_gameplay_e2e','mobile_online_e2e','provision_mobile_player','RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png','RT80_MOBILE_ONLINE_TURSO_E2E.png')){if(-not $mobile.Contains($needle)){throw "Runner mobile sem contrato: $needle"}}
           Write-Host 'RT90_BROWSER_RUNNER_STATIC_PASS'
       - name: Run real Edge/Selenium runtime without credentials
         shell: pwsh
@@ -112,6 +117,20 @@ jobs:
           if(-not $p.pass -or -not $p.validate_only){throw 'RT90 validate-only nao marcou PASS.'}
           if(-not (Test-Path (Join-Path $out 'RT90_VALIDATE_ONLY_PUBLIC_LOGIN.png'))){throw 'Screenshot validate-only ausente.'}
           Write-Host 'RT90_EDGE_SELENIUM_RUNTIME_PASS'
+      - name: Run public mobile gameplay and Turso E2E
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --quiet selenium
+          $env:RT79_TEST_URL='https://kaalflash12.github.io/reinos-tribais-online/'
+          $env:RT79_REQUIRE_MOBILE_ONLINE='1'
+          python tools/rt79_edge_public_regression.py
+          if($LASTEXITCODE -ne 0){throw "RT80 mobile E2E exit code $LASTEXITCODE"}
+          $proofPath=Join-Path $env:RUNNER_TEMP 'RT79_BROWSER_REGRESSION\PROVA_BROWSER_RT79.json'
+          if(-not (Test-Path $proofPath)){throw 'Prova RT80 mobile ausente.'}
+          $p=Get-Content $proofPath -Raw | ConvertFrom-Json
+          if(-not $p.pass -or -not $p.mobile.pass -or -not $p.mobile_online.pass -or $p.mobile_online.skipped){throw 'RT80 mobile/Turso E2E nao marcou PASS.'}
+          foreach($name in @('RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png','RT80_MOBILE_ONLINE_TURSO_E2E.png')){if(-not (Test-Path (Join-Path $env:RUNNER_TEMP "RT79_BROWSER_REGRESSION\$name"))){throw "Screenshot mobile ausente: $name"}}
+          Write-Host 'RT80_FULL_MOBILE_TURSO_E2E_PASS'
       - name: Upload validate-only proof
         if: always()
         uses: actions/upload-artifact@v4
@@ -119,3 +138,10 @@ jobs:
           name: RT90_VALIDATE_ONLY_PROOF
           path: ${{ runner.temp }}/RT90_VALIDATE_ONLY
           if-no-files-found: error
+      - name: Upload mobile E2E proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT80_MOBILE_TURSO_E2E_PROOF
+          path: ${{ runner.temp }}/RT79_BROWSER_REGRESSION
+          if-no-files-found: warn
