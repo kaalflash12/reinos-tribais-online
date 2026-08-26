@@ -38,6 +38,12 @@ async function provisionMobilePlayer(){
   pass('temporary player joined Mundo 1');
   return {email,username,password};
 }
+async function emulateMobile(driver,width=390,height=844){
+  await driver.sendDevToolsCommand('Emulation.setDeviceMetricsOverride',{
+    mobile:true,width,height,deviceScaleFactor:1,screenWidth:width,screenHeight:height
+  });
+  await driver.sendDevToolsCommand('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:5});
+}
 
 const decoder=new TextDecoder();
 async function exists(path){try{await Deno.stat(path);return true}catch{return false}}
@@ -176,10 +182,11 @@ try{
     proof.mobile_player={username:mobile.username,world_id:WORLD_ID,viewport:'390x844'};
     await driver.executeScript('sessionStorage.clear()');
     await driver.manage().deleteAllCookies();
-    await driver.manage().window().setRect({width:390,height:844,x:0,y:0});
+    await emulateMobile(driver,390,844);
+    pass('mobile CDP device metrics 390x844');
     await driver.get(`${FRONTEND}?rt90-mobile-player=${Date.now()}`);
     const viewport=await driver.executeScript('return {width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth}');
-    if(Number(viewport?.width)<360||Number(viewport?.width)>420||Number(viewport?.height)<650)throw new Error('Viewport mobile inesperado: '+JSON.stringify(viewport));
+    if(Number(viewport?.width)<380||Number(viewport?.width)>400||Number(viewport?.height)<800)throw new Error('Viewport mobile inesperado: '+JSON.stringify(viewport));
     proof.mobile_player.viewport_measured=viewport;
     pass('mobile viewport 390x844');
 
