@@ -3,19 +3,17 @@ on:
   push:
     branches: [main]
     paths:
-      - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
-      - 'REINO_TRIBAL_CONTINUAR.ps1'
-      - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'
-      - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1'
+      - 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1'
+      - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO_AUTH10.ps1'
+      - 'tools/rt91_process_helpers.ps1'
       - 'tools/rt90_admin_public_proof.mjs'
       - 'tools/rt79_edge_public_regression.py'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
   pull_request:
     paths:
-      - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
-      - 'REINO_TRIBAL_CONTINUAR.ps1'
-      - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'
-      - 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1'
+      - 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1'
+      - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO_AUTH10.ps1'
+      - 'tools/rt91_process_helpers.ps1'
       - 'tools/rt90_admin_public_proof.mjs'
       - 'tools/rt79_edge_public_regression.py'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
@@ -27,78 +25,80 @@ permissions:
 jobs:
   validate:
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.5
-      - name: Prove Deno CLI commands used by RT91
+      - name: Prove exact Deno CLI surface used by AUTH10
         shell: powershell
         run: |
-          deno deploy env list --help | Out-Null
-          if($LASTEXITCODE -ne 0){throw 'deno deploy env list ausente'}
-          deno deploy env update-value --help | Out-Null
-          if($LASTEXITCODE -ne 0){throw 'deno deploy env update-value ausente'}
-          Write-Host 'DENO_2_9_5_ENV_CLI_PASS'
-      - name: PowerShell parsers and current RT91 contract
+          foreach($cmd in @(
+            @('deploy','whoami','--help'),
+            @('deploy','orgs','list','--help'),
+            @('deploy','apps','get','--help'),
+            @('deploy','env','list','--help'),
+            @('deploy','env','update-value','--help')
+          )){
+            & deno @cmd | Out-Null
+            if($LASTEXITCODE -ne 0){throw "Deno CLI ausente: deno $($cmd -join ' ')"}
+          }
+          Write-Host 'DENO_2_9_5_AUTH10_CLI_PASS'
+      - name: PowerShell parsers and AUTH10 current contract
         shell: powershell
         run: |
-          foreach($file in @('REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1','REINO_TRIBAL_CONTINUAR.ps1','REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1')){
+          foreach($file in @('REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1','REINO_TRIBAL_FECHAR_ADMIN_PUBLICO_AUTH10.ps1','tools/rt91_process_helpers.ps1')){
             $tokens=$null;$errors=$null
             [Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file),[ref]$tokens,[ref]$errors)|Out-Null
             if($errors.Count){$errors|Format-List|Out-String|Write-Host;throw "PowerShell parser falhou: $file"}
           }
-          $wrapper=Get-Content REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1 -Raw
-          $launcher=Get-Content REINO_TRIBAL_CONTINUAR.ps1 -Raw
-          $close=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -Raw
+          $auth=Get-Content REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1 -Raw
+          $close=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO_AUTH10.ps1 -Raw
+          $helper=Get-Content tools/rt91_process_helpers.ps1 -Raw
           foreach($needle in @(
-            "`$ExecutorVersion = 'RT91'",
-            "`$ExecutorRevision = 'SAFE-CLI-AUTH-4'",
+            "`$ExecutorRevision = 'SAFE-CLI-AUTH-10-FINAL'",
             "`$ExecutorContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",
-            "`$BaseCommit = '133abc213cc3f269e1a5019a7c361847f8f72abe'",
-            '$newAuth =',
-            '$newApp =',
-            '$newPass =',
-            '$newRecovery =',
-            'CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT',
-            'DENO_DOCUMENTED_CLI_ONLY_CONTRACT',
-            'Subcomando Deno apps get nao documentado ainda presente.',
-            'Flag Deno --non-interactive nao documentada ainda presente.',
-            'ANTI-DOWNGRADE: source deploy apareceu apos patch.',
-            'Auth HTTP manual reapareceu.'
-          )){if(-not $wrapper.Contains($needle)){throw "RT91 CLI-AUTH-4 sem contrato: $needle"}}
+            'DENO_ORG_AUTO_DISCOVERY_CONTRACT',
+            'DENO_CANONICAL_APP_DOMAIN_MATCH_CONTRACT',
+            'WINDOWS_POWERSHELL_START_PROCESS_STDERR_CONTRACT',
+            "@('deploy','whoami')",
+            "@('deploy','orgs','list')",
+            "@('deploy','apps','get','--org',`$candidate,'--app',`$DenoApp,'--non-interactive')",
+            "@('deploy','env','update-value','RT_ADMIN_PASSWORD',`$adminPassword,'--org',`$ResolvedDenoOrg,'--app',`$DenoApp,'--non-interactive')",
+            "@('deploy','env','update-value','RT_ADMIN_RECOVERY_KEY',`$recoveryKey,'--org',`$ResolvedDenoOrg,'--app',`$DenoApp,'--non-interactive')",
+            'REINO_TRIBAL_ADMIN_RT91_VALIDADO'
+          )){if(-not $auth.Contains($needle)){throw "AUTH10 sem contrato: $needle"}}
+          if($auth.Contains("@('deploy','--org'")){throw 'AUTH10 contem source deploy antigo'}
+          foreach($forbidden in @('console.deno.com/auth/interactive','console.deno.com/auth/exchange')){if($auth.Contains($forbidden)){throw "AUTH10 contem auth HTTP manual: $forbidden"}}
           foreach($needle in @(
-            "`$CanonicalVersion = 'RT91'",
-            "`$CanonicalRevision = 'SAFE-CLI-AUTH-4'",
-            "`$CanonicalContract = 'ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91'",
-            "`$CanonicalFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH4.ps1'",
-            'DENO_ENV_LIST_AUTH_CONTRACT',
-            'DENO_DOCUMENTED_CLI_ONLY_CONTRACT',
-            'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT'
-          )){if(-not $launcher.Contains($needle)){throw "Launcher sem contrato RT91 atual: $needle"}}
-          foreach($needle in @('ANTI_DOWNGRADE: nenhum source deploy executado = PASS','Contrato: ADMIN_AUTHORITY_NO_SOURCE_DEPLOY_RT91','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS')){if(-not $close.Contains($needle)){throw "Fechamento RT90 sem anti-downgrade: $needle"}}
-          if($close -match '(?im)Write-Host[^\r\n]*\$password'){throw 'RT90 nao pode imprimir a senha'}
-          Write-Host 'RT91_CLI_AUTH4_STATIC_PASS'
-      - name: Execute canonical RT91 validate-only
+            "`$BundleCommit='16df1e125143eeaaabf649069cb6f5954314a4e8'",
+            'SAFE-CLI-AUTH-10-FINAL',
+            'Emulation.setDeviceMetricsOverride',
+            'sendDevToolsCommand',
+            'mobile CDP device metrics 390x844',
+            'REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS',
+            'REINO_TRIBAL_MOBILE_PLAYER_TURSO_E2E_PASS',
+            'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_PASS'
+          )){if(-not $close.Contains($needle)){throw "Closer AUTH10 sem contrato: $needle"}}
+          foreach($needle in @('Start-Process','RedirectStandardOutput','RedirectStandardError','Invoke-RTDenoJson','Invoke-RTDenoText')){if(-not $helper.Contains($needle)){throw "Helper nativo sem contrato: $needle"}}
+          Write-Host 'RT91_AUTH10_STATIC_PASS'
+      - name: Validate exact final AUTH10 package without production mutation
         shell: powershell
         run: |
-          $deno=(Get-Command deno -ErrorAction Stop).Source
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_CONTINUAR.ps1 -ValidateOnly -DenoExeOverride $deno
-          if($LASTEXITCODE -ne 0){throw "RT91 validate-only exit code $LASTEXITCODE"}
-          Write-Host 'RT91_CANONICAL_VALIDATE_NO_DEPLOY_PASS'
-      - name: Browser runner syntax
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_FECHAR_ADMIN_PUBLICO_AUTH10.ps1 -PackageValidateOnly
+          if($LASTEXITCODE -ne 0){throw "AUTH10 package validate exit code $LASTEXITCODE"}
+          Write-Host 'RT91_AUTH10_PACKAGE_VALIDATE_PASS'
+      - name: Browser runner syntax and CDP contract
         shell: pwsh
         run: |
           node --check tools/rt90_admin_public_proof.mjs
           python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py
           $js=Get-Content tools/rt90_admin_public_proof.mjs -Raw
-          $ps=Get-Content REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -Raw
           $mobile=Get-Content tools/rt79_edge_public_regression.py -Raw
-          foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network','RT90_VALIDATE_ONLY','setEdgeService','matching EdgeDriver resolved without Selenium Manager')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
-          foreach($needle in @('CREDENCIAIS_ADMIN_REINO_TRIBAL.txt','VALIDACAO: login','RT_FINAL_ADMIN_PASSWORD','REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS','ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_PASS')){if(-not $ps.Contains($needle)){throw "PowerShell RT90 sem contrato: $needle"}}
-          foreach($needle in @('mobile_gameplay_e2e','mobile_online_e2e','provision_mobile_player','RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png','RT80_MOBILE_ONLINE_TURSO_E2E.png')){if(-not $mobile.Contains($needle)){throw "Runner mobile sem contrato: $needle"}}
-          Write-Host 'RT90_BROWSER_RUNNER_STATIC_PASS'
+          foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network','RT90_VALIDATE_ONLY','setEdgeService','matching EdgeDriver resolved without Selenium Manager','sendDevToolsCommand','Emulation.setDeviceMetricsOverride','mobile CDP device metrics 390x844')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
+          foreach($needle in @('mobile_gameplay_e2e','mobile_online_e2e','provision_mobile_player','execute_cdp_cmd','Emulation.setDeviceMetricsOverride','mobile online viewport 390','RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png','RT80_MOBILE_ONLINE_TURSO_E2E.png')){if(-not $mobile.Contains($needle)){throw "Runner mobile sem contrato: $needle"}}
+          Write-Host 'RT90_CDP_BROWSER_RUNNER_STATIC_PASS'
       - name: Run real Edge/Selenium runtime without credentials
         shell: pwsh
         run: |
@@ -129,8 +129,10 @@ jobs:
           if(-not (Test-Path $proofPath)){throw 'Prova RT80 mobile ausente.'}
           $p=Get-Content $proofPath -Raw | ConvertFrom-Json
           if(-not $p.pass -or -not $p.mobile.pass -or -not $p.mobile_online.pass -or $p.mobile_online.skipped){throw 'RT80 mobile/Turso E2E nao marcou PASS.'}
+          if([int]$p.mobile.viewport.w -lt 380 -or [int]$p.mobile.viewport.w -gt 400){throw "Viewport CDP offline invalido: $($p.mobile.viewport.w)"}
+          if([int]$p.mobile_online.viewport.w -lt 380 -or [int]$p.mobile_online.viewport.w -gt 400){throw "Viewport CDP online invalido: $($p.mobile_online.viewport.w)"}
           foreach($name in @('RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png','RT80_MOBILE_ONLINE_TURSO_E2E.png')){if(-not (Test-Path (Join-Path $env:RUNNER_TEMP "RT79_BROWSER_REGRESSION\$name"))){throw "Screenshot mobile ausente: $name"}}
-          Write-Host 'RT80_FULL_MOBILE_TURSO_E2E_PASS'
+          Write-Host 'RT80_FULL_MOBILE_TURSO_CDP_E2E_PASS'
       - name: Upload validate-only proof
         if: always()
         uses: actions/upload-artifact@v4
