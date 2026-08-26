@@ -1,5 +1,6 @@
 import reinoHandler from '../api/reino.js';
 import adminHandler from '../api/admin.js';
+import realtimeHandler from '../api/realtime.js';
 
 class CompatResponse {
   constructor() {
@@ -72,6 +73,7 @@ Deno.serve(async (request) => {
   const { pathname } = new URL(request.url);
 
   try {
+    if (pathname === '/ws' || pathname === '/api/realtime/ws') return realtimeHandler(request);
     if (pathname === '/api/reino') return await runHandler(reinoHandler, request);
     if (pathname === '/api/admin') return await runHandler(adminHandler, request);
     if (pathname === '/' || pathname === '/health') {
@@ -80,6 +82,8 @@ Deno.serve(async (request) => {
         service: 'reino-tribal-api',
         runtime: 'deno-deploy',
         database: 'turso',
+        realtime: true,
+        websocket: '/ws',
         version: '1.0.4-turso',
       }), {
         status: 200,
