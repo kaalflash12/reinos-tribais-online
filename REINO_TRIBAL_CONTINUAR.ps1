@@ -55,20 +55,22 @@ foreach ($needle in @(
   "`$ExpectedBackend = '$ExpectedBackend'",
   "`$BaseCommit = '133abc213cc3f269e1a5019a7c361847f8f72abe'",
   "`$BaseFile = 'REINO_TRIBAL_ADMIN_SAFE_RT91_CLI_AUTH.ps1'",
-  "@('deploy','env','list','--org',`$DenoOrg,'--app',`$DenoApp)",
-  "@('deploy','env','update-value','RT_ADMIN_PASSWORD',`$adminPassword,'--org',`$DenoOrg,'--app',`$DenoApp)",
+  '$newAuth =',
+  '$newApp =',
+  '$newPass =',
+  '$newRecovery =',
   'DENO_ENV_LIST_AUTH_CONTRACT',
   'DENO_DOCUMENTED_CLI_ONLY_CONTRACT',
   'ANTI_DOWNGRADE: nenhum source deploy executado = PASS',
   'REINO_TRIBAL_ADMIN_RT91_VALIDADO',
   'CORS_GITHUB_PAGES_EXACT_ORIGIN_CONTRACT',
-  'ANTI-DOWNGRADE: source deploy detectado no executor-base.',
-  'Auth HTTP manual proibido detectado no executor-base.'
+  'Subcomando Deno apps get nao documentado ainda presente.',
+  'Flag Deno --non-interactive nao documentada ainda presente.',
+  'ANTI-DOWNGRADE: source deploy apareceu apos patch.',
+  'Auth HTTP manual reapareceu.'
 )) {
   if (-not $text.Contains($needle)) { throw "Executor baixado nao cumpre contrato canonico RT91: $needle" }
 }
-if ($text.Contains("'deploy','apps','get'")) { throw 'Executor canonico ainda referencia subcomando Deno apps get nao documentado.' }
-if ($text.Contains('--non-interactive')) { throw 'Executor canonico ainda referencia flag Deno --non-interactive nao documentada.' }
 
 $tokens = $null
 $errors = $null
