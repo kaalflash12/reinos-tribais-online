@@ -67,12 +67,27 @@ def visible_click_view(d, view):
     """, view)
 
 
+def emulate_mobile(d, width=390, height=844):
+    d.execute_cdp_cmd('Emulation.setDeviceMetricsOverride', {
+        'mobile': True,
+        'width': width,
+        'height': height,
+        'deviceScaleFactor': 1,
+        'screenWidth': width,
+        'screenHeight': height
+    })
+    d.execute_cdp_cmd('Emulation.setTouchEmulationEnabled', {
+        'enabled': True,
+        'maxTouchPoints': 5
+    })
+    time.sleep(.15)
+
+
 def mobile_gameplay_e2e(d):
-    d.set_window_size(390,844)
-    time.sleep(.25)
+    emulate_mobile(d)
     viewport=r.js(d,"return {w:innerWidth,h:innerHeight,sw:document.documentElement.scrollWidth,sh:document.documentElement.scrollHeight}")
-    r.rec('mobile viewport 390',360 <= int(viewport['w']) <= 420,json.dumps(viewport))
-    r.rec('mobile viewport height',int(viewport['h']) >= 700,json.dumps(viewport))
+    r.rec('mobile viewport 390',380 <= int(viewport['w']) <= 400,json.dumps(viewport))
+    r.rec('mobile viewport height',int(viewport['h']) >= 800,json.dumps(viewport))
     r.rec('mobile suite',r.js(d,'return !!window.__RT79_STRATEGY_SUITE__'))
     r.js(d,"document.querySelector('[data-rt79-close]')?.click()")
 
@@ -115,7 +130,7 @@ def mobile_gameplay_e2e(d):
     before_path=r.OUT/'RT80_MOBILE_E2E_BEFORE_RELOAD.png'
     r.rec('mobile screenshot before reload',d.save_screenshot(str(before_path)),str(before_path))
     r.nav(d,'?mobile-e2e=reload')
-    d.set_window_size(390,844)
+    emulate_mobile(d)
     WebDriverWait(d,25).until(lambda x:r.js(x,'return !!window.__RT79_STRATEGY_SUITE__'))
     r.click(d,'[data-play-offline]')
     WebDriverWait(d,12).until(lambda x:r.js(x,'return !!window.RT76?.state?.()?.activeVillageId'))
@@ -138,10 +153,12 @@ def mobile_online_e2e(d):
         r.rec('mobile online auth skipped',not required,'local/PR target')
         return {'pass':not required,'skipped':True}
 
-    d.set_window_size(390,844)
+    emulate_mobile(d)
     r.nav(d,'?mobile-online-e2e=1')
-    d.set_window_size(390,844)
+    emulate_mobile(d)
     WebDriverWait(d,25).until(lambda x:r.js(x,'return !!window.ReinoTribalTurso'))
+    online_viewport=r.js(d,"return {w:innerWidth,h:innerHeight,sw:document.documentElement.scrollWidth}")
+    r.rec('mobile online viewport 390',380 <= int(online_viewport['w']) <= 400,json.dumps(online_viewport))
     api=r.js(d,"return window.ReinoTribalTurso?.apiBase||''")
     r.rec('mobile public API configured',api==API_BASE,api)
     r.rec('mobile Turso bridge active',r.js(d,"return !!window.__RT_TURSO_BRIDGE__ && !!window.__RT85_AUTH_BRIDGE__"))
@@ -199,7 +216,7 @@ def mobile_online_e2e(d):
     r.rec('mobile online load',200 <= int(loaded.get('status',0)) < 300 and isinstance(state,dict) and state.get('mobile_e2e_marker')==marker,json.dumps(loaded,ensure_ascii=False))
     online_path=r.OUT/'RT80_MOBILE_ONLINE_TURSO_E2E.png'
     r.rec('mobile online screenshot',d.save_screenshot(str(online_path)),str(online_path))
-    return {'pass':True,'marker':marker,'api':api,'save_status':save.get('status'),'load_status':loaded.get('status'),'player':username or identifier}
+    return {'pass':True,'marker':marker,'api':api,'viewport':online_viewport,'save_status':save.get('status'),'load_status':loaded.get('status'),'player':username or identifier}
 
 
 def main():
