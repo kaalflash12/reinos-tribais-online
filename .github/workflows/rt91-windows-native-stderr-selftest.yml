@@ -1,0 +1,26 @@
+name: RT91 Windows PowerShell 5.1 Native Selftest
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  powershell-51-native-stderr:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $PSVersionTable | Format-List
+          if ($PSVersionTable.PSEdition -ne 'Desktop') { throw 'Este gate exige Windows PowerShell Desktop 5.1.' }
+          if ($PSVersionTable.PSVersion.Major -ne 5) { throw 'Versao inesperada do Windows PowerShell.' }
+      - name: Run exact AUTH9 native stderr selftest
+        shell: powershell
+        run: .\tools\rt91_windows_native_stderr_selftest.ps1
