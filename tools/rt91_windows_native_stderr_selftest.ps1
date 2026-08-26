@@ -3,7 +3,7 @@ Set-StrictMode -Version Latest
 
 $RepoRoot=Split-Path $PSScriptRoot -Parent
 $Helper=Join-Path $PSScriptRoot 'rt91_process_helpers.ps1'
-$Auth=Join-Path $RepoRoot 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH9.ps1'
+$Auth=Join-Path $RepoRoot 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1'
 $Tmp=Join-Path $env:TEMP ('rt91-win-selftest-'+[Guid]::NewGuid().ToString('N'))
 $Fake=Join-Path $Tmp 'fake-deno.exe'
 $Log=Join-Path $Tmp 'fake-deno.log'
@@ -63,7 +63,7 @@ public static class Program {
   $env:FAKE_DENO_LOG=$Log
   $env:FAKE_DENO_NO_APP=''
 
-  # Teste direto da causa que falhou no PC: stderr informativo + exit 4 nao podem virar excecao PowerShell.
+  # Causa real observada no PC: stderr informativo nao pode virar NativeCommandError.
   $bad=Invoke-RTDenoJson -DenoExe $Fake -CommandArgs @('deploy','apps','get','--org','mestrederpg35','--app','reino-tribal-api','--non-interactive')
   Assert-True (-not $bad.Ok) 'org errado deveria falhar.'
   Assert-True ($bad.Code -eq 4) ('exit code do org errado deveria ser 4, recebido '+$bad.Code)
@@ -73,12 +73,12 @@ public static class Program {
   Assert-True $good.Ok 'org correto deveria passar apesar do stderr.'
   Assert-True (($good.Data|ConvertTo-Json -Compress) -match 'reino-tribal-api\.mestrederpg35\.deno\.net') 'productionUrl canonica ausente.'
 
-  # Executa o AUTH9 real em modo de descoberta e testa tambem update-value pelo helper real.
+  # Executa o AUTH10 real em modo de descoberta e testa update-value pelo helper real.
   $env:RT91_FAKE_DENO_SELFTEST='1'
   Remove-Item $Log -Force -ErrorAction SilentlyContinue
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Auth -DenoExeOverride $Fake -DiscoveryTestOnly -PreferredDenoOrg mestrederpg35
   $code=$LASTEXITCODE
-  Assert-True ($code -eq 0) ("AUTH9 discovery selftest falhou exit=$code")
+  Assert-True ($code -eq 0) ("AUTH10 discovery selftest falhou exit=$code")
   $calls=if(Test-Path $Log){[IO.File]::ReadAllText($Log)}else{''}
   foreach($needle in @('deploy|whoami','deploy|apps|get|--org|real-org','deploy|env|list|--org|real-org','deploy|env|update-value|RT_SELFTEST_ONLY|sentinel|--org|real-org')){
     Assert-True ($calls.Contains($needle)) ("Chamada esperada ausente: $needle`n$calls")
