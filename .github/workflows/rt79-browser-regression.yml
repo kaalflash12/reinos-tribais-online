@@ -54,3 +54,31 @@ jobs:
           name: RT80_FUNCTIONAL_BROWSER_REGRESSION
           path: ${{ runner.temp }}\RT79_BROWSER_REGRESSION\*
           if-no-files-found: warn
+
+  rt95-reset-and-prove:
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    timeout-minutes: 18
+    env:
+      TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+      TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+    steps:
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+      - name: Execute reversible Turso admin reset and public proof
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $script=Join-Path $env:RUNNER_TEMP 'rt95_turso_admin_reset_proof.ps1'
+          curl.exe --fail --silent --show-error --location --retry 4 --retry-all-errors --output $script https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/main/tools/rt95_turso_admin_reset_proof.ps1
+          if($LASTEXITCODE -ne 0){throw 'RT95_SCRIPT_DOWNLOAD_FAILED'}
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script
+          if($LASTEXITCODE -ne 0){throw "RT95_SCRIPT_FAILED_$LASTEXITCODE"}
+      - name: Upload final proof without plaintext credentials
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RT95_FINAL_ADMIN_PROOF
+          path: ${{ runner.temp }}\RT95_FINAL_ADMIN_PROOF
+          if-no-files-found: error
