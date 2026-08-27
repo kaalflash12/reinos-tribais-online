@@ -9,6 +9,7 @@ on:
       - 'tools/rt90_admin_public_proof.mjs'
       - 'tools/rt79_edge_public_regression.py'
       - 'tools/rt80_edge_clean_public_regression.py'
+      - 'rt80-mobile-cleanup.css'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
   pull_request:
     paths:
@@ -18,6 +19,7 @@ on:
       - 'tools/rt90_admin_public_proof.mjs'
       - 'tools/rt79_edge_public_regression.py'
       - 'tools/rt80_edge_clean_public_regression.py'
+      - 'rt80-mobile-cleanup.css'
       - '.github/workflows/rt90-admin-public-proof-static.yml'
   workflow_dispatch:
 
@@ -91,7 +93,7 @@ jobs:
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\REINO_TRIBAL_FECHAR_ADMIN_PUBLICO_AUTH10.ps1 -PackageValidateOnly
           if($LASTEXITCODE -ne 0){throw "AUTH10 package validate exit code $LASTEXITCODE"}
           Write-Host 'RT91_AUTH10_PACKAGE_VALIDATE_PASS'
-      - name: Browser runner syntax and CDP contract
+      - name: Browser runner syntax, CDP and mobile CSS contract
         shell: pwsh
         run: |
           node --check tools/rt90_admin_public_proof.mjs
@@ -99,9 +101,11 @@ jobs:
           $js=Get-Content tools/rt90_admin_public_proof.mjs -Raw
           $mobile=Get-Content tools/rt79_edge_public_regression.py -Raw
           $clean=Get-Content tools/rt80_edge_clean_public_regression.py -Raw
+          $mobileCss=Get-Content rt80-mobile-cleanup.css -Raw
           foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network','RT90_VALIDATE_ONLY','setEdgeService','matching EdgeDriver resolved without Selenium Manager','sendDevToolsCommand','Emulation.setDeviceMetricsOverride','mobile CDP device metrics 390x844')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
           foreach($needle in @('mobile_gameplay_e2e','mobile_online_e2e','provision_mobile_player','execute_cdp_cmd','Emulation.setDeviceMetricsOverride','mobile online viewport 390','RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png','RT80_MOBILE_ONLINE_TURSO_E2E.png')){if(-not $mobile.Contains($needle)){throw "Runner mobile sem contrato: $needle"}}
           foreach($needle in @('mobile-e2e=clean-entry','mobile clean production entry','edge.mobile_gameplay_e2e = clean_mobile_gameplay_e2e')){if(-not $clean.Contains($needle)){throw "Wrapper mobile limpo sem contrato: $needle"}}
+          foreach($needle in @('RT80.3 mobile navigation cleanup','body.rt80-visual-ready .rt68-game-nav{','display:block!important','overflow-x:auto!important')){if(-not $mobileCss.Contains($needle)){throw "CSS mobile RT80.3 sem contrato: $needle"}}
           Write-Host 'RT90_CDP_BROWSER_RUNNER_STATIC_PASS'
       - name: Run real Edge/Selenium runtime without credentials
         shell: pwsh
@@ -121,6 +125,22 @@ jobs:
           if(-not $p.pass -or -not $p.validate_only){throw 'RT90 validate-only nao marcou PASS.'}
           if(-not (Test-Path (Join-Path $out 'RT90_VALIDATE_ONLY_PUBLIC_LOGIN.png'))){throw 'Screenshot validate-only ausente.'}
           Write-Host 'RT90_EDGE_SELENIUM_RUNTIME_PASS'
+      - name: Wait for exact RT80.3 mobile CSS on GitHub Pages
+        shell: pwsh
+        run: |
+          $base='https://kaalflash12.github.io/reinos-tribais-online/'
+          $ok=$false
+          for($i=0;$i -lt 100 -and -not $ok;$i++){
+            try{
+              $stamp=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+              $html=(Invoke-WebRequest -UseBasicParsing ($base+'index.html?rt90='+$stamp) -TimeoutSec 15).Content
+              $mobileCss=(Invoke-WebRequest -UseBasicParsing ($base+'rt80-mobile-cleanup.css?rt90='+$stamp) -TimeoutSec 15).Content
+              $ok=($html -match 'const VERSION = 79;' -and $html -match 'const RT_BUILD = "80.5";' -and $mobileCss -match 'RT80\.3 mobile navigation cleanup' -and $mobileCss -match 'body\.rt80-visual-ready \.rt68-game-nav\{' -and $mobileCss -match 'display:block!important' -and $mobileCss -match 'overflow-x:auto!important')
+            }catch{$ok=$false}
+            if(-not $ok){Start-Sleep -Seconds 3}
+          }
+          if(-not $ok){throw 'GitHub Pages ainda nao publicou o CSS RT80.3 de navegacao mobile completa.'}
+          Write-Host 'RT80_3_PUBLIC_MOBILE_CSS_DEPLOYED_PASS'
       - name: Run public mobile gameplay and Turso E2E
         shell: pwsh
         run: |
