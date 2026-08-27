@@ -34,6 +34,8 @@ jobs:
           python -m py_compile tools/rt79_chrome_fast_regression.py tools/rt79_edge_public_regression.py tools/rt80_edge_clean_public_regression.py
           $html=Get-Content index.html -Raw
           if($html -notmatch 'const VERSION = 79;' -or $html -notmatch 'const RT_BUILD = "80.5";'){throw 'Contrato RT80.5/schema 79 inválido.'}
+          $mobileCss=Get-Content rt80-mobile-cleanup.css -Raw
+          if($mobileCss -notmatch 'RT80\.3 mobile navigation cleanup' -or $mobileCss -notmatch '\.rt68-game-nav\{' -or $mobileCss -notmatch 'display:block!important'){throw 'Contrato RT80.3 de navegação mobile completa inválido.'}
       - name: Select regression target
         shell: pwsh
         run: |
@@ -47,16 +49,17 @@ jobs:
           } else {
             $base='https://kaalflash12.github.io/reinos-tribais-online/'
             $ok=$false
-            for($i=0;$i -lt 70 -and -not $ok;$i++){
+            for($i=0;$i -lt 100 -and -not $ok;$i++){
               try{
                 $stamp=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
                 $html=(Invoke-WebRequest -UseBasicParsing ($base+'index.html?rt80='+$stamp) -TimeoutSec 15).Content
                 $suite=(Invoke-WebRequest -UseBasicParsing ($base+'rt79-suite.js?v=79.1&rt80='+$stamp) -TimeoutSec 15).Content
-                if($html -match 'const VERSION = 79;' -and $html -match 'const RT_BUILD = "80.5";' -and $suite -match '__RT79_STRATEGY_SUITE__'){$ok=$true}
-              }catch{}
+                $mobileCss=(Invoke-WebRequest -UseBasicParsing ($base+'rt80-mobile-cleanup.css?rt80='+$stamp) -TimeoutSec 15).Content
+                $ok=($html -match 'const VERSION = 79;' -and $html -match 'const RT_BUILD = "80.5";' -and $suite -match '__RT79_STRATEGY_SUITE__' -and $mobileCss -match 'RT80\.3 mobile navigation cleanup' -and $mobileCss -match 'body\.rt80-visual-ready \.rt68-game-nav\{' -and $mobileCss -match 'display:block!important')
+              }catch{$ok=$false}
               if(-not $ok){Start-Sleep -Seconds 3}
             }
-            if(-not $ok){throw 'GitHub Pages ainda não publicou o build RT80.5 do main.'}
+            if(-not $ok){throw 'GitHub Pages ainda não publicou o CSS RT80.3 de navegação mobile completa.'}
             'RT79_TEST_URL=https://kaalflash12.github.io/reinos-tribais-online/' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           }
       - name: Run Edge functional regression
