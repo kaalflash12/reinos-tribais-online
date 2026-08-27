@@ -5,7 +5,7 @@ import rt79_edge_public_regression as edge
 
 _original_mobile_gameplay_e2e = edge.mobile_gameplay_e2e
 
-
+# RT80 diagnostic trigger: capture the real 390x844 DOM before applying a navigation fix.
 def capture_mobile_nav_diagnostic(driver):
     data = edge.r.js(driver, """
       const snap=(e)=>{
