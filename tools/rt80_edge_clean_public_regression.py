@@ -5,20 +5,22 @@ import rt79_edge_public_regression as edge
 
 _original_mobile_gameplay_e2e = edge.mobile_gameplay_e2e
 
-# RT80 diagnostic trigger: capture the real 390x844 DOM and the CSS rules that hide the nav.
+# RT80 diagnostic trigger: capture the real 390x844 DOM, nav and strategic launcher ancestry.
 def capture_mobile_nav_diagnostic(driver):
     data = edge.r.js(driver, """
       const snap=(e)=>{
         if(!e)return null;
         const c=getComputedStyle(e),b=e.getBoundingClientRect();
         return {
-          tag:e.tagName,class:e.className||'',view:e.dataset?.view||'',text:(e.textContent||'').trim().slice(0,80),
+          tag:e.tagName,class:e.className||'',id:e.id||'',view:e.dataset?.view||'',text:(e.textContent||'').trim().slice(0,80),
           display:c.display,visibility:c.visibility,opacity:c.opacity,position:c.position,overflowX:c.overflowX,overflowY:c.overflowY,
           x:b.x,y:b.y,w:b.width,h:b.height,right:b.right,bottom:b.bottom,
           parent:e.parentElement?.className||''
         };
       };
+      const chain=(e)=>{const out=[];for(let n=e;n&&out.length<10;n=n.parentElement)out.push(snap(n));return out};
       const nav=document.querySelector('.rt68-game-nav');
+      const launcher=document.querySelector('[data-rt79-open]');
       const applied=[];
       const walk=(rules,owner,media='')=>{
         for(const rule of [...(rules||[])]){
@@ -55,6 +57,7 @@ def capture_mobile_nav_diagnostic(driver):
         gameShell:snap(document.querySelector('.game-shell')),
         navCount:navs.length,navs:navs.map(snap),scrolls:scrolls.map(snap),
         navInlineStyle:nav?.getAttribute('style')||'',navAppliedRules:applied,
+        strategicLauncher:snap(launcher),strategicLauncherAncestors:chain(launcher),
         dataViewCount:all.length,overviewCount:over.length,
         overview:over.map(snap),
         firstViews:all.slice(0,30).map(snap),
