@@ -4,6 +4,32 @@ from selenium.webdriver.support.ui import WebDriverWait
 import rt79_edge_public_regression as edge
 
 _original_mobile_gameplay_e2e = edge.mobile_gameplay_e2e
+_original_visible_click_view = edge.visible_click_view
+
+
+def launcher_visible(driver):
+    return edge.r.js(driver, """
+      const e=document.querySelector('[data-rt79-open]');if(!e)return false;
+      const b=e.getBoundingClientRect(),c=getComputedStyle(e);
+      return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity)>0&&b.width>0&&b.height>0;
+    """)
+
+
+def stable_visible_click_view(driver, view):
+    ok = _original_visible_click_view(driver, view)
+    # RT79 reinserts the strategic launcher asynchronously after a topbar render.
+    # On mobile, wait at most 1 second for DOM stabilization. The original
+    # regression still performs its own launcher assertion and therefore still
+    # fails if the launcher does not actually recover.
+    if ok and view == 'overview' and edge.r.js(driver, 'return innerWidth<=400'):
+        try:
+            WebDriverWait(driver, 1).until(launcher_visible)
+        except Exception:
+            pass
+    return ok
+
+
+edge.visible_click_view = stable_visible_click_view
 
 # RT80 diagnostic trigger: capture the real 390x844 DOM, nav and strategic launcher ancestry.
 def capture_mobile_nav_diagnostic(driver):
