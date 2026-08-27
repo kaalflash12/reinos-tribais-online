@@ -17,8 +17,6 @@ jobs:
   windows-powershell-51:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-
       - name: Setup Deno 2.9.5
         uses: denoland/setup-deno@v2
         with:
