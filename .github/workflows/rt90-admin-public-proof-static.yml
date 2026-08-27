@@ -105,7 +105,7 @@ jobs:
           foreach($needle in @('rt60_admin_token','rt60-admin-shell','admin_status','RT90_ADMIN_DASHBOARD_PUBLICO.png','zero legacy Supabase network','RT90_VALIDATE_ONLY','setEdgeService','matching EdgeDriver resolved without Selenium Manager','sendDevToolsCommand','Emulation.setDeviceMetricsOverride','mobile CDP device metrics 390x844')){if(-not $js.Contains($needle)){throw "Runner RT90 sem contrato: $needle"}}
           foreach($needle in @('mobile_gameplay_e2e','mobile_online_e2e','provision_mobile_player','execute_cdp_cmd','Emulation.setDeviceMetricsOverride','mobile online viewport 390','RT80_MOBILE_E2E_BEFORE_RELOAD.png','RT80_MOBILE_E2E_AFTER_RELOAD.png','RT80_MOBILE_ONLINE_TURSO_E2E.png')){if(-not $mobile.Contains($needle)){throw "Runner mobile sem contrato: $needle"}}
           foreach($needle in @('mobile-e2e=clean-entry','mobile clean production entry','edge.mobile_gameplay_e2e = clean_mobile_gameplay_e2e')){if(-not $clean.Contains($needle)){throw "Wrapper mobile limpo sem contrato: $needle"}}
-          foreach($needle in @('RT80.3 mobile navigation cleanup','body.rt80-visual-ready .rt68-game-nav{','display:block!important','overflow-x:auto!important')){if(-not $mobileCss.Contains($needle)){throw "CSS mobile RT80.3 sem contrato: $needle"}}
+          foreach($needle in @('RT80.3 mobile navigation cleanup','RT80.3.1 also restores the Central Estrategica launcher','body.rt80-visual-ready .rt68-game-nav{','body.rt80-visual-ready .rt79-launch{','display:flex!important','overflow-x:auto!important')){if(-not $mobileCss.Contains($needle)){throw "CSS mobile RT80.3.1 sem contrato: $needle"}}
           Write-Host 'RT90_CDP_BROWSER_RUNNER_STATIC_PASS'
       - name: Run real Edge/Selenium runtime without credentials
         shell: pwsh
@@ -125,7 +125,7 @@ jobs:
           if(-not $p.pass -or -not $p.validate_only){throw 'RT90 validate-only nao marcou PASS.'}
           if(-not (Test-Path (Join-Path $out 'RT90_VALIDATE_ONLY_PUBLIC_LOGIN.png'))){throw 'Screenshot validate-only ausente.'}
           Write-Host 'RT90_EDGE_SELENIUM_RUNTIME_PASS'
-      - name: Wait for exact RT80.3 mobile CSS on GitHub Pages
+      - name: Wait for exact RT80.3.1 mobile CSS on GitHub Pages
         shell: pwsh
         run: |
           $base='https://kaalflash12.github.io/reinos-tribais-online/'
@@ -135,12 +135,12 @@ jobs:
               $stamp=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
               $html=(Invoke-WebRequest -UseBasicParsing ($base+'index.html?rt90='+$stamp) -TimeoutSec 15).Content
               $mobileCss=(Invoke-WebRequest -UseBasicParsing ($base+'rt80-mobile-cleanup.css?rt90='+$stamp) -TimeoutSec 15).Content
-              $ok=($html -match 'const VERSION = 79;' -and $html -match 'const RT_BUILD = "80.5";' -and $mobileCss -match 'RT80\.3 mobile navigation cleanup' -and $mobileCss -match 'body\.rt80-visual-ready \.rt68-game-nav\{' -and $mobileCss -match 'display:block!important' -and $mobileCss -match 'overflow-x:auto!important')
+              $ok=($html -match 'const VERSION = 79;' -and $html -match 'const RT_BUILD = "80.5";' -and $mobileCss -match 'RT80\.3 mobile navigation cleanup' -and $mobileCss -match 'RT80\.3\.1 also restores the Central Estrategica launcher' -and $mobileCss -match 'body\.rt80-visual-ready \.rt68-game-nav\{' -and $mobileCss -match 'body\.rt80-visual-ready \.rt79-launch\{' -and $mobileCss -match 'display:flex!important' -and $mobileCss -match 'overflow-x:auto!important')
             }catch{$ok=$false}
             if(-not $ok){Start-Sleep -Seconds 3}
           }
-          if(-not $ok){throw 'GitHub Pages ainda nao publicou o CSS RT80.3 de navegacao mobile completa.'}
-          Write-Host 'RT80_3_PUBLIC_MOBILE_CSS_DEPLOYED_PASS'
+          if(-not $ok){throw 'GitHub Pages ainda nao publicou o CSS RT80.3.1 com navegacao completa e launcher estrategico movel.'}
+          Write-Host 'RT80_3_1_PUBLIC_MOBILE_CSS_DEPLOYED_PASS'
       - name: Run public mobile gameplay and Turso E2E
         shell: pwsh
         run: |
