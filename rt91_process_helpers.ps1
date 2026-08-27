@@ -1,5 +1,11 @@
 Set-StrictMode -Version Latest
 
+function Normalize-RTDenoArgs {
+  [CmdletBinding()]
+  param([Parameter(Mandatory=$true)][string[]]$CommandArgs)
+  return @($CommandArgs | Where-Object { $_ -ne '--non-interactive' })
+}
+
 function Invoke-RTNativeProcess {
   [CmdletBinding()]
   param(
@@ -45,7 +51,8 @@ function Invoke-RTDenoText {
     [Parameter(Mandatory=$true)][string[]]$CommandArgs,
     [string]$WorkingDirectory=''
   )
-  $r=Invoke-RTNativeProcess -FilePath $DenoExe -ArgumentList $CommandArgs -WorkingDirectory $WorkingDirectory
+  $args=Normalize-RTDenoArgs -CommandArgs $CommandArgs
+  $r=Invoke-RTNativeProcess -FilePath $DenoExe -ArgumentList $args -WorkingDirectory $WorkingDirectory
   $text=(($r.Stdout+"`n"+$r.Stderr).Trim())
   return [pscustomobject]@{Ok=($r.Code -eq 0);Code=[int]$r.Code;Text=$text;Stdout=$r.Stdout;Stderr=$r.Stderr}
 }
@@ -56,10 +63,11 @@ function Invoke-RTDenoJson {
     [Parameter(Mandatory=$true)][string]$DenoExe,
     [Parameter(Mandatory=$true)][string[]]$CommandArgs
   )
-  if($CommandArgs.Count -lt 2 -or $CommandArgs[0] -ne 'deploy'){
+  $normalized=Normalize-RTDenoArgs -CommandArgs $CommandArgs
+  if($normalized.Count -lt 2 -or $normalized[0] -ne 'deploy'){
     throw 'Invoke-RTDenoJson exige comando iniciado por deploy; --json e flag global do deno deploy 2.9.5.'
   }
-  $args=@('deploy','--json')+@($CommandArgs[1..($CommandArgs.Count-1)])
+  $args=@('deploy','--json')+@($normalized[1..($normalized.Count-1)])
   $r=Invoke-RTNativeProcess -FilePath $DenoExe -ArgumentList $args
   if($r.Code -ne 0){
     return [pscustomobject]@{Ok=$false;Code=[int]$r.Code;Text=(($r.Stdout+"`n"+$r.Stderr).Trim());Data=$null;Stdout=$r.Stdout;Stderr=$r.Stderr}
@@ -79,5 +87,6 @@ function Invoke-RTDenoInteractive {
     [Parameter(Mandatory=$true)][string]$DenoExe,
     [Parameter(Mandatory=$true)][string[]]$CommandArgs
   )
-  return Invoke-RTNativeProcess -FilePath $DenoExe -ArgumentList $CommandArgs -Interactive
+  $args=Normalize-RTDenoArgs -CommandArgs $CommandArgs
+  return Invoke-RTNativeProcess -FilePath $DenoExe -ArgumentList $args -Interactive
 }
