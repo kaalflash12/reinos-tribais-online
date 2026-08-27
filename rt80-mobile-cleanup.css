@@ -1,7 +1,8 @@
 /* RT80.3 mobile navigation cleanup — one complete navigation layer on phones.
    RT80.2 hid the complete RT68 game nav and exposed only five legacy RT22
    shortcuts, making recruit/research/reports/settings and other views unreachable.
-   Mobile now keeps RT68 as the single canonical horizontally scrollable game nav. */
+   Mobile now keeps RT68 as the single canonical horizontally scrollable game nav.
+   RT80.3.1 also restores the Central Estrategica launcher as a fixed mobile action. */
 @media(max-width:820px){
   body.rt80-visual-ready .rt80-legacy-nav,
   body.rt80-village-mode .rt22-navicons{
@@ -55,6 +56,25 @@
     padding:6px 8px!important;
     white-space:nowrap!important;
     box-sizing:border-box!important;
+  }
+
+  body.rt80-visual-ready .rt79-launch{
+    display:flex!important;
+    position:fixed!important;
+    right:10px!important;
+    bottom:calc(74px + env(safe-area-inset-bottom,0px))!important;
+    z-index:260!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:auto!important;
+    max-width:calc(100vw - 20px)!important;
+    min-width:0!important;
+    min-height:40px!important;
+    margin:0!important;
+    padding:8px 10px!important;
+    box-sizing:border-box!important;
+    white-space:nowrap!important;
+    box-shadow:0 8px 24px #0009!important;
   }
 
   body.rt80-village-mode .rt68-page-related{display:none!important}
