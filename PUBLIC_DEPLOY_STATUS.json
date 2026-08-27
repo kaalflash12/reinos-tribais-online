@@ -2,39 +2,24 @@
   "product": "Reino Tribal",
   "public_version": "1.0.3",
   "backend_api": "https://reino-tribal-api.mestrederpg35.deno.net",
-  "status": "online",
-  "http_status": 200,
+  "status": "failed",
+  "http_status": 0,
   "url": "https://kaalflash12.github.io/reinos-tribais-online/",
-  "diagnosed_commit": "fc6b6e561a7ac6164a310f408bb36458ce1f15d2",
-  "pages_api_http": 200,
-  "pages": {
-    "url": "https://api.github.com/repos/kaalflash12/reinos-tribais-online/pages",
-    "status": "building",
-    "cname": null,
-    "custom_404": false,
-    "html_url": "https://kaalflash12.github.io/reinos-tribais-online/",
-    "build_type": "legacy",
-    "source": {
-      "branch": "main",
-      "path": "/"
-    },
-    "public": true,
-    "protected_domain_state": null,
-    "pending_domain_unverified_at": null,
-    "https_enforced": true
-  },
+  "diagnosed_commit": "279b9c90367013636c91529fee1d57704c507bd1",
+  "pages_api_http": 0,
+  "pages": null,
   "checks": {
-    "root_http_200": true,
-    "title_reino_tribal": true,
-    "release_http_200": true,
-    "release_matches_repository": true,
-    "loader_http_200": true,
-    "auth_http_200": true,
-    "auth_bridge_present": true,
-    "config_http_200": true,
-    "config_api_base_correct": true,
-    "cors_http_204": true,
-    "cors_allows_pages": true
+    "root_http_200": false,
+    "title_reino_tribal": false,
+    "release_http_200": false,
+    "release_matches_repository": false,
+    "loader_http_200": false,
+    "auth_http_200": false,
+    "auth_bridge_present": false,
+    "config_http_200": false,
+    "config_api_base_correct": false,
+    "cors_http_204": false,
+    "cors_allows_pages": false
   },
-  "verified_at_utc": "2026-08-27T19:07:52.618281+00:00"
+  "verified_at_utc": "2026-08-27T19:10:23.524718+00:00"
 }
