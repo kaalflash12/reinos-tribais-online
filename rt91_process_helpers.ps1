@@ -56,7 +56,10 @@ function Invoke-RTDenoJson {
     [Parameter(Mandatory=$true)][string]$DenoExe,
     [Parameter(Mandatory=$true)][string[]]$CommandArgs
   )
-  $args=@($CommandArgs)+@('--json')
+  if($CommandArgs.Count -lt 2 -or $CommandArgs[0] -ne 'deploy'){
+    throw 'Invoke-RTDenoJson exige comando iniciado por deploy; --json e flag global do deno deploy 2.9.5.'
+  }
+  $args=@('deploy','--json')+@($CommandArgs[1..($CommandArgs.Count-1)])
   $r=Invoke-RTNativeProcess -FilePath $DenoExe -ArgumentList $args
   if($r.Code -ne 0){
     return [pscustomobject]@{Ok=$false;Code=[int]$r.Code;Text=(($r.Stdout+"`n"+$r.Stderr).Trim());Data=$null;Stdout=$r.Stdout;Stderr=$r.Stderr}
