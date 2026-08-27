@@ -1,0 +1,99 @@
+name: RT91 Deno CLI Windows Contract
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rt91-deno-cli-windows-contract.yml'
+      - 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH8.ps1'
+      - 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH9.ps1'
+      - 'tools/rt91-native-process.ps1'
+
+permissions:
+  contents: read
+
+jobs:
+  windows-powershell-51:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Deno 2.9.5
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Prove Deno 2.9.5 command surface
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          deno --version
+          $checks = @(
+            @('deploy','--help'),
+            @('deploy','env','list','--help'),
+            @('deploy','env','update-value','--help'),
+            @('deploy','switch','--help'),
+            @('deploy','orgs','list','--help'),
+            @('deploy','whoami','--help'),
+            @('deploy','apps','get','--help'),
+            @('deploy','apps','list','--help')
+          )
+          foreach($args in $checks){
+            Write-Host ('CHECK: deno ' + ($args -join ' '))
+            $old = $ErrorActionPreference
+            try {
+              $ErrorActionPreference = 'Continue'
+              & deno @args *> $null
+              $code = $LASTEXITCODE
+            } finally { $ErrorActionPreference = $old }
+            Write-Host ('EXIT: ' + $code)
+            if($code -ne 0){ throw ('CLI contract unavailable: deno ' + ($args -join ' ')) }
+          }
+          Write-Host 'DENO_2_9_5_COMMAND_SURFACE_PASS'
+
+      - name: Build fake native executable
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $src = @'
+          using System;
+          using System.Linq;
+          public static class Program {
+            public static int Main(string[] args) {
+              Console.Error.WriteLine("Download https://jsr.io/@deno/deploy/meta.json");
+              if (args.Contains("fail")) { Console.Error.WriteLine("synthetic failure"); return 4; }
+              if (args.Contains("--json")) Console.WriteLine("{\"ok\":true,\"slug\":\"synthetic-org\"}");
+              else Console.WriteLine("synthetic stdout");
+              return 0;
+            }
+          }
+          '@
+          Add-Type -TypeDefinition $src -Language CSharp -OutputAssembly "$env:RUNNER_TEMP\fake-deno.exe" -OutputType ConsoleApplication
+          if(!(Test-Path "$env:RUNNER_TEMP\fake-deno.exe")){throw 'fake-deno.exe missing'}
+
+      - name: Prove Start-Process stderr isolation in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          function Invoke-NativeSafe {
+            param([string]$FilePath,[string[]]$ArgumentList)
+            $id=[guid]::NewGuid().ToString('N')
+            $out=Join-Path $env:RUNNER_TEMP ($id+'.out')
+            $err=Join-Path $env:RUNNER_TEMP ($id+'.err')
+            try {
+              $p=Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -RedirectStandardOutput $out -RedirectStandardError $err -Wait -PassThru -NoNewWindow
+              $stdout=if(Test-Path $out){[IO.File]::ReadAllText($out).Trim()}else{''}
+              $stderr=if(Test-Path $err){[IO.File]::ReadAllText($err).Trim()}else{''}
+              return [pscustomobject]@{Code=[int]$p.ExitCode;Stdout=$stdout;Stderr=$stderr}
+            } finally { Remove-Item $out,$err -Force -ErrorAction SilentlyContinue }
+          }
+          $fake="$env:RUNNER_TEMP\fake-deno.exe"
+          $ok=Invoke-NativeSafe $fake @('deploy','env','list','--json')
+          if($ok.Code -ne 0){throw 'success exit code lost'}
+          if($ok.Stdout -notmatch '^\{"ok":true'){throw ('stdout polluted: '+$ok.Stdout)}
+          if($ok.Stderr -notmatch '^Download https://jsr.io/'){throw ('stderr missing: '+$ok.Stderr)}
+          $bad=Invoke-NativeSafe $fake @('fail','--json')
+          if($bad.Code -ne 4){throw ('failure exit code lost: '+$bad.Code)}
+          if($bad.Stderr -notmatch 'synthetic failure'){throw 'failure stderr missing'}
+          Write-Host 'WINDOWS_POWERSHELL_51_NATIVE_STDERR_ISOLATION_PASS'
