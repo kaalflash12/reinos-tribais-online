@@ -8,7 +8,7 @@ on:
       - '.github/workflows/rt91-deno-cli-windows-contract.yml'
       - 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH8.ps1'
       - 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH9.ps1'
-      - 'tools/rt91-native-process.ps1'
+      - 'rt91_process_helpers.ps1'
 
 permissions:
   contents: read
@@ -35,7 +35,12 @@ jobs:
             @('deploy','orgs','list','--help'),
             @('deploy','whoami','--help'),
             @('deploy','apps','get','--help'),
-            @('deploy','apps','list','--help')
+            @('deploy','apps','list','--help'),
+            @('deploy','orgs','list','--json','--help'),
+            @('deploy','whoami','--json','--help'),
+            @('deploy','apps','get','--org','synthetic-org','--app','reino-tribal-api','--non-interactive','--json','--help'),
+            @('deploy','env','list','--org','synthetic-org','--app','reino-tribal-api','--non-interactive','--json','--help'),
+            @('deploy','env','update-value','RT_SELFTEST_ONLY','sentinel','--org','synthetic-org','--app','reino-tribal-api','--non-interactive','--json','--help')
           )
           foreach($args in $checks){
             Write-Host ('CHECK: deno ' + ($args -join ' '))
@@ -50,7 +55,24 @@ jobs:
           }
           Write-Host 'DENO_2_9_5_COMMAND_SURFACE_PASS'
 
-      - name: Build fake native executable
+      - name: Download exact AUTH9 and helper from tested commit
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:RUNNER_TEMP 'rt91-auth9'
+          New-Item -ItemType Directory -Force -Path $root|Out-Null
+          $base="https://raw.githubusercontent.com/$env:GITHUB_REPOSITORY/$env:GITHUB_SHA"
+          Invoke-WebRequest "$base/REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH9.ps1" -OutFile (Join-Path $root 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH9.ps1')
+          Invoke-WebRequest "$base/rt91_process_helpers.ps1" -OutFile (Join-Path $root 'rt91_process_helpers.ps1')
+          $tokens=$null;$errors=$null
+          [Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH9.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List|Out-String|Write-Host;throw 'AUTH9 parser failed'}
+          $tokens=$null;$errors=$null
+          [Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'rt91_process_helpers.ps1'),[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|Format-List|Out-String|Write-Host;throw 'helper parser failed'}
+          Write-Host 'AUTH9_AND_HELPER_PARSER_PASS'
+
+      - name: Build fake Deno with real stderr and org fallback behavior
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
@@ -58,40 +80,52 @@ jobs:
           using System;
           using System.Linq;
           public static class Program {
+            static bool Has(string[] a, string v) => a.Any(x => string.Equals(x, v, StringComparison.OrdinalIgnoreCase));
+            static string After(string[] a, string v) { for(int i=0;i<a.Length-1;i++) if(string.Equals(a[i],v,StringComparison.OrdinalIgnoreCase)) return a[i+1]; return ""; }
             public static int Main(string[] args) {
               Console.Error.WriteLine("Download https://jsr.io/@deno/deploy/meta.json");
-              if (args.Contains("fail")) { Console.Error.WriteLine("synthetic failure"); return 4; }
-              if (args.Contains("--json")) Console.WriteLine("{\"ok\":true,\"slug\":\"synthetic-org\"}");
-              else Console.WriteLine("synthetic stdout");
-              return 0;
+              if (args.Length==1 && args[0]=="--version") { Console.WriteLine("deno 2.9.5"); return 0; }
+              var json=Has(args,"--json");
+              if (Has(args,"whoami")) { if(json) Console.WriteLine("{\"user\":{\"name\":\"Carlos Nobre\"},\"organizations\":[{\"slug\":\"synthetic-org\"}]}"); else Console.WriteLine("Carlos Nobre"); return 0; }
+              if (Has(args,"orgs") && Has(args,"list")) { if(json) Console.WriteLine("{\"organizations\":[{\"slug\":\"synthetic-org\"}]}"); else Console.WriteLine("synthetic-org"); return 0; }
+              if (Has(args,"apps") && Has(args,"get")) {
+                var org=After(args,"--org");
+                if(org=="mestrederpg35") { Console.Error.WriteLine("The requested organization was not found"); return 4; }
+                if(org=="synthetic-org") { if(json) Console.WriteLine("{\"slug\":\"reino-tribal-api\",\"productionUrl\":\"https://reino-tribal-api.mestrederpg35.deno.net\"}"); else Console.WriteLine("reino-tribal-api"); return 0; }
+                Console.Error.WriteLine("unknown org"); return 4;
+              }
+              if (Has(args,"env") && Has(args,"list")) { if(json) Console.WriteLine("{\"variables\":[]}"); else Console.WriteLine("RT_ADMIN_PASSWORD [secret]"); return 0; }
+              if (Has(args,"env") && Has(args,"update-value")) { if(json) Console.WriteLine("{\"ok\":true}"); else Console.WriteLine("updated"); return 0; }
+              Console.Error.WriteLine("unsupported synthetic command: "+string.Join(" ",args)); return 9;
             }
           }
           '@
           Add-Type -TypeDefinition $src -Language CSharp -OutputAssembly "$env:RUNNER_TEMP\fake-deno.exe" -OutputType ConsoleApplication
           if(!(Test-Path "$env:RUNNER_TEMP\fake-deno.exe")){throw 'fake-deno.exe missing'}
 
-      - name: Prove Start-Process stderr isolation in Windows PowerShell 5.1
+      - name: Prove exact helper stderr isolation in Windows PowerShell 5.1
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          function Invoke-NativeSafe {
-            param([string]$FilePath,[string[]]$ArgumentList)
-            $id=[guid]::NewGuid().ToString('N')
-            $out=Join-Path $env:RUNNER_TEMP ($id+'.out')
-            $err=Join-Path $env:RUNNER_TEMP ($id+'.err')
-            try {
-              $p=Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -RedirectStandardOutput $out -RedirectStandardError $err -Wait -PassThru -NoNewWindow
-              $stdout=if(Test-Path $out){[IO.File]::ReadAllText($out).Trim()}else{''}
-              $stderr=if(Test-Path $err){[IO.File]::ReadAllText($err).Trim()}else{''}
-              return [pscustomobject]@{Code=[int]$p.ExitCode;Stdout=$stdout;Stderr=$stderr}
-            } finally { Remove-Item $out,$err -Force -ErrorAction SilentlyContinue }
-          }
+          . "$env:RUNNER_TEMP\rt91-auth9\rt91_process_helpers.ps1"
           $fake="$env:RUNNER_TEMP\fake-deno.exe"
-          $ok=Invoke-NativeSafe $fake @('deploy','env','list','--json')
-          if($ok.Code -ne 0){throw 'success exit code lost'}
-          if($ok.Stdout -notmatch '^\{"ok":true'){throw ('stdout polluted: '+$ok.Stdout)}
+          $ok=Invoke-RTDenoJson -DenoExe $fake -CommandArgs @('deploy','env','list')
+          if(-not $ok.Ok){throw ('JSON helper failed: '+$ok.Text)}
+          if($ok.Stdout -notmatch '^\{"variables"'){throw ('stdout polluted: '+$ok.Stdout)}
           if($ok.Stderr -notmatch '^Download https://jsr.io/'){throw ('stderr missing: '+$ok.Stderr)}
-          $bad=Invoke-NativeSafe $fake @('fail','--json')
-          if($bad.Code -ne 4){throw ('failure exit code lost: '+$bad.Code)}
-          if($bad.Stderr -notmatch 'synthetic failure'){throw 'failure stderr missing'}
-          Write-Host 'WINDOWS_POWERSHELL_51_NATIVE_STDERR_ISOLATION_PASS'
+          $bad=Invoke-RTDenoJson -DenoExe $fake -CommandArgs @('deploy','apps','get','--org','mestrederpg35','--app','reino-tribal-api','--non-interactive')
+          if($bad.Ok -or $bad.Code -ne 4){throw ('failure exit code lost: '+$bad.Code)}
+          if($bad.Stderr -notmatch 'requested organization was not found'){throw ('failure stderr missing: '+$bad.Stderr)}
+          Write-Host 'WINDOWS_POWERSHELL_51_EXACT_HELPER_PASS'
+
+      - name: Execute exact AUTH9 discovery selftest with fake Deno
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $env:RT91_FAKE_DENO_SELFTEST='1'
+          try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:RUNNER_TEMP\rt91-auth9\REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH9.ps1" -DenoExeOverride "$env:RUNNER_TEMP\fake-deno.exe" -DiscoveryTestOnly
+            $code=$LASTEXITCODE
+          } finally { Remove-Item Env:RT91_FAKE_DENO_SELFTEST -ErrorAction SilentlyContinue }
+          if($code -ne 0){throw ('AUTH9 discovery selftest exit='+$code)}
+          Write-Host 'RT91_AUTH9_WINDOWS_FULL_DISCOVERY_SELFTEST_PASS'
