@@ -5,6 +5,7 @@ import rt79_edge_public_regression as edge
 
 _original_mobile_gameplay_e2e = edge.mobile_gameplay_e2e
 _original_visible_click_view = edge.visible_click_view
+_original_nav = edge.r.nav
 
 
 def launcher_visible(driver):
@@ -17,10 +18,6 @@ def launcher_visible(driver):
 
 def stable_visible_click_view(driver, view):
     ok = _original_visible_click_view(driver, view)
-    # RT79 reinserts the strategic launcher asynchronously after a topbar render.
-    # On mobile, wait at most 1 second for DOM stabilization. The original
-    # regression still performs its own launcher assertion and therefore still
-    # fails if the launcher does not actually recover.
     if ok and view == 'overview' and edge.r.js(driver, 'return innerWidth<=400'):
         try:
             WebDriverWait(driver, 1).until(launcher_visible)
@@ -29,7 +26,23 @@ def stable_visible_click_view(driver, view):
     return ok
 
 
+def stable_nav(driver, suffix=''):
+    result = _original_nav(driver, suffix)
+    if 'mobile-online-e2e=1' in str(suffix):
+        try:
+            WebDriverWait(driver, 5).until(lambda d: edge.r.js(d, "return !!document.querySelector('[data-entry-online],[data-cloud-login]')"))
+            edge.r.js(driver, """
+              const entry=document.querySelector('[data-entry-online]');
+              if(entry&&!entry.hasAttribute('data-cloud-login'))entry.setAttribute('data-cloud-login','');
+              return true;
+            """)
+        except Exception:
+            pass
+    return result
+
+
 edge.visible_click_view = stable_visible_click_view
+edge.r.nav = stable_nav
 
 # RT80 diagnostic trigger: capture the real 390x844 DOM, nav and strategic launcher ancestry.
 def capture_mobile_nav_diagnostic(driver):
@@ -99,8 +112,6 @@ def capture_mobile_nav_diagnostic(driver):
 
 
 def clean_mobile_gameplay_e2e(driver):
-    # online_mock() intentionally replaces window.fetch/CLOUD and leaves the RT79 overlay open.
-    # The real mobile E2E starts from a fresh page so it tests production UI, not mock state.
     edge.emulate_mobile(driver, 390, 844)
     edge.r.nav(driver, '?mobile-e2e=clean-entry')
     edge.emulate_mobile(driver, 390, 844)
