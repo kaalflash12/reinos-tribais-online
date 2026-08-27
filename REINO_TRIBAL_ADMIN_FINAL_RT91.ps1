@@ -45,12 +45,7 @@ function Invoke-RTNative {
 
   if ($Interactive) {
     $p = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -Wait -PassThru -NoNewWindow
-    return [pscustomobject]@{
-      Code = [int]$p.ExitCode
-      Stdout = ''
-      Stderr = ''
-      Text = ''
-    }
+    return [pscustomobject]@{ Code = [int]$p.ExitCode; Stdout = ''; Stderr = ''; Text = '' }
   }
 
   $id = [guid]::NewGuid().ToString('N')
@@ -58,38 +53,39 @@ function Invoke-RTNative {
   if ([string]::IsNullOrWhiteSpace($root)) { $root = [IO.Path]::GetTempPath() }
   $out = Join-Path $root ('rt91-' + $id + '.out')
   $err = Join-Path $root ('rt91-' + $id + '.err')
-
   try {
     $p = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -RedirectStandardOutput $out -RedirectStandardError $err -Wait -PassThru -NoNewWindow
-    $stdout = ''
-    $stderr = ''
-    if (Test-Path $out) { $stdout = [IO.File]::ReadAllText($out).Trim() }
-    if (Test-Path $err) { $stderr = [IO.File]::ReadAllText($err).Trim() }
-    $textParts = @()
-    if ($stdout) { $textParts += $stdout }
-    if ($stderr) { $textParts += $stderr }
-    return [pscustomobject]@{
-      Code = [int]$p.ExitCode
-      Stdout = $stdout
-      Stderr = $stderr
-      Text = ($textParts -join [Environment]::NewLine)
-    }
+    $stdout = if (Test-Path $out) { [IO.File]::ReadAllText($out).Trim() } else { '' }
+    $stderr = if (Test-Path $err) { [IO.File]::ReadAllText($err).Trim() } else { '' }
+    $parts = @()
+    if ($stdout) { $parts += $stdout }
+    if ($stderr) { $parts += $stderr }
+    return [pscustomobject]@{ Code = [int]$p.ExitCode; Stdout = $stdout; Stderr = $stderr; Text = ($parts -join [Environment]::NewLine) }
   } finally {
     Remove-Item $out -Force -ErrorAction SilentlyContinue
     Remove-Item $err -Force -ErrorAction SilentlyContinue
   }
 }
 
+function Normalize-RTDenoArgs {
+  param([string[]]$CommandArgs)
+  return @($CommandArgs | Where-Object { $_ -ne '--non-interactive' -and $_ -ne '--json' })
+}
+
 function Invoke-RTDenoText {
   param([string]$DenoExe, [string[]]$CommandArgs, [switch]$Interactive)
-  return Invoke-RTNative -FilePath $DenoExe -ArgumentList $CommandArgs -Interactive:$Interactive
+  $args2 = Normalize-RTDenoArgs -CommandArgs $CommandArgs
+  return Invoke-RTNative -FilePath $DenoExe -ArgumentList $args2 -Interactive:$Interactive
 }
 
 function Invoke-RTDenoJson {
   param([string]$DenoExe, [string[]]$CommandArgs)
-  $args2 = @($CommandArgs)
-  if (-not ($args2 -contains '--json')) { $args2 += '--json' }
-  $r = Invoke-RTNative -FilePath $DenoExe -ArgumentList $args2
+  $args2 = Normalize-RTDenoArgs -CommandArgs $CommandArgs
+  if ($args2.Count -lt 2 -or $args2[0] -ne 'deploy') {
+    Falhar 'Invoke-RTDenoJson exige comando deploy; no Deno 2.9.5 --json e flag global.'
+  }
+  $argv = @('deploy', '--json') + @($args2[1..($args2.Count - 1)])
+  $r = Invoke-RTNative -FilePath $DenoExe -ArgumentList $argv
   if ($r.Code -ne 0) {
     return [pscustomobject]@{ Ok = $false; Code = $r.Code; Data = $null; Stdout = $r.Stdout; Stderr = $r.Stderr; Text = $r.Text }
   }
@@ -112,11 +108,7 @@ function Invoke-RTDenoInteractive {
 function Novo-Segredo([int]$Bytes = 32) {
   $buf = New-Object byte[] $Bytes
   $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
-  try {
-    $rng.GetBytes($buf)
-  } finally {
-    $rng.Dispose()
-  }
+  try { $rng.GetBytes($buf) } finally { $rng.Dispose() }
   return ([Convert]::ToBase64String($buf).TrimEnd('=').Replace('+', '-').Replace('/', '_'))
 }
 
@@ -140,11 +132,7 @@ function Add-OrgCandidates {
 function Test-CanonicalAppProbe {
   param([object]$Probe)
   if (-not $Probe.Ok) { return $false }
-  try {
-    $serialized = $Probe.Data | ConvertTo-Json -Depth 40 -Compress
-  } catch {
-    return $false
-  }
+  try { $serialized = $Probe.Data | ConvertTo-Json -Depth 40 -Compress } catch { return $false }
   return $serialized.Contains($ExpectedHost)
 }
 
@@ -162,7 +150,6 @@ function Resolver-DenoOrgEApp {
 
   $orgSet = New-Object 'System.Collections.Generic.HashSet[string]' -ArgumentList ([StringComparer]::OrdinalIgnoreCase)
   Add-OrgCandidates -Node $who.Data -Set $orgSet
-
   $orgs = Invoke-RTDenoJson -DenoExe $DenoExe -CommandArgs @('deploy', 'orgs', 'list')
   if ($orgs.Ok) { Add-OrgCandidates -Node $orgs.Data -Set $orgSet }
   if (-not [string]::IsNullOrWhiteSpace($PreferredDenoOrg)) { [void]$orgSet.Add($PreferredDenoOrg) }
@@ -170,42 +157,22 @@ function Resolver-DenoOrgEApp {
 
   $resolved = ''
   foreach ($candidate in @($orgSet)) {
-    $probe = Invoke-RTDenoJson -DenoExe $DenoExe -CommandArgs @('deploy', 'apps', 'get', '--org', $candidate, '--app', $DenoApp, '--non-interactive')
-    if (Test-CanonicalAppProbe -Probe $probe) {
-      $resolved = $candidate
-      break
-    }
-
-    $list = Invoke-RTDenoJson -DenoExe $DenoExe -CommandArgs @('deploy', 'apps', 'list', '--org', $candidate, '--non-interactive')
-    if ($list.Ok) {
-      foreach ($item in @($list.Data)) {
-        $j = ''
-        try {
-          $j = $item | ConvertTo-Json -Depth 40 -Compress
-        } catch {
-          $j = ''
-        }
-        if ($j -and $j.Contains($DenoApp) -and $j.Contains($ExpectedHost)) {
-          $resolved = $candidate
-          break
-        }
-      }
-      if ($resolved) { break }
-    }
+    $probe = Invoke-RTDenoJson -DenoExe $DenoExe -CommandArgs @('deploy', 'apps', 'get', '--org', $candidate, '--app', $DenoApp)
+    if (Test-CanonicalAppProbe -Probe $probe) { $resolved = $candidate; break }
   }
-
   if ([string]::IsNullOrWhiteSpace($resolved)) {
     $visible = (@($orgSet) | Sort-Object) -join ', '
     Falhar ('AUTH DENO PASS, mas nenhum org acessivel contem o app canonico ' + $ExpectedHost + '. Orgs visiveis: ' + $visible + '. Nenhum secret foi alterado.')
   }
 
   $script:ResolvedDenoOrg = $resolved
-  $envCheck = Invoke-RTDenoJson -DenoExe $DenoExe -CommandArgs @('deploy', 'env', 'list', '--org', $resolved, '--app', $DenoApp, '--non-interactive')
+  $envCheck = Invoke-RTDenoJson -DenoExe $DenoExe -CommandArgs @('deploy', 'env', 'list', '--org', $resolved, '--app', $DenoApp)
   if (-not $envCheck.Ok) { Falhar ('App canonico localizado em ' + $resolved + ', mas env list foi recusado. ' + $envCheck.Text) }
 
   Ok ('DENO_ORG_AUTO_DISCOVERY_CONTRACT: ' + $resolved)
   Ok 'DENO_CANONICAL_APP_DOMAIN_MATCH_CONTRACT'
   Ok 'WINDOWS_POWERSHELL_START_PROCESS_STDERR_CONTRACT'
+  Ok 'DENO_2_9_5_GLOBAL_JSON_FLAG_CONTRACT'
 }
 
 function Invoke-HttpJson {
@@ -221,23 +188,18 @@ function Invoke-HttpJson {
     $req.Timeout = $TimeoutMs
     $req.ReadWriteTimeout = $TimeoutMs
     if ($Bearer) { $req.Headers['Authorization'] = 'Bearer ' + $Bearer }
-
     $bytes = [Text.Encoding]::UTF8.GetBytes($Json)
     $req.ContentLength = $bytes.Length
     $stream = $req.GetRequestStream()
     $stream.Write($bytes, 0, $bytes.Length)
     $stream.Dispose()
     $stream = $null
-
     try {
       $resp = $req.GetResponse()
     } catch [Net.WebException] {
       $resp = $_.Exception.Response
-      if ($null -eq $resp) {
-        return [pscustomobject]@{ Ok = $false; Status = 0; Text = $_.Exception.Message }
-      }
+      if ($null -eq $resp) { return [pscustomobject]@{ Ok = $false; Status = 0; Text = $_.Exception.Message } }
     }
-
     $status = [int]$resp.StatusCode
     $reader = New-Object IO.StreamReader($resp.GetResponseStream())
     $text = $reader.ReadToEnd()
@@ -254,11 +216,7 @@ function Invoke-HttpJson {
 function Parse-HttpJson {
   param($Result, [string]$Label)
   if (-not $Result.Ok) { Falhar ($Label + ' falhou HTTP ' + $Result.Status + '. ' + $Result.Text) }
-  try {
-    return ($Result.Text | ConvertFrom-Json)
-  } catch {
-    Falhar ($Label + ' retornou JSON invalido. ' + $Result.Text)
-  }
+  try { return ($Result.Text | ConvertFrom-Json) } catch { Falhar ($Label + ' retornou JSON invalido. ' + $Result.Text) }
 }
 
 function Gravar-Pendente {
@@ -295,7 +253,7 @@ Resolver-DenoOrgEApp
 
 if ($DiscoveryTestOnly) {
   if ($env:RT91_FAKE_DENO_SELFTEST -eq '1') {
-    $testUpdate = Invoke-RTDenoText -DenoExe $DenoExe -CommandArgs @('deploy', 'env', 'update-value', 'RT_SELFTEST_ONLY', 'sentinel', '--org', $ResolvedDenoOrg, '--app', $DenoApp, '--non-interactive')
+    $testUpdate = Invoke-RTDenoText -DenoExe $DenoExe -CommandArgs @('deploy', 'env', 'update-value', 'RT_SELFTEST_ONLY', 'sentinel', '--org', $ResolvedDenoOrg, '--app', $DenoApp)
     if ($testUpdate.Code -ne 0) { Falhar ('Selftest update-value falhou. ' + $testUpdate.Text) }
     Ok 'DENO_UPDATE_VALUE_STDERR_SELFTEST_PASS'
   }
@@ -314,11 +272,11 @@ $recoveryKey = Novo-Segredo 48
 Gravar-Pendente -Password $adminPassword -Recovery $recoveryKey -Status 'GERADA_LOCALMENTE_ANTES_DO_DENO'
 
 Etapa 'Atualizando somente RT_ADMIN_PASSWORD e RT_ADMIN_RECOVERY_KEY'
-$up1 = Invoke-RTDenoText -DenoExe $DenoExe -CommandArgs @('deploy', 'env', 'update-value', 'RT_ADMIN_PASSWORD', $adminPassword, '--org', $ResolvedDenoOrg, '--app', $DenoApp, '--non-interactive')
+$up1 = Invoke-RTDenoText -DenoExe $DenoExe -CommandArgs @('deploy', 'env', 'update-value', 'RT_ADMIN_PASSWORD', $adminPassword, '--org', $ResolvedDenoOrg, '--app', $DenoApp)
 if ($up1.Code -ne 0) { Falhar ('RT_ADMIN_PASSWORD recusado. ' + $up1.Text) }
 Gravar-Pendente -Password $adminPassword -Recovery $recoveryKey -Status 'RT_ADMIN_PASSWORD_ATUALIZADO'
 
-$up2 = Invoke-RTDenoText -DenoExe $DenoExe -CommandArgs @('deploy', 'env', 'update-value', 'RT_ADMIN_RECOVERY_KEY', $recoveryKey, '--org', $ResolvedDenoOrg, '--app', $DenoApp, '--non-interactive')
+$up2 = Invoke-RTDenoText -DenoExe $DenoExe -CommandArgs @('deploy', 'env', 'update-value', 'RT_ADMIN_RECOVERY_KEY', $recoveryKey, '--org', $ResolvedDenoOrg, '--app', $DenoApp)
 if ($up2.Code -ne 0) { Falhar ('RT_ADMIN_RECOVERY_KEY recusado. ' + $up2.Text) }
 Gravar-Pendente -Password $adminPassword -Recovery $recoveryKey -Status 'DOIS_SECRETS_ATUALIZADOS_SEM_SOURCE_DEPLOY'
 Ok 'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_CONTRACT'
@@ -331,10 +289,7 @@ for ($i = 1; $i -le 30; $i++) {
   if ($r.Ok) {
     $candidate = $null
     try { $candidate = $r.Text | ConvertFrom-Json } catch { $candidate = $null }
-    if ($candidate -and [string]$candidate.access_token) {
-      $login = $candidate
-      break
-    }
+    if ($candidate -and [string]$candidate.access_token) { $login = $candidate; break }
   }
   Start-Sleep -Seconds 3
 }
@@ -346,7 +301,6 @@ Ok 'Login reinos_admin passou.'
 $statusResult = Invoke-HttpJson -Url ($ExpectedBackend + '/api/reino') -Json '{"action":"admin_status"}' -Bearer $token
 $status = Parse-HttpJson -Result $statusResult -Label 'admin_status'
 if (-not $status.ok) { Falhar 'admin_status nao confirmou ok.' }
-
 $dashResult = Invoke-HttpJson -Url ($ExpectedBackend + '/api/admin') -Json '{"action":"dashboard"}' -Bearer $token
 $dash = Parse-HttpJson -Result $dashResult -Label 'dashboard'
 if ($null -eq $dash) { Falhar 'dashboard nao retornou dados.' }
