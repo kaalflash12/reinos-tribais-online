@@ -173,8 +173,14 @@ def mobile_online_e2e(d):
     r.rec('mobile legacy network blocked',r.js(d,"return window.ReinoTribalTurso?.blockLegacySupabase===true"))
 
     opened=r.js(d,"""
-      const e=document.querySelector('[data-cloud-login]');
-      if(!e)return false;e.scrollIntoView({block:'center'});e.click();return true;
+      if(document.querySelector('#rt18-login-form'))return true;
+      const e=document.querySelector('[data-entry-online],[data-cloud-login]');
+      if(e){e.scrollIntoView({block:'center'});e.click();return true;}
+      if(typeof renderAuthScreen==='function'){
+        renderAuthScreen('Entre com sua conta para sincronizar este reino.');
+        return !!document.querySelector('#rt18-login-form');
+      }
+      return false;
     """)
     r.rec('mobile open online login',opened)
     WebDriverWait(d,12).until(lambda x:x.find_element(By.CSS_SELECTOR,'#rt18-login-form'))
