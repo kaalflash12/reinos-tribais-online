@@ -5,7 +5,7 @@ import rt79_edge_public_regression as edge
 
 _original_mobile_gameplay_e2e = edge.mobile_gameplay_e2e
 
-# RT80 diagnostic trigger: capture the real 390x844 DOM before applying a navigation fix.
+# RT80 diagnostic trigger: capture the real 390x844 DOM and the CSS rules that hide the nav.
 def capture_mobile_nav_diagnostic(driver):
     data = edge.r.js(driver, """
       const snap=(e)=>{
@@ -18,6 +18,33 @@ def capture_mobile_nav_diagnostic(driver):
           parent:e.parentElement?.className||''
         };
       };
+      const nav=document.querySelector('.rt68-game-nav');
+      const applied=[];
+      const walk=(rules,owner,media='')=>{
+        for(const rule of [...(rules||[])]){
+          try{
+            if(rule.cssRules){
+              const nextMedia=rule.conditionText||rule.media?.mediaText||media||'';
+              walk(rule.cssRules,owner,nextMedia);
+              continue;
+            }
+            const sel=rule.selectorText||'';
+            if(!sel||!nav||!nav.matches(sel))continue;
+            const style=rule.style;
+            if(!style)continue;
+            const interesting=['display','visibility','height','max-height','overflow','overflow-x','overflow-y','position','top','width'];
+            const props={};
+            for(const p of interesting){
+              const v=style.getPropertyValue(p);if(v)props[p]={value:v,priority:style.getPropertyPriority(p)};
+            }
+            if(Object.keys(props).length)applied.push({owner,media,selector:sel,props,cssText:rule.cssText.slice(0,900)});
+          }catch{}
+        }
+      };
+      for(const sheet of [...document.styleSheets]){
+        let rules=null;try{rules=sheet.cssRules}catch{}
+        if(rules)walk(rules,sheet.href||sheet.ownerNode?.id||sheet.ownerNode?.tagName||'inline');
+      }
       const all=[...document.querySelectorAll('[data-view]')];
       const over=[...document.querySelectorAll('[data-view="overview"]')];
       const navs=[...document.querySelectorAll('.rt68-game-nav')];
@@ -27,6 +54,7 @@ def capture_mobile_nav_diagnostic(driver):
         bodyClass:document.body.className,
         gameShell:snap(document.querySelector('.game-shell')),
         navCount:navs.length,navs:navs.map(snap),scrolls:scrolls.map(snap),
+        navInlineStyle:nav?.getAttribute('style')||'',navAppliedRules:applied,
         dataViewCount:all.length,overviewCount:over.length,
         overview:over.map(snap),
         firstViews:all.slice(0,30).map(snap),
@@ -37,8 +65,6 @@ def capture_mobile_nav_diagnostic(driver):
     path.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
     shot=edge.r.OUT/'RT80_MOBILE_NAV_DIAGNOSTIC.png'
     driver.save_screenshot(str(shot))
-    # Windows runners can use a legacy console code page. Keep the artifact UTF-8,
-    # but escape non-ASCII characters in console diagnostics so emoji cannot crash Python.
     print('RT80_MOBILE_NAV_DIAGNOSTIC='+json.dumps(data,ensure_ascii=True,separators=(',',':')))
     return data
 
