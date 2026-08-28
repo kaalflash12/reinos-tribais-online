@@ -6,8 +6,11 @@ on:
     paths:
       - 'tools/rt91_process_helpers.ps1'
       - 'tools/rt91_windows_native_stderr_selftest.ps1'
+      - 'tools/rt91_token_bridge_selftest.ps1'
       - 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1'
       - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO_AUTH10.ps1'
+      - 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
+      - '.github/workflows/rt91-final-admin-authorized.yml'
       - '.github/workflows/rt91-windows-native-stderr-selftest.yml'
   workflow_dispatch:
   schedule:
@@ -60,6 +63,12 @@ jobs:
       - name: Run exact AUTH10 native stderr selftest
         shell: powershell
         run: .\tools\rt91_windows_native_stderr_selftest.ps1
+      - name: Run AUTH10 token bridge selftest
+        shell: powershell
+        run: .\tools\rt91_token_bridge_selftest.ps1
       - name: Validate final AUTH10 package without production mutation
         shell: powershell
         run: .\REINO_TRIBAL_FECHAR_ADMIN_PUBLICO_AUTH10.ps1 -PackageValidateOnly
+      - name: Validate canonical top-level AUTH10 close without mutation
+        shell: powershell
+        run: .\REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -PackageValidateOnly
