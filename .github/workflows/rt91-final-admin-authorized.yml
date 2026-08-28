@@ -1,26 +1,39 @@
 name: RT91 Final Admin Authorized
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/rt91-final-admin-authorized.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  final-admin:
+  validate-package:
     runs-on: windows-latest
     timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate canonical AUTH10 package without mutation
+        shell: powershell
+        run: .\REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1 -PackageValidateOnly
+
+  authorized-admin:
+    needs: validate-package
+    runs-on: windows-latest
+    timeout-minutes: 20
     env:
       RT_DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
       RT_DENO_TOKEN: ${{ secrets.DENO_TOKEN }}
       RT_DENO_ACCESS_TOKEN: ${{ secrets.DENO_ACCESS_TOKEN }}
       RT_DENO_AUTH_TOKEN: ${{ secrets.DENO_AUTH_TOKEN }}
     steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
       - name: Select configured Deno secret without exposing it
-        shell: pwsh
+        id: token
+        shell: powershell
         run: |
           $token = @(
             $env:RT_DENO_DEPLOY_TOKEN,
@@ -29,57 +42,84 @@ jobs:
             $env:RT_DENO_AUTH_TOKEN
           ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1
           if ([string]::IsNullOrWhiteSpace($token)) {
-            throw 'RT91_NO_DENO_SECRET_CONFIGURED'
+            'available=false' | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding ascii -Append
+            Write-Host 'SKIP: nenhum secret Deno configurado; nenhuma mutacao sera executada.'
+          } else {
+            'available=true' | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding ascii -Append
+            ('RT91_DENO_DEPLOY_TOKEN=' + $token) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            Write-Host 'PASS: secret Deno selecionado sem expor o valor.'
           }
-          "DENO_DEPLOY_TOKEN=$token" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          Write-Host 'PASS: Deno secret configurado no repositório (valor não exibido).'
 
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.9.5
-
-      - name: Validate Deno token and exact production app
-        shell: pwsh
-        run: |
-          $who = deno deploy whoami --json --non-interactive 2>&1
-          if ($LASTEXITCODE -ne 0) { throw 'RT91_DENO_SECRET_INVALID_OR_EXPIRED' }
-          Write-Host 'PASS: Deno token aceito.'
-          $app = deno deploy apps get --org mestrederpg35 --app reino-tribal-api --json --non-interactive 2>&1
-          if ($LASTEXITCODE -ne 0) { throw 'RT91_DENO_SECRET_CANNOT_ACCESS_REINO_TRIBAL_APP' }
-          Write-Host 'PASS: token acessa o app exato reino-tribal-api.'
-
-      - name: Execute RT91 and final RT90 public admin proof
+      - name: Execute AUTH10 with automatic org/app discovery
+        if: steps.token.outputs.available == 'true'
         shell: powershell
         run: |
           $ErrorActionPreference='Stop'
-          $script = Join-Path $env:RUNNER_TEMP 'REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1'
-          curl.exe --fail --silent --show-error --location --retry 4 --retry-all-errors --output $script https://raw.githubusercontent.com/kaalflash12/reinos-tribais-online/main/REINO_TRIBAL_FECHAR_ADMIN_PUBLICO.ps1
-          if ($LASTEXITCODE -ne 0) { throw 'Falha baixando fechamento RT90/RT91.' }
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script
-          if ($LASTEXITCODE -ne 0) { throw "RT91/RT90 final falhou: $LASTEXITCODE" }
-          $proofDir = Join-Path (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal') 'PROVA_ADMIN_PUBLICA_RT90'
-          $proofFile = Join-Path $proofDir 'PROVA_RT90_ADMIN_PUBLICO.json'
-          if (-not (Test-Path $proofFile)) { throw 'Prova final RT90 ausente.' }
-          $proof = Get-Content $proofFile -Raw | ConvertFrom-Json
-          if (-not $proof.pass -or $proof.validate_only) { throw 'Prova final não autenticou administrador real.' }
+          $tmp=Join-Path $env:RUNNER_TEMP ('rt91-authorized-'+[Guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Force -Path $tmp|Out-Null
+          Copy-Item .\REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1 (Join-Path $tmp 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1') -Force
+          Copy-Item .\tools\rt91_process_helpers.ps1 (Join-Path $tmp 'rt91_process_helpers.ps1') -Force
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $tmp 'REINO_TRIBAL_ADMIN_FINAL_RT91_AUTH10.ps1')
+          if($LASTEXITCODE -ne 0){throw ('AUTH10 autorizado falhou: '+$LASTEXITCODE)}
+
+      - name: Run final public Edge proof ADM and mobile
+        if: steps.token.outputs.available == 'true'
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          . .\tools\rt91_process_helpers.ps1
+          $credDir=Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal'
+          $credFile=Join-Path $credDir 'CREDENCIAIS_ADMIN_REINO_TRIBAL.txt'
+          $proofDir=Join-Path $credDir 'PROVA_ADMIN_PUBLICA_RT90'
+          if(-not(Test-Path $credFile)){throw 'Credencial validada AUTH10 ausente.'}
+          $cred=[IO.File]::ReadAllLines($credFile)
+          if(-not($cred -match '^Executor: RT91 / SAFE-CLI-AUTH-10-FINAL$')){throw 'Credencial nao confirma AUTH10.'}
+          if(-not($cred -match '^VALIDACAO: login \+ admin_status \+ dashboard = PASS$')){throw 'Credencial nao confirma validacao ADM.'}
+          $passLine=@($cred|Where-Object{$_ -match '^Senha ADM:\s*'})|Select-Object -First 1
+          if(-not $passLine){throw 'Senha ADM validada ausente do arquivo local protegido.'}
+          $password=($passLine -replace '^Senha ADM:\s*','').Trim()
+          if([string]::IsNullOrWhiteSpace($password)){throw 'Senha ADM validada vazia.'}
+          New-Item -ItemType Directory -Force -Path $proofDir|Out-Null
+          $env:RT_FINAL_ADMIN_PASSWORD=$password
+          $env:RT_FINAL_FRONTEND='https://kaalflash12.github.io/reinos-tribais-online/'
+          $env:RT_FINAL_API='https://reino-tribal-api.mestrederpg35.deno.net'
+          $env:RT_FINAL_PROOF_DIR=$proofDir
+          try {
+            $denoExe=(Get-Command deno.exe -ErrorAction Stop).Source
+            $r=Invoke-RTProcessCapture -FilePath $denoExe -ArgumentList @('run','--allow-all',(Resolve-Path .\tools\rt90_admin_public_proof.mjs).Path)
+            if($r.Stdout){Write-Host $r.Stdout}
+            if($r.Stderr){Write-Host $r.Stderr}
+            if($r.Code -ne 0){throw ('Edge proof falhou: '+$r.Code)}
+          } finally {
+            $env:RT_FINAL_ADMIN_PASSWORD=''
+            $password=$null
+          }
+          $proofFile=Join-Path $proofDir 'PROVA_RT90_ADMIN_PUBLICO.json'
+          if(-not(Test-Path $proofFile)){throw 'JSON de prova final ausente.'}
+          $proof=Get-Content $proofFile -Raw|ConvertFrom-Json
+          if(-not $proof.pass){throw 'Prova final nao marcou PASS.'}
+          foreach($shot in @('RT90_ADMIN_DASHBOARD_PUBLICO.png','RT90_MOBILE_PLAYER_TURSO_E2E.png')){
+            if(-not(Test-Path (Join-Path $proofDir $shot))){throw ('Screenshot ausente: '+$shot)}
+          }
           Write-Host 'REINO_TRIBAL_ADMIN_PUBLICO_RT90_PASS'
+          Write-Host 'REINO_TRIBAL_MOBILE_PLAYER_TURSO_E2E_PASS'
           Write-Host 'ANTI_DOWNGRADE_NO_SOURCE_DEPLOY_PASS'
 
       - name: Stage proof without credentials
-        if: success()
-        shell: pwsh
+        if: success() && steps.token.outputs.available == 'true'
+        shell: powershell
         run: |
-          $source = Join-Path (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal') 'PROVA_ADMIN_PUBLICA_RT90'
-          $dest = Join-Path $env:RUNNER_TEMP 'RT91_FINAL_ADMIN_PUBLIC_PROOF'
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          $source=Join-Path (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'ReinoTribal') 'PROVA_ADMIN_PUBLICA_RT90'
+          $dest=Join-Path $env:RUNNER_TEMP 'RT91_FINAL_ADMIN_AUTH10'
+          New-Item -ItemType Directory -Force -Path $dest|Out-Null
           Copy-Item (Join-Path $source 'PROVA_RT90_ADMIN_PUBLICO.json') $dest -Force
           Copy-Item (Join-Path $source 'RT90_ADMIN_DASHBOARD_PUBLICO.png') $dest -Force
-          Write-Host 'PASS: apenas JSON e screenshot foram preparados; credenciais não serão publicadas.'
+          Copy-Item (Join-Path $source 'RT90_MOBILE_PLAYER_TURSO_E2E.png') $dest -Force
 
-      - name: Upload final public admin proof
-        if: success()
+      - name: Upload final proof
+        if: success() && steps.token.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: RT91_FINAL_ADMIN_PUBLIC_PROOF
-          path: ${{ runner.temp }}/RT91_FINAL_ADMIN_PUBLIC_PROOF
+          name: RT91_FINAL_ADMIN_AUTH10
+          path: ${{ runner.temp }}/RT91_FINAL_ADMIN_AUTH10
           if-no-files-found: error
