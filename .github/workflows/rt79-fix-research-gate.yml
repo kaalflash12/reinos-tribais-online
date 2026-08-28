@@ -1,0 +1,40 @@
+name: RT79.1 Fix Research Gate
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: rt79-fix-launcher-gate
+      - name: Observe the real player research queue
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/rt79_chrome_fast_regression.py')
+          s=p.read_text(encoding='utf-8')
+          old="s.research=s.research||{queue:[],completed:[]};s.research.queue=[];"
+          new="s.player.research=s.player.research||{queue:[],completed:[]};s.player.research.queue=[];"
+          if old not in s: raise SystemExit('old research seed not found')
+          s=s.replace(old,new,1)
+          old2="return (RT76.state().research?.queue||[]).length"
+          if s.count(old2)!=2: raise SystemExit(f'expected 2 old research queue reads, found {s.count(old2)}')
+          s=s.replace(old2,"return (RT76.state().player?.research?.queue||[]).length")
+          p.write_text(s,encoding='utf-8')
+          PY
+          python -m py_compile tools/rt79_chrome_fast_regression.py
+          grep -F "s.player.research=s.player.research||{queue:[],completed:[]}" tools/rt79_chrome_fast_regression.py
+          grep -F "RT76.state().player?.research?.queue" tools/rt79_chrome_fast_regression.py
+      - name: Commit corrected research assertion
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/rt79_chrome_fast_regression.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'RT79.1: validate the actual player research queue'
+            git push origin HEAD:rt79-fix-launcher-gate
+          fi
