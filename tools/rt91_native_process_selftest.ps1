@@ -1,5 +1,6 @@
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+# RT91_PS51_SELFTEST_TRIGGER=1
 
 . (Join-Path $PSScriptRoot 'rt91_native_process.ps1')
 
