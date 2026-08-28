@@ -66,13 +66,34 @@ function Invoke-RTProcessInteractive {
   return [int]$proc.ExitCode
 }
 
+function Invoke-RTWithDenoTokenBridge {
+  param([Parameter(Mandatory=$true)][scriptblock]$Action)
+  $hadToken = Test-Path Env:DENO_DEPLOY_TOKEN
+  $oldToken = if ($hadToken) { [string]$env:DENO_DEPLOY_TOKEN } else { $null }
+  $bridgeToken = [string]$env:RT91_DENO_DEPLOY_TOKEN
+  try {
+    if (-not [string]::IsNullOrWhiteSpace($bridgeToken)) {
+      $env:DENO_DEPLOY_TOKEN = $bridgeToken
+    }
+    return (& $Action)
+  } finally {
+    if ($hadToken) {
+      $env:DENO_DEPLOY_TOKEN = $oldToken
+    } else {
+      Remove-Item Env:DENO_DEPLOY_TOKEN -ErrorAction SilentlyContinue
+    }
+  }
+}
+
 function Invoke-RTDenoJson {
   param(
     [Parameter(Mandatory=$true)][string]$DenoExe,
     [Parameter(Mandatory=$true)][string[]]$CommandArgs,
     [string]$WorkingDirectory=''
   )
-  $r = Invoke-RTProcessCapture -FilePath $DenoExe -ArgumentList @($CommandArgs + '--json') -WorkingDirectory $WorkingDirectory
+  $r = Invoke-RTWithDenoTokenBridge -Action {
+    Invoke-RTProcessCapture -FilePath $DenoExe -ArgumentList @($CommandArgs + '--json') -WorkingDirectory $WorkingDirectory
+  }
   if ($r.Code -ne 0) {
     return [pscustomobject]@{ Ok=$false; Code=$r.Code; Data=$null; Stdout=$r.Stdout; Stderr=$r.Stderr; Text=(($r.Stdout + [Environment]::NewLine + $r.Stderr).Trim()) }
   }
@@ -90,7 +111,9 @@ function Invoke-RTDenoText {
     [Parameter(Mandatory=$true)][string[]]$CommandArgs,
     [string]$WorkingDirectory=''
   )
-  return Invoke-RTProcessCapture -FilePath $DenoExe -ArgumentList $CommandArgs -WorkingDirectory $WorkingDirectory
+  return Invoke-RTWithDenoTokenBridge -Action {
+    Invoke-RTProcessCapture -FilePath $DenoExe -ArgumentList $CommandArgs -WorkingDirectory $WorkingDirectory
+  }
 }
 
 function Invoke-RTDenoInteractive {
@@ -99,5 +122,7 @@ function Invoke-RTDenoInteractive {
     [Parameter(Mandatory=$true)][string[]]$CommandArgs,
     [string]$WorkingDirectory=''
   )
-  return Invoke-RTProcessInteractive -FilePath $DenoExe -ArgumentList $CommandArgs -WorkingDirectory $WorkingDirectory
+  return Invoke-RTWithDenoTokenBridge -Action {
+    Invoke-RTProcessInteractive -FilePath $DenoExe -ArgumentList $CommandArgs -WorkingDirectory $WorkingDirectory
+  }
 }
