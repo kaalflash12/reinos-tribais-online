@@ -1,0 +1,64 @@
+import crypto from 'node:crypto';
+import {gzipSync} from 'node:zlib';
+import {spawnSync} from 'node:child_process';
+const AUTH=process.env.AUTH_BASE,API=process.env.DATA_API,UP=process.env.V19_BASE;
+const email=`bw-compaction-gh-${Date.now()}@example.com`;
+const password=`Cx!${crypto.randomBytes(24).toString('base64url')}#4Q`;
+async function req(url,opt={}){const r=await fetch(url,opt);const t=await r.text();let j=null;try{j=JSON.parse(t)}catch{}return{status:r.status,headers:r.headers,text:t,json:j}}
+function die(x){throw new Error(x)}
+const hs=spawnSync('curl',['-sS','-L','-c','/tmp/vcookie','-b','/tmp/vcookie',process.env.V19_SHARE_URL,'-o','/tmp/vshare'],{encoding:'utf8'});
+if(hs.status!==0)die('vercel share handshake failed');
+function v19(path,{method='GET',jwt,body=null,key=null}={}){
+  const a=['-sS','-b','/tmp/vcookie','-X',method,'-H',`Authorization: Bearer ${jwt}`,'-H','Accept: application/json'];
+  if(body!==null)a.push('-H','Content-Type: application/json','--data-binary',body);
+  if(key)a.push('-H',`Idempotency-Key: ${key}`);
+  a.push('-w','\n__BW_STATUS__:%{http_code}',UP+path);
+  const p=spawnSync('curl',a,{encoding:'utf8',maxBuffer:32*1024*1024});
+  if(p.status!==0)return{status:0,text:p.stderr||'',json:null};
+  const m=p.stdout.match(/\n__BW_STATUS__:(\d+)\s*$/),status=m?Number(m[1]):0,text=m?p.stdout.slice(0,m.index):p.stdout;let json=null;try{json=JSON.parse(text)}catch{}return{status,text,json};
+}
+let r=await req(AUTH+'/sign-up/email',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,password,name:'BW Compaction E2E'})});
+if(![200,201].includes(r.status))die('signup '+r.status+' '+r.text.slice(0,160));
+r=await req(AUTH+'/sign-in/email',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email,password})});
+if(r.status!==200)die('signin '+r.status+' '+r.text.slice(0,160));
+const cookie=r.headers.get('set-cookie')||'';
+r=await req(AUTH+'/token',{headers:{cookie}});const jwt=r.json?.token||r.json?.access_token||r.json?.data?.token||'';
+if(r.status!==200||jwt.split('.').length!==3)die('token exchange '+r.status);
+const dh={authorization:`Bearer ${jwt}`,accept:'application/json','content-type':'application/json'};
+async function dq(select){const q=new URLSearchParams({collection:'eq.deep_world_v1',select,limit:'1'});return req(API+'/game_store?'+q.toString(),{headers:dh})}
+async function commit(writes){return req(API+'/rpc/commit_game_store',{method:'POST',headers:dh,body:JSON.stringify({writes})})}
+const seed=v19('/api/deep-sim/state',{jwt});if(seed.status!==200)die('seed state '+seed.status+' '+seed.text.slice(0,180));
+let full=await dq('entity_id,data,version');if(full.status!==200||!full.json?.[0])die('initial full '+full.status);
+const entityId=full.json[0].entity_id,schemaKeys=Object.keys(full.json[0].data),baseBytes=Buffer.byteLength(JSON.stringify(full.json[0].data));
+console.log('BW_STAGE '+JSON.stringify({stage:'seed',status:seed.status,version:full.json[0].version,bytes:baseBytes,npcs:full.json[0].data.npcs?.length||0,companies:full.json[0].data.companies?.length||0,ledger_batches:full.json[0].data.ledger?.batches?.length||0,ledger_entries:full.json[0].data.ledger?.entries?.length||0}));
+let overflow=false,lastState=seed,ticks=0,lastLedger=null;
+for(let i=1;i<=8;i++){
+  const tk=v19('/api/deep-sim/tick',{method:'POST',jwt,body:'{}',key:`gh-overflow-${Date.now()}-${i}`});ticks=i;
+  if(tk.status!==200){console.log('BW_STAGE '+JSON.stringify({stage:'tick_stop',i,tick_status:tk.status,excerpt:tk.text.slice(0,140)}));break;}
+  const lq=await dq('version,ledger:data->ledger');
+  if(lq.status===200&&lq.json?.[0]){const l=lq.json[0].ledger||{};lastLedger={version:lq.json[0].version,batches:l.batches?.length||0,entries:l.entries?.length||0,bytes:Buffer.byteLength(JSON.stringify(l))};}
+  lastState=v19('/api/deep-sim/state',{jwt});
+  console.log('BW_STAGE '+JSON.stringify({stage:'tick',i,tick_status:tk.status,state_status:lastState.status,ledger:lastLedger}));
+  if(lastState.status!==200){overflow=true;break;}
+}
+if(!overflow)die('overflow not reproduced in '+ticks+' ticks');
+const big=['npcs','companies','ledger'],small=schemaKeys.filter(k=>!big.includes(k));
+const sq=await dq(['entity_id','version',...small.map(k=>`${k}:data->${k}`)].join(','));if(sq.status!==200||!sq.json?.[0])die('small slice '+sq.status+' '+sq.text.slice(0,180));
+const nq=await dq('version,npcs:data->npcs');if(nq.status!==200||!nq.json?.[0])die('npcs slice '+nq.status+' '+nq.text.slice(0,120));
+const cq=await dq('version,companies:data->companies');if(cq.status!==200||!cq.json?.[0])die('companies slice '+cq.status+' '+cq.text.slice(0,120));
+const lq=await dq('version,ledger:data->ledger');if(lq.status!==200||!lq.json?.[0])die('ledger slice '+lq.status+' '+lq.text.slice(0,180));
+const versions=[sq.json[0].version,nq.json[0].version,cq.json[0].version,lq.json[0].version];if(new Set(versions).size!==1)die('slice race '+versions.join(','));
+const version=versions[0],ledger=lq.json[0].ledger||{batches:[],entries:[]};
+const raw=JSON.stringify(ledger),rawBytes=Buffer.byteLength(raw),sha=crypto.createHash('sha256').update(raw).digest('hex'),packed=gzipSync(Buffer.from(raw)).toString('base64');
+const archiveId=`ledger-${entityId}-${version}-${Date.now()}`,CHUNK=350000,chunks=[];for(let i=0;i<packed.length;i+=CHUNK)chunks.push(packed.slice(i,i+CHUNK));
+for(let i=0;i<chunks.length;i+=4){const writes=chunks.slice(i,i+4).map((data,j)=>({op:'set',collection:'deep_world_ledger_archive_v1',id:`${archiveId}-chunk-${i+j}`,precondition:{exists:false},data:{archive_id:archiveId,idx:i+j,total_chunks:chunks.length,encoding:'gzip+base64',data}}));const x=await commit(writes);if(![200,204].includes(x.status))die('archive chunk '+x.status+' '+x.text.slice(0,180));}
+let x=await commit([{op:'set',collection:'deep_world_ledger_archive_v1',id:`${archiveId}-manifest`,precondition:{exists:false},data:{archive_id:archiveId,source_collection:'deep_world_v1',source_entity_id:entityId,source_version:version,sha256:sha,original_bytes:rawBytes,batches:ledger.batches?.length||0,entries:ledger.entries?.length||0,total_chunks:chunks.length,encoding:'gzip+base64',archived_at:new Date().toISOString()}}]);if(![200,204].includes(x.status))die('archive manifest '+x.status);
+const batches=Array.isArray(ledger.batches)?ledger.batches:[],entries=Array.isArray(ledger.entries)?ledger.entries:[];const bid=b=>String(b?.batch_id??b?.id??'');let keep=Math.min(300,batches.length),compact={batches:[],entries:[]};
+while(true){const kb=batches.slice(Math.max(0,batches.length-keep)),ids=new Set(kb.map(bid).filter(Boolean)),ke=entries.filter(e=>ids.has(String(e?.batch_id??'')));compact={batches:kb,entries:ke};if(Buffer.byteLength(JSON.stringify(compact))<=1572864||keep<=25)break;keep=Math.max(25,Math.floor(keep/2));}
+const sums=new Map();for(const e of compact.entries){const id=String(e?.batch_id??'');sums.set(id,(sums.get(id)||0)+(Number(e?.amount)||0));}const bad=[...sums.entries()].filter(([,v])=>Math.abs(v)>1e-7);if(bad.length)die('unbalanced compact batches '+bad.length);
+const rebuilt={};for(const k of small)rebuilt[k]=sq.json[0][k];rebuilt.npcs=nq.json[0].npcs;rebuilt.companies=cq.json[0].companies;rebuilt.ledger=compact;
+const prePersistBytes=Buffer.byteLength(JSON.stringify(rebuilt));x=await commit([{op:'set',collection:'deep_world_v1',id:entityId,expected_version:version,data:rebuilt}]);if(![200,204].includes(x.status))die('CAS compact '+x.status+' '+x.text.slice(0,220));
+full=await dq('entity_id,data,version');if(full.status!==200||!full.json?.[0])die('full after '+full.status+' '+full.text.slice(0,180));
+const afterBytes=Buffer.byteLength(JSON.stringify(full.json[0].data)),after=v19('/api/deep-sim/state',{jwt}),audit=v19('/api/deep-sim/audit',{jwt});
+const proof={overflow_reproduced:true,ticks,overflow_state_status:lastState.status,before:{ledger_bytes:rawBytes,batches:batches.length,entries:entries.length,sha256:sha},archive:{chunks:chunks.length,packed_bytes:Buffer.byteLength(packed)},compact:{kept_batches:compact.batches.length,kept_entries:compact.entries.length,ledger_bytes:Buffer.byteLength(JSON.stringify(compact)),unbalanced_batches:bad.length},world:{pre_persist_bytes:prePersistBytes,after_bytes:afterBytes,version_after:full.json[0].version,npcs:full.json[0].data.npcs?.length||0,companies:full.json[0].data.companies?.length||0},state_after:after.status,audit_after:audit.status,audit_excerpt:audit.text.slice(0,260)};
+console.log('BW_COMPACTION_RESULT '+JSON.stringify(proof));if(after.status!==200)die('state after '+after.status);if(audit.status!==200)die('audit after '+audit.status);
