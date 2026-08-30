@@ -15,6 +15,12 @@ local function childNodes(node)
   return NDB.getChildNodes(node) or {}
 end
 
+local function ensureNamed(root,name)
+  local n=root[name]
+  if n==nil then n=NDB.createChildNode(root,name) end
+  return n
+end
+
 local function firstRecord(tracker)
   if tracker==nil or tracker.registros==nil then return nil end
   local list=childNodes(tracker.registros)
@@ -30,6 +36,10 @@ NDB.onReady(db,function()
   local phase=tostring(db.gate17Sentinel or "")
 
   if phase=="" then
+    ensureNamed(db,"estruturaMesa")
+    ensureNamed(db,"documentosCanonicos")
+    ensureNamed(db,"trackers")
+
     local ensured,res=Bootstrap.ensure(db)
     if not ensured then fail("ENSURE",res); return end
     local audit,status=Bootstrap.runtimeAudit(db)
