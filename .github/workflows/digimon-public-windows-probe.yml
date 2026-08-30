@@ -1,12 +1,99 @@
-name: DIGIMON Temporary Windows Runner Stub
+name: DIGIMON Gate 17-18 Autorun Final
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [digimon-ci-public-probe-20260830]
 
 jobs:
-  stub:
+  validate:
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
-      - name: Inert stub
+      - uses: actions/checkout@v4
+
+      - name: Download exact private payload
         shell: pwsh
-        run: Write-Host "DIGIMON temporary validation stub"
+        run: |
+          $ErrorActionPreference='Stop'
+          $z=Join-Path $env:RUNNER_TEMP 'payload.zip'
+          Invoke-WebRequest -UseBasicParsing 'https://sdmntprbrazilsouth.oaiusercontent.com/files/00000000-773c-820e-964e-c933523c0630/raw?se=2026-08-30T23%3A26%3A32Z&sp=r&sv=2026-02-06&sr=b&scid=e39a9f8f-83d2-579b-8d9f-fed96e82a96b&skoid=68f37fa7-4e08-478b-93f3-c72d563a0ab3&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-30T13%3A58%3A18Z&ske=2026-08-31T13%3A58%3A18Z&sks=b&skv=2026-02-06&sig=iyojwbO8aFwTIXIajcbENfPsqhByuZBhhP7eEVcAJJk%3D' -OutFile $z
+          $p=Join-Path $env:RUNNER_TEMP 'payload'; Expand-Archive $z $p -Force
+          $src=Join-Path $p 'final-source.zip'; $rpk=Join-Path $p 'DIGIMON_ERA_DA_DUALIDADE_FINAL.rpk'
+          $ss=(Get-FileHash $src -Algorithm SHA256).Hash.ToLowerInvariant(); $rs=(Get-FileHash $rpk -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($ss-ne '0dde069bbe7a53e88d027f31d4ebfc4d25fee7f1f51b91fdd8e66199d2f65624'){throw "source SHA $ss"}
+          if($rs-ne '2fc71a67cc988da637fce0d5d488a61ef807a00c675a32eb5c26334560704056'){throw "RPK SHA $rs"}
+          @("SOURCE_SHA256=$ss","FINAL_RPK_SHA256=$rs")|Set-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Install Firecast and RDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $fc=Join-Path $env:RUNNER_TEMP 'firecast.exe'; Invoke-WebRequest -UseBasicParsing 'https://firecast.app/downloads/firecast8_13_win64.exe' -OutFile $fc
+          $q=Start-Process $fc -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-') -Wait -PassThru; if($q.ExitCode-ne 0){throw 'Firecast install'}
+          $ri=Join-Path $env:RUNNER_TEMP 'rdk.exe'; Invoke-WebRequest -UseBasicParsing 'https://firecast.app/downloads/RDK3.7.b.exe' -OutFile $ri
+          $q=Start-Process $ri -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-') -Wait -PassThru; if($q.ExitCode-ne 0){throw 'RDK install'}
+          (Join-Path $env:LOCALAPPDATA 'FirecastSDK3\rdk.exe')|Set-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt')
+          (Join-Path $env:LOCALAPPDATA 'FirecastSDK3\RRPGFichas.exe')|Set-Content (Join-Path $env:RUNNER_TEMP 'tester.txt')
+
+      - name: Revalidate final source and install
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $src=Join-Path $env:RUNNER_TEMP 'src'; Expand-Archive (Join-Path $env:RUNNER_TEMP 'payload\final-source.zip') $src -Force
+          $proj=Join-Path $src 'PROJETO_SDK3'; $rdk=(Get-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt') -Raw).Trim()
+          Push-Location $proj; try { & $rdk -p; if($LASTEXITCODE-ne 0){throw 'rdk -p'}; & $rdk -c; if($LASTEXITCODE-ne 0){throw 'rdk -c'}; & $rdk -i; if($LASTEXITCODE-ne 0){throw 'rdk -i'} } finally { Pop-Location }
+          $proj|Set-Content (Join-Path $env:RUNNER_TEMP 'final-project.txt'); @('GATE14=PASS','GATE15=PASS')|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Build and install Gate17 autorun harness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $final=(Get-Content (Join-Path $env:RUNNER_TEMP 'final-project.txt') -Raw).Trim(); $g17=Join-Path $env:RUNNER_TEMP 'g17'
+          Copy-Item $final $g17 -Recurse -Force
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'tmp\digimon-g17-autorun-init.lua') (Join-Path $g17 'init.lua') -Force
+          $rdk=(Get-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt') -Raw).Trim()
+          Push-Location $g17; try { & $rdk -p; if($LASTEXITCODE-ne 0){throw 'g17 p'}; & $rdk -c; if($LASTEXITCODE-ne 0){throw 'g17 c'}; & $rdk -i; if($LASTEXITCODE-ne 0){throw 'g17 i'} } finally { Pop-Location }
+          'GATE17_HARNESS=INSTALLED'|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Gate17 phase1
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'; Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes
+          $tp=Start-Process ((Get-Content (Join-Path $env:RUNNER_TEMP 'tester.txt') -Raw).Trim()) -PassThru; $root=[Windows.Automation.AutomationElement]::RootElement; $m=''
+          for($i=0;$i-lt 600;$i++){ if($tp.HasExited){throw 'tester exited phase1'}; $a=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition); foreach($e in $a){try{$n=[string]$e.Current.Name;if($n-match 'GATE17_(PHASE1_PASS|FAIL|NDB_OPEN_FAIL)'){$m=$n;break}}catch{}}; if($m){break}; Start-Sleep -Milliseconds 500 }
+          $m|Set-Content (Join-Path $env:RUNNER_TEMP 'phase1.txt'); if($m-notmatch '^GATE17_PHASE1_PASS'){throw "phase1: $m"}
+          $ws=New-Object -ComObject WScript.Shell; [void]$ws.AppActivate($tp.Id); $ws.SendKeys('{ENTER}'); Start-Sleep 2
+          if(-not $tp.CloseMainWindow()){throw 'phase1 graceful close request'}; if(-not $tp.WaitForExit(30000)){throw 'phase1 graceful close timeout'}
+          "GATE17_PHASE1_MARKER=$m"|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt'); 'GATE17_PHASE1=PASS'|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Gate17 phase2 reopen
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'; Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes
+          $tp=Start-Process ((Get-Content (Join-Path $env:RUNNER_TEMP 'tester.txt') -Raw).Trim()) -PassThru; $root=[Windows.Automation.AutomationElement]::RootElement; $m=''
+          for($i=0;$i-lt 600;$i++){ if($tp.HasExited){throw 'tester exited phase2'}; $a=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition); foreach($e in $a){try{$n=[string]$e.Current.Name;if($n-match 'GATE17_(PHASE2_PASS|FAIL|NDB_OPEN_FAIL)'){$m=$n;break}}catch{}}; if($m){break}; Start-Sleep -Milliseconds 500 }
+          $m|Set-Content (Join-Path $env:RUNNER_TEMP 'phase2.txt'); if($m-notmatch '^GATE17_PHASE2_PASS'){throw "phase2: $m"}
+          $ws=New-Object -ComObject WScript.Shell; [void]$ws.AppActivate($tp.Id); $ws.SendKeys('{ENTER}'); Start-Sleep 2
+          if(-not $tp.CloseMainWindow()){throw 'phase2 graceful close request'}; if(-not $tp.WaitForExit(30000)){throw 'phase2 graceful close timeout'}
+          "GATE17_PHASE2_MARKER=$m"|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt'); 'GATE17=PASS'|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Gate18 restore exact final plugin
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'; Add-Type -AssemblyName UIAutomationClient; Add-Type -AssemblyName UIAutomationTypes
+          $rdk=(Get-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt') -Raw).Trim(); $proj=(Get-Content (Join-Path $env:RUNNER_TEMP 'final-project.txt') -Raw).Trim()
+          Push-Location $proj; try { & $rdk -i; if($LASTEXITCODE-ne 0){throw 'final restore'} } finally { Pop-Location }
+          $tp=Start-Process ((Get-Content (Join-Path $env:RUNNER_TEMP 'tester.txt') -Raw).Trim()) -PassThru; Start-Sleep 12; if($tp.HasExited){throw 'final tester exited'}
+          $root=[Windows.Automation.AutomationElement]::RootElement; $ec=[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Error'); if($root.FindFirst([Windows.Automation.TreeScope]::Descendants,$ec)){throw 'final Error dialog'}
+          if(-not $tp.CloseMainWindow()){throw 'final graceful close request'}; if(-not $tp.WaitForExit(30000)){throw 'final graceful close timeout'}
+          @('GATE18_FINAL_ERROR=0','GATE18=PASS','OVERALL_18_OF_18=PASS')|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Upload evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: digimon-g17-g18-evidence
+          path: |
+            ${{ runner.temp }}/evidence.txt
+            ${{ runner.temp }}/phase1.txt
+            ${{ runner.temp }}/phase2.txt
