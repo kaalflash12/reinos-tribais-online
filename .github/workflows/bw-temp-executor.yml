@@ -1,0 +1,13 @@
+name: BW Temp Executor
+on:
+  push:
+    branches: [bw-temp-executor-20260830]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Executor probe
+        run: echo BW_EXECUTOR_OK
