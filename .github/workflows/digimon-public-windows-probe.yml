@@ -1,16 +1,104 @@
-name: DIGIMON Public Windows Runner Probe
+name: DIGIMON Public Firecast UI Discovery
 
 on:
   push:
     branches: [digimon-ci-public-probe-20260830]
 
 jobs:
-  probe:
+  discover:
     runs-on: windows-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
-      - name: Prove Windows hosted runner starts
+      - name: Download exact precompiled runtime payload
         shell: pwsh
         run: |
-          Write-Host "DIGIMON_PUBLIC_WINDOWS_RUNNER_OK"
-          [System.Environment]::OSVersion.VersionString
+          $ErrorActionPreference='Stop'
+          $url='https://sdmntprbrazilsouth.oaiusercontent.com/files/00000000-5b0c-820e-8854-b213612caa0a/raw?se=2026-08-30T21%3A07%3A14Z&sp=r&sv=2026-02-06&sr=b&scid=e225cf72-c408-54c2-9740-a5b1368b680a&skoid=4a431cd2-eafd-49c7-90be-bbb4d45e696d&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-30T10%3A43%3A22Z&ske=2026-08-31T10%3A43%3A22Z&sks=b&skv=2026-02-06&sig=PCCVOK5jwSRr%2B9UZKuZqc5Z8EkxAF4HIShlS1PMYy/g%3D'
+          $payload=Join-Path $env:RUNNER_TEMP 'payload.zip'
+          Invoke-WebRequest -UseBasicParsing $url -OutFile $payload
+          $un=Join-Path $env:RUNNER_TEMP 'payload';Expand-Archive $payload $un -Force
+          $rpk=Join-Path $un 'DIGIMON_ERA_DA_DUALIDADE_FINAL.rpk'
+          if(-not(Test-Path $rpk)){throw 'final RPK missing from runtime payload'}
+          $sha=(Get-FileHash $rpk -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($sha-ne '2fc71a67cc988da637fce0d5d488a61ef807a00c675a32eb5c26334560704056'){throw "Unexpected RPK SHA $sha"}
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $proj=Join-Path $env:RUNNER_TEMP 'project';New-Item -ItemType Directory -Force $proj|Out-Null
+          [System.IO.Compression.ZipFile]::ExtractToDirectory($rpk,$proj)
+          if(-not(Test-Path (Join-Path $proj 'module.xml'))){throw 'module.xml missing after RPK extraction'}
+          $proj|Set-Content (Join-Path $env:RUNNER_TEMP 'proj.txt')
+
+      - name: Install Firecast 8.13 and RDK 3.7b
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $fc=Join-Path $env:RUNNER_TEMP 'firecast.exe'
+          Invoke-WebRequest -UseBasicParsing 'https://firecast.app/downloads/firecast8_13_win64.exe' -OutFile $fc
+          $p=Start-Process $fc -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-') -Wait -PassThru
+          if($p.ExitCode-ne 0){throw "Firecast install failed $($p.ExitCode)"}
+          $ri=Join-Path $env:RUNNER_TEMP 'rdk-installer.exe'
+          Invoke-WebRequest -UseBasicParsing 'https://firecast.app/downloads/RDK3.7.b.exe' -OutFile $ri
+          $p=Start-Process $ri -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-') -Wait -PassThru
+          if($p.ExitCode-ne 0){throw "RDK install failed $($p.ExitCode)"}
+          (Join-Path $env:LOCALAPPDATA 'FirecastSDK3\rdk.exe')|Set-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt')
+          (Join-Path $env:LOCALAPPDATA 'FirecastSDK3\RRPGFichas.exe')|Set-Content (Join-Path $env:RUNNER_TEMP 'tester.txt')
+
+      - name: Prepare compile and install extracted exact RPK project
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $rdk=(Get-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt') -Raw).Trim();$proj=(Get-Content (Join-Path $env:RUNNER_TEMP 'proj.txt') -Raw).Trim()
+          Push-Location $proj
+          try{
+            & $rdk -p; if($LASTEXITCODE-ne 0){throw 'rdk -p failed'}
+            & $rdk -c; if($LASTEXITCODE-ne 0){throw 'rdk -c failed'}
+            & $rdk -i; if($LASTEXITCODE-ne 0){throw 'offline rdk -i failed'}
+          }finally{Pop-Location}
+
+      - name: Focus RRPGFichas and capture creation flow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Add-Type -AssemblyName System.Drawing
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class DTMUI {
+            [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+            [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+            [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+            [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+            [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
+            [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+          }
+          '@
+          $out=Join-Path $env:RUNNER_TEMP 'ui';New-Item -ItemType Directory -Force $out|Out-Null
+          function Focus-Tester($p){
+            $p.Refresh();if($p.HasExited){throw 'RRPGFichas exited'}
+            Get-Process WindowsTerminal,pwsh,powershell -ErrorAction SilentlyContinue|ForEach-Object{if($_.Id-ne $PID -and $_.MainWindowHandle-ne [IntPtr]::Zero){[void][DTMUI]::ShowWindowAsync($_.MainWindowHandle,6)}}
+            [void][DTMUI]::ShowWindowAsync($p.MainWindowHandle,9);[void][DTMUI]::BringWindowToTop($p.MainWindowHandle);[void][DTMUI]::SetForegroundWindow($p.MainWindowHandle)
+            for($i=0;$i-lt 40;$i++){if([DTMUI]::GetForegroundWindow()-eq $p.MainWindowHandle){return};Start-Sleep -Milliseconds 250;[void][DTMUI]::BringWindowToTop($p.MainWindowHandle);[void][DTMUI]::SetForegroundWindow($p.MainWindowHandle)}
+            throw "RRPGFichas not foreground fg=$([DTMUI]::GetForegroundWindow()) target=$($p.MainWindowHandle)"
+          }
+          function Rect($p){$p.Refresh();$r=New-Object DTMUI+RECT;if(-not[DTMUI]::GetWindowRect($p.MainWindowHandle,[ref]$r)){throw 'GetWindowRect failed'};return $r}
+          function Shot($tag,$p){
+            Focus-Tester $p;$r=Rect $p
+            "TAG=$tag HANDLE=$($p.MainWindowHandle) FG=$([DTMUI]::GetForegroundWindow()) RECT=$($r.Left),$($r.Top),$($r.Right),$($r.Bottom)"|Add-Content (Join-Path $out 'focus.txt')
+            $b=[Windows.Forms.Screen]::PrimaryScreen.Bounds;$bmp=New-Object Drawing.Bitmap $b.Width,$b.Height;$g=[Drawing.Graphics]::FromImage($bmp);$g.CopyFromScreen($b.Location,[Drawing.Point]::Empty,$b.Size);$bmp.Save((Join-Path $out ("screen-"+$tag+".png")),[Drawing.Imaging.ImageFormat]::Png);$g.Dispose();$bmp.Dispose()
+          }
+          function ClickRel($p,[int]$x,[int]$y){Focus-Tester $p;$r=Rect $p;$gx=$r.Left+$x;$gy=$r.Top+$y;py -c "import ctypes;u=ctypes.windll.user32;u.SetCursorPos($gx,$gy);u.mouse_event(2,0,0,0,0);u.mouse_event(4,0,0,0,0)";Start-Sleep 2}
+          $tester=(Get-Content (Join-Path $env:RUNNER_TEMP 'tester.txt') -Raw).Trim();$tp=Start-Process $tester -PassThru;Start-Sleep 8
+          $rdk=(Get-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt') -Raw).Trim();$proj=(Get-Content (Join-Path $env:RUNNER_TEMP 'proj.txt') -Raw).Trim()
+          Push-Location $proj;try{& $rdk -i;if($LASTEXITCODE-ne 0){throw 'live rdk -i failed'}}finally{Pop-Location};Start-Sleep 6
+          Shot '00-start' $tp
+          ClickRel $tp 23 83;Shot '01-plus' $tp
+          ClickRel $tp 263 217;Shot '02-second' $tp
+          ClickRel $tp 165 301;Shot '03-third' $tp
+          ClickRel $tp 158 419;Start-Sleep 2;Shot '04-fourth' $tp
+          ClickRel $tp 224 131;Start-Sleep 6;Shot '05-fifth' $tp
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: digimon-public-firecast-ui-discovery
+          path: ${{ runner.temp }}/ui
