@@ -1,0 +1,16 @@
+name: DIGIMON Public Windows Runner Probe
+
+on:
+  push:
+    branches: [digimon-ci-public-probe-20260830]
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Prove Windows hosted runner starts
+        shell: pwsh
+        run: |
+          Write-Host "DIGIMON_PUBLIC_WINDOWS_RUNNER_OK"
+          [System.Environment]::OSVersion.VersionString

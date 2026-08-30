@@ -1,1 +1,0 @@
-Apply RT79.1 legacy startup-loop hotfix v2
