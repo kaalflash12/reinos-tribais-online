@@ -1,4 +1,4 @@
-name: DIGIMON Gate17 Autorun Final
+name: DIGIMON Gate17 Forced-Restart Persistence Final
 on:
   push:
     branches: [digimon-ci-public-probe-20260830]
@@ -11,7 +11,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          $url='https://sdmntprbrazilsouth.oaiusercontent.com/files/00000000-6abc-820e-a966-d858354800f3/raw?se=2026-08-31T03%3A20%3A43Z&sp=r&sv=2026-02-06&sr=b&scid=9da2d02b-fcae-5d09-8027-4b0f849eb6ca&skoid=db6dad9e-03ee-465b-aef6-ce0f63a161dc&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-30T11%3A45%3A37Z&ske=2026-08-31T11%3A45%3A37Z&sks=b&skv=2026-02-06&sig=sl%2BHZ1spQPGvQh4d4Ue3uVFIJQlE7VF73kP0XC4QzTw%3D'
+          $url='https://sdmntprbrazilsouth.oaiusercontent.com/files/00000000-d508-820e-92e8-f7d397fa4202/raw?se=2026-08-31T03%3A25%3A48Z&sp=r&sv=2026-02-06&sr=b&scid=d87f1208-706e-5634-977a-0b80dafad151&skoid=33096a49-a96b-4506-9fc4-04a7517f8175&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-30T13%3A18%3A01Z&ske=2026-08-31T13%3A18%3A01Z&sks=b&skv=2026-02-06&sig=yFeM/yEHIX6tpcBceajILDTzucz1hkfISceM0tW%2B97I%3D'
           $payload=Join-Path $env:RUNNER_TEMP 'runtime.zip';Invoke-WebRequest -UseBasicParsing $url -OutFile $payload
           $sha=(Get-FileHash $payload -Algorithm SHA256).Hash.ToLowerInvariant();if($sha-ne '11772513bec42381a2f42b1583d0daed205627c9d328af0c6503d5e8c994af8a'){throw "payload sha $sha"}
           $d=Join-Path $env:RUNNER_TEMP 'runtime';Expand-Archive $payload $d -Force;$final=Join-Path $d 'DIGIMON_ERA_DA_DUALIDADE_FINAL.rpk'
@@ -86,10 +86,10 @@ jobs:
           $firecast=(Get-Content (Join-Path $env:RUNNER_TEMP 'firecast.txt') -Raw).Trim();$h=(Get-Content (Join-Path $env:RUNNER_TEMP 'harness.txt') -Raw).Trim();$final=(Get-Content (Join-Path $env:RUNNER_TEMP 'final-rpk.txt') -Raw).Trim();$ev=Join-Path $env:RUNNER_TEMP 'gate17-evidence.txt'
           $plug=Join-Path $env:APPDATA 'Firecast\Plugins';New-Item -ItemType Directory -Force $plug|Out-Null;$dst=Join-Path $plug 'DigiTerionMon.EraDaDualidade.rpk'
           function Wait-Marker($pattern,$seconds){$root=[Windows.Automation.AutomationElement]::RootElement;for($i=0;$i-lt $seconds;$i++){$all=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition);foreach($x in $all){try{$n=[string]$x.Current.Name;if($n-eq 'Error'){throw 'ERROR_WINDOW'};if($n-match $pattern){return $n}}catch{if($_.Exception.Message-eq 'ERROR_WINDOW'){throw}}};Start-Sleep 1};return ''}
-          function Dismiss-Close($p){$w=New-Object -ComObject WScript.Shell;[void]$w.AppActivate($p.Id);$w.SendKeys('{ENTER}');Start-Sleep 2;$p.Refresh();if(-not$p.HasExited){[void]$p.CloseMainWindow();if(-not$p.WaitForExit(15000)){throw 'graceful close failed'}}}
+          function Force-RestartBoundary(){Start-Sleep 12;Get-Process Firecast -ErrorAction SilentlyContinue|Stop-Process -Force;Start-Sleep 3;if(Get-Process Firecast -ErrorAction SilentlyContinue){throw 'Firecast process survived forced restart boundary'}}
           Get-Process Firecast -ErrorAction SilentlyContinue|Stop-Process -Force;Copy-Item $h $dst -Force
-          $p=Start-Process $firecast -PassThru;Start-Sleep 3;$m=Wait-Marker 'GATE17_(PHASE1_PASS|PHASE1_FAIL|NDB_OPEN_FAIL)' 300;"GATE17_PHASE1_MARKER=$m"|Add-Content $ev;if($m-notmatch 'GATE17_PHASE1_PASS'){throw "phase1: $m"};Dismiss-Close $p;"GATE17_PHASE1=PASS"|Add-Content $ev;Start-Sleep 4
-          $p=Start-Process $firecast -PassThru;Start-Sleep 3;$m=Wait-Marker 'GATE17_(PHASE2_PASS|PHASE2_FAIL|NDB_OPEN_FAIL)' 180;"GATE17_PHASE2_MARKER=$m"|Add-Content $ev;if($m-notmatch 'GATE17_PHASE2_PASS'){throw "phase2: $m"};Dismiss-Close $p;"GATE17=PASS"|Add-Content $ev
+          $p=Start-Process $firecast -PassThru;Start-Sleep 3;$m=Wait-Marker 'GATE17_(PHASE1_PASS|PHASE1_FAIL|NDB_OPEN_FAIL)' 300;"GATE17_PHASE1_MARKER=$m"|Add-Content $ev;if($m-notmatch 'GATE17_PHASE1_PASS'){throw "phase1: $m"};Force-RestartBoundary;"GATE17_PHASE1=PASS"|Add-Content $ev;Start-Sleep 4
+          $p=Start-Process $firecast -PassThru;Start-Sleep 3;$m=Wait-Marker 'GATE17_(PHASE2_PASS|PHASE2_FAIL|NDB_OPEN_FAIL)' 180;"GATE17_PHASE2_MARKER=$m"|Add-Content $ev;if($m-notmatch 'GATE17_PHASE2_PASS'){throw "phase2: $m"};Force-RestartBoundary;"GATE17=PASS"|Add-Content $ev
           Copy-Item $final $dst -Force;$sha=(Get-FileHash $dst -Algorithm SHA256).Hash.ToLowerInvariant();if($sha-ne '2fc71a67cc988da637fce0d5d488a61ef807a00c675a32eb5c26334560704056'){throw 'final rpk restore sha'}
           $p=Start-Process $firecast -PassThru;Start-Sleep 15;if($p.HasExited){throw 'final Firecast exited'};$root=[Windows.Automation.AutomationElement]::RootElement;$ec=[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Error');if($root.FindFirst([Windows.Automation.TreeScope]::Descendants,$ec)){throw 'final Error window'}
           @("GATE18_FINAL_RPK_SHA256=$sha","GATE18_FINAL_ERROR=0","GATE18=PASS","OVERALL_18_OF_18=PASS")|Add-Content $ev
