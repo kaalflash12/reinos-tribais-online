@@ -1,84 +1,47 @@
-name: DIGIMON Manual RPK Probe
+name: DIGIMON Firecast Plugin UI Map
 
 on:
   push:
     branches: [digimon-ci-public-probe-20260830]
 
 jobs:
-  probe:
+  map:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
-      - name: Install Firecast from Microsoft Store
+      - name: Install and launch Firecast Store
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          winget source update
           winget install --id XP9B1DQSFR12KZ --source msstore --accept-source-agreements --accept-package-agreements --silent
           $firecast=Join-Path $env:LOCALAPPDATA 'Firecast\Firecast.exe'
-          if(-not(Test-Path $firecast)){throw 'Firecast.exe missing'}
-          $v=(Get-Item $firecast).VersionInfo
-          "FIRECAST_FILE_VERSION=$($v.FileVersion)"
-          "FIRECAST_PRODUCT_VERSION=$($v.ProductVersion)"
-          $firecast|Set-Content (Join-Path $env:RUNNER_TEMP 'firecast-path.txt')
+          if(-not(Test-Path $firecast)){throw 'Firecast missing'}
+          Start-Process $firecast
+          Start-Sleep 12
 
-      - name: Download exact final RPK and build init probe
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          $url='https://sdmntprbrazilsouth.oaiusercontent.com/files/00000000-449c-820e-8547-60c744159c28/raw?se=2026-08-31T03%3A04%3A25Z&sp=r&sv=2026-02-06&sr=b&scid=52aa59e0-941c-5d27-8726-894693b83a3a&skoid=33096a49-a96b-4506-9fc4-04a7517f8175&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-30T18%3A47%3A19Z&ske=2026-08-31T18%3A47%3A19Z&sks=b&skv=2026-02-06&sig=Zp7icvZtXoOTSRV381%2BQiushby74fw4HseOGJ7GFLvI%3D'
-          $payload=Join-Path $env:RUNNER_TEMP 'runtime.zip'
-          Invoke-WebRequest -UseBasicParsing $url -OutFile $payload
-          $sha=(Get-FileHash $payload -Algorithm SHA256).Hash.ToLowerInvariant();"PAYLOAD_SHA=$sha"
-          if($sha-ne '11772513bec42381a2f42b1583d0daed205627c9d328af0c6503d5e8c994af8a'){throw "Unexpected payload SHA $sha"}
-          $d=Join-Path $env:RUNNER_TEMP 'runtime';Expand-Archive $payload $d -Force
-          $final=Join-Path $d 'DIGIMON_ERA_DA_DUALIDADE_FINAL.rpk'
-          if(-not(Test-Path $final)){throw 'final RPK missing'}
-          $rpksha=(Get-FileHash $final -Algorithm SHA256).Hash.ToLowerInvariant();"FINAL_RPK_SHA=$rpksha"
-          if($rpksha-ne '2fc71a67cc988da637fce0d5d488a61ef807a00c675a32eb5c26334560704056'){throw "Unexpected RPK SHA $rpksha"}
-          $probe=Join-Path $env:RUNNER_TEMP 'DIGIMON_GATE17_MANUAL_PROBE.rpk'
-          $py=@'
-          import zipfile,os
-          src=os.environ['FINAL_RPK']; out=os.environ['PROBE_RPK']
-          init='require("vhd.lua")\nVHD.addSearchPath("/DigiTerionMon")\nVHD.addSearchPath("/DigiTerionMon/scripts")\nshowMessage("GATE17_MANUAL_RPK_INIT_OK")\n'
-          with zipfile.ZipFile(src,'r') as zin, zipfile.ZipFile(out,'w',compression=zipfile.ZIP_DEFLATED) as zout:
-              for info in zin.infolist():
-                  data=zin.read(info.filename)
-                  if info.filename=='init.lua': data=init.encode('utf-8')
-                  zout.writestr(info,data)
-          with zipfile.ZipFile(out) as z:
-              bad=z.testzip()
-              if bad: raise SystemExit('bad zip '+bad)
-          '@
-          $env:FINAL_RPK=$final;$env:PROBE_RPK=$probe
-          $pys=Join-Path $env:RUNNER_TEMP 'make_probe.py';$py|Set-Content $pys -Encoding UTF8;py $pys
-          $probe|Set-Content (Join-Path $env:RUNNER_TEMP 'probe-path.txt')
-
-      - name: Install probe RPK manually and prove init executes
+      - name: Dump UI tree registry and Firecast paths
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
           Add-Type -AssemblyName UIAutomationClient;Add-Type -AssemblyName UIAutomationTypes
-          $firecast=(Get-Content (Join-Path $env:RUNNER_TEMP 'firecast-path.txt') -Raw).Trim()
-          $probe=(Get-Content (Join-Path $env:RUNNER_TEMP 'probe-path.txt') -Raw).Trim()
-          function Find-Marker {
-            $root=[Windows.Automation.AutomationElement]::RootElement
-            $all=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)
-            foreach($e in $all){try{$n=[string]$e.Current.Name;if($n-match 'GATE17_MANUAL_RPK_INIT_OK'){return $n}}catch{}}
-            return ''
-          }
-          Get-Process Firecast -ErrorAction SilentlyContinue|Stop-Process -Force
-          $p=Start-Process $firecast -ArgumentList @($probe) -PassThru
-          $marker=''
-          for($i=0;$i-lt 45;$i++){Start-Sleep 1;$marker=Find-Marker;if($marker){break}}
-          if(-not $marker){
-            Write-Host 'Direct Firecast argument produced no marker; trying shell-open .rpk'
-            try{Start-Process $probe}catch{Write-Host $_}
-            for($i=0;$i-lt 45;$i++){Start-Sleep 1;$marker=Find-Marker;if($marker){break}}
-          }
+          Add-Type -AssemblyName System.Drawing;Add-Type -AssemblyName System.Windows.Forms
+          $out=Join-Path $env:RUNNER_TEMP 'firecast-map';New-Item -ItemType Directory -Force $out|Out-Null
           $root=[Windows.Automation.AutomationElement]::RootElement
-          $all=$root.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.Condition]::TrueCondition)
-          foreach($e in $all){try{Write-Host ('TOP_WINDOW='+[string]$e.Current.Name)}catch{}}
-          "MARKER=$marker"
-          if($marker-notmatch 'GATE17_MANUAL_RPK_INIT_OK'){throw 'Manual RPK init marker not observed'}
-          Write-Host 'MANUAL_RPK_INSTALL_PASS=1'
+          $all=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)
+          $lines=New-Object System.Collections.Generic.List[string]
+          foreach($e in $all){try{$n=[string]$e.Current.Name;$ct=[string]$e.Current.ControlType.ProgrammaticName;$aid=[string]$e.Current.AutomationId;$r=$e.Current.BoundingRectangle;if($n-ne ''-or$aid-ne ''){$lines.Add("NAME=$n | TYPE=$ct | AID=$aid | RECT=$($r.X),$($r.Y),$($r.Width),$($r.Height)")}}catch{}}
+          $lines|Set-Content (Join-Path $out 'ui.txt') -Encoding UTF8
+          $b=[Windows.Forms.Screen]::PrimaryScreen.Bounds;$bmp=New-Object Drawing.Bitmap $b.Width,$b.Height;$g=[Drawing.Graphics]::FromImage($bmp);$g.CopyFromScreen($b.Location,[Drawing.Point]::Empty,$b.Size);$bmp.Save((Join-Path $out 'screen.png'),[Drawing.Imaging.ImageFormat]::Png);$g.Dispose();$bmp.Dispose()
+          cmd /c 'assoc .rpk' 2>&1 | Set-Content (Join-Path $out 'assoc-rpk.txt')
+          cmd /c 'ftype Firecast.Plugin' 2>&1 | Set-Content (Join-Path $out 'ftype.txt')
+          Get-ChildItem $env:LOCALAPPDATA -Directory -Force -ErrorAction SilentlyContinue | Where-Object {$_.Name -match 'Firecast|RRPG'} | Select-Object FullName | Format-Table -HideTableHeaders | Out-String | Set-Content (Join-Path $out 'local-dirs.txt')
+          Get-ChildItem $env:APPDATA -Directory -Force -ErrorAction SilentlyContinue | Where-Object {$_.Name -match 'Firecast|RRPG'} | Select-Object FullName | Format-Table -HideTableHeaders | Out-String | Set-Content (Join-Path $out 'roaming-dirs.txt')
+          foreach($base in @((Join-Path $env:LOCALAPPDATA 'Firecast'),(Join-Path $env:APPDATA 'Firecast'))){if(Test-Path $base){Get-ChildItem $base -Recurse -Force -ErrorAction SilentlyContinue | Select-Object FullName,Length | Format-Table -AutoSize | Out-String -Width 300 | Add-Content (Join-Path $out 'tree.txt')}}
+          Get-Process Firecast -ErrorAction SilentlyContinue | Select-Object Id,MainWindowTitle,MainWindowHandle,Path | Format-List | Out-String | Set-Content (Join-Path $out 'process.txt')
+          Get-Content (Join-Path $out 'ui.txt') | Select-String -Pattern 'plugin|plug-in|instalar|install|ferrament|tool|config|opç|menu' -CaseSensitive:$false | ForEach-Object {Write-Host $_}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: digimon-firecast-plugin-ui-map
+          path: ${{ runner.temp }}/firecast-map
