@@ -1,100 +1,100 @@
-name: DIGIMON Firecast RPK Command Recovery
-
+name: DIGIMON Gate17 Autorun Final
 on:
   push:
     branches: [digimon-ci-public-probe-20260830]
-
 jobs:
-  recover:
+  gate17-final:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
-      - name: Install Firecast Store
+      - name: Download exact final RPK payload first
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          winget install --id XP9B1DQSFR12KZ --source msstore --accept-source-agreements --accept-package-agreements --silent
-          $firecast=Join-Path $env:LOCALAPPDATA 'Firecast\Firecast.exe'
-          if(-not(Test-Path $firecast)){throw 'Firecast missing'}
-          $firecast|Set-Content (Join-Path $env:RUNNER_TEMP 'firecast.txt')
-
-      - name: Recover command strings around RPK handlers
+          $url='https://sdmntprbrazilsouth.oaiusercontent.com/files/00000000-0964-820e-898a-e02b4aae5ad3/raw?se=2026-08-31T03%3A18%3A22Z&sp=r&sv=2026-02-06&sr=b&scid=e1015117-33f6-5512-bd92-341497de0a2e&skoid=33096a49-a96b-4506-9fc4-04a7517f8175&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-30T18%3A47%3A05Z&ske=2026-08-31T18%3A47%3A05Z&sks=b&skv=2026-02-06&sig=CRO2DKZuF8o5sFGcBzo8SoC7Y4it5ktADSZWJJKePbs%3D'
+          $payload=Join-Path $env:RUNNER_TEMP 'runtime.zip';Invoke-WebRequest -UseBasicParsing $url -OutFile $payload
+          $sha=(Get-FileHash $payload -Algorithm SHA256).Hash.ToLowerInvariant();if($sha-ne '11772513bec42381a2f42b1583d0daed205627c9d328af0c6503d5e8c994af8a'){throw "payload sha $sha"}
+          $d=Join-Path $env:RUNNER_TEMP 'runtime';Expand-Archive $payload $d -Force;$final=Join-Path $d 'DIGIMON_ERA_DA_DUALIDADE_FINAL.rpk'
+          $rpksha=(Get-FileHash $final -Algorithm SHA256).Hash.ToLowerInvariant();if($rpksha-ne '2fc71a67cc988da637fce0d5d488a61ef807a00c675a32eb5c26334560704056'){throw "rpk sha $rpksha"}
+          $final|Set-Content (Join-Path $env:RUNNER_TEMP 'final-rpk.txt');@("SOURCE_ARTIFACT_SHA256=$sha","FINAL_RPK_SHA256=$rpksha")|Set-Content (Join-Path $env:RUNNER_TEMP 'gate17-evidence.txt')
+      - name: Install Firecast
         shell: pwsh
         run: |
-          $ErrorActionPreference='Stop'
-          $firecast=(Get-Content (Join-Path $env:RUNNER_TEMP 'firecast.txt') -Raw).Trim()
-          $env:FIRECAST_EXE=$firecast
-          $py=@'
-          import os,re
-          p=os.environ['FIRECAST_EXE']; b=open(p,'rb').read()
-          needles=[
-            b'HandleInstallRPK',b'HandleInstallRPKFromRDKCommand',b'FCreationCommandLine',
-            b'ProcessCommandLine',b'FParamStr',b'_rrpg_plugins_installPluginPackage',
-            b'OnReceiveRequestRPKInstall',b'StartRPKInstallNowWithUserConsent'
-          ]
-          def printable_ascii(chunk):
-              vals=[]
-              for m in re.finditer(rb'[ -~]{3,220}',chunk):
-                  s=m.group().decode('latin1','ignore').strip()
-                  if s: vals.append((m.start(),s))
-              return vals
-          def printable_utf16(chunk):
-              vals=[]
-              for m in re.finditer(rb'(?:[ -~]\x00){3,220}',chunk):
-                  try:s=m.group().decode('utf-16le').strip()
-                  except:continue
-                  if s: vals.append((m.start(),s))
-              return vals
-          print('=== TARGET NEIGHBORHOODS ===')
-          for needle in needles:
-              start=0
-              while True:
-                  i=b.find(needle,start)
-                  if i<0: break
-                  lo=max(0,i-120000); hi=min(len(b),i+120000); chunk=b[lo:hi]
-                  print('\n###',needle.decode(),'OFFSET',i,'RANGE',lo,hi)
-                  arr=[]
-                  for off,s in printable_ascii(chunk): arr.append((off,s,'A'))
-                  for off,s in printable_utf16(chunk): arr.append((off,s,'U'))
-                  arr.sort()
-                  keys=('rpk','install','plugin','command','rdk','param','package','external','sdk3','request','consent','file','open','sheet')
-                  for off,s,k in arr:
-                      sl=s.lower()
-                      if any(x in sl for x in keys) or len(s)<=42:
-                          print(f'{k}@{lo+off}: {s[:300]}')
-                  start=i+1
-          print('\n=== GLOBAL CANDIDATE TOKENS ===')
-          allstrings=[]
-          for off,s in printable_ascii(b): allstrings.append((off,s,'A'))
-          for off,s in printable_utf16(b): allstrings.append((off,s,'U'))
-          allstrings.sort()
-          pats=('installrpk','rpk-install','rpk_install','rpk install','rpkfile','rpk-file','installplugin','plugininstall','plugin-install','install-plugin','rdkcommand','fromrdk','--rpk','-rpk','/rpk','--plugin','-plugin','/plugin','--install','-install','/install')
-          for off,s,k in allstrings:
-              sl=s.lower()
-              if any(x in sl for x in pats): print(f'{k}@{off}: {s[:500]}')
-          '@
-          $p=Join-Path $env:RUNNER_TEMP 'recover.py';$py|Set-Content $p -Encoding UTF8
-          py $p | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'rpk-command-recovery.txt')
-
-      - name: Probe built-in help variants
+          $ErrorActionPreference='Stop';winget install --id XP9B1DQSFR12KZ --source msstore --accept-source-agreements --accept-package-agreements --silent
+          $firecast=Join-Path $env:LOCALAPPDATA 'Firecast\Firecast.exe';if(-not(Test-Path $firecast)){throw 'Firecast missing'};$firecast|Set-Content (Join-Path $env:RUNNER_TEMP 'firecast.txt')
+      - name: Build no-UI Gate17 harness
         shell: pwsh
         run: |
-          $ErrorActionPreference='Continue'
-          $firecast=(Get-Content (Join-Path $env:RUNNER_TEMP 'firecast.txt') -Raw).Trim()
-          $out=Join-Path $env:RUNNER_TEMP 'firecast-help-probes.txt'
-          foreach($arg in @('--help','-h','/?','/help','help','--version','-v')){
-            "=== ARG $arg ==="|Add-Content $out
-            $psi=New-Object System.Diagnostics.ProcessStartInfo
-            $psi.FileName=$firecast;$psi.Arguments=$arg;$psi.UseShellExecute=$false;$psi.RedirectStandardOutput=$true;$psi.RedirectStandardError=$true;$psi.CreateNoWindow=$true
-            $p=New-Object System.Diagnostics.Process;$p.StartInfo=$psi
-            try{[void]$p.Start();if(-not$p.WaitForExit(4000)){$p.Kill()};$p.StandardOutput.ReadToEnd()|Add-Content $out;$p.StandardError.ReadToEnd()|Add-Content $out}catch{$_|Out-String|Add-Content $out}
-          }
-          Get-Content $out
-
+          $ErrorActionPreference='Stop';$init=Join-Path $env:RUNNER_TEMP 'gate17-init.lua'
+          @'
+          require("vhd.lua")
+          VHD.addSearchPath("/DigiTerionMon")
+          VHD.addSearchPath("/DigiTerionMon/scripts")
+          require("ndb.lua")
+          local B=require("scripts/bootstrap.lua")
+          local function named(r,n) local x=r[n];if x==nil then x=NDB.createChildNode(r,n) end;return x end
+          local function cnt(n) return #(NDB.getChildNodes(n) or {}) end
+          local function fail(t,m) showMessage(t.."|"..tostring(m or "")) end
+          local db=NDB.load("gate17_358.ndb")
+          NDB.onReady(db,function()
+            local s=tostring(db.gate17Sentinel or "")
+            if s=="" then
+              named(db,"estruturaMesa");named(db,"documentosCanonicos");named(db,"trackers")
+              local ensured,res=B.ensure(db);local audit,status=B.runtimeAudit(db)
+              local tf=B.getTracker(db,"FRAGMENTOS");local tn=B.getTracker(db,"NPCS_ATIVOS");local to=B.getTracker(db,"ESTADO_DAS_ORGANIZACOES")
+              local ok=ensured and audit and cnt(db.estruturaMesa)==13 and cnt(db.documentosCanonicos)==635 and cnt(db.trackers)==11 and tf and cnt(tf.registros)==18 and tn and cnt(tn.registros)==49 and to and cnt(to.registros)==22
+              if not ok then fail("GATE17_PHASE1_FAIL",status);return end
+              local fr=(NDB.getChildNodes(tf.registros) or {})[1];local np=(NDB.getChildNodes(tn.registros) or {})[1];local og=(NDB.getChildNodes(to.registros) or {})[1]
+              local fk=tostring(fr and (fr.recordKey or fr.canonicalPath) or "");local nk=tostring(np and (np.recordKey or np.canonicalId) or "");local okk=tostring(og and (og.recordKey or og.canonicalPath) or "");local tok=tostring(tf.persistenceToken or "")
+              if fk=="" or nk=="" or okk=="" or tok=="" then fail("GATE17_PHASE1_FAIL","identity/token missing");return end
+              NDB.beginUpdate(db)
+              local a,e1=B.setFragmentState(db,fk,{descoberto=true,obtido=true,portador="GATE17",localAtual="GATE17_LOCAL",observacoes="G17_FRAGMENT"})
+              local b,e2=B.setMissionState(db,"G17-MISSION",{nome="Gate17",objetivo="Persistir",estado="ativa",observacoes="G17_MISSION"})
+              local c,e3=B.setFactState(db,"G17-FACT",{fato="Gate17",fonte="runtime",publico=true,observacoes="G17_FACT"})
+              local d,e4=B.setNPCState(db,nk,{ativo=true,["local"]="GATE17_LOCAL",estado="G17_NPC",observacoes="G17_NPC_SENTINEL"})
+              local e,e5=B.setRouteState(db,"G17-ROUTE",{origem="A",destino="B",estado="aberta",descoberto=true,observacoes="G17_ROUTE"})
+              local f,e6=B.setOrganizationState(db,okk,{descoberta=true,reputacao=17,hostilidade=-7,fatosConhecidos="G17_ORG"})
+              if not(a and b and c and d and e and f) then NDB.endUpdate(db);fail("GATE17_PHASE1_FAIL",tostring(e1 or e2 or e3 or e4 or e5 or e6));return end
+              db.gate17Sentinel="DIGITERION_GATE17_358";db.gate17PhaseOne="PASS";db.gate17ExpectedBootstrap=B.VERSION;db.gate17FragmentKey=fk;db.gate17NPCKey=nk;db.gate17OrgKey=okk;db.gate17TrackerToken=tok;NDB.endUpdate(db)
+              showMessage("GATE17_PHASE1_PASS|13/635/11/18/49/22|"..tostring(status))
+            else
+              local audit,status=B.runtimeAudit(db);local fk=tostring(db.gate17FragmentKey or "");local nk=tostring(db.gate17NPCKey or "");local okk=tostring(db.gate17OrgKey or "")
+              local a=B.getPersistentState(db,"FRAGMENTOS",fk);local b=B.getPersistentState(db,"MISSOES","G17-MISSION");local c=B.getPersistentState(db,"FATOS","G17-FACT");local d=B.getPersistentState(db,"NPCS",nk);local e=B.getPersistentState(db,"ROTAS","G17-ROUTE");local f=B.getPersistentState(db,"ORGANIZACOES",okk);local tf=B.getTracker(db,"FRAGMENTOS")
+              local ok=s=="DIGITERION_GATE17_358" and tostring(db.gate17PhaseOne or "")=="PASS" and tostring(db.gate17ExpectedBootstrap or "")==B.VERSION and tostring(db.bootstrapVersion or "")==B.VERSION and audit
+              ok=ok and a and a.descoberto==true and a.obtido==true and tostring(a.observacoes or "")=="G17_FRAGMENT"
+              ok=ok and b and tostring(b.observacoes or "")=="G17_MISSION" and tostring(b.estado or "")=="ativa"
+              ok=ok and c and tostring(c.observacoes or "")=="G17_FACT" and c.publico==true
+              ok=ok and d and d.ativo==true and tostring(d.estado or "")=="G17_NPC"
+              ok=ok and e and e.descoberto==true and tostring(e.estado or "")=="aberta" and tostring(e.observacoes or "")=="G17_ROUTE"
+              ok=ok and f and f.descoberta==true and tonumber(f.reputacao or 0)==17 and tonumber(f.hostilidade or 0)==-7 and tostring(f.fatosConhecidos or "")=="G17_ORG"
+              ok=ok and tf and tostring(tf.persistenceToken or "")==tostring(db.gate17TrackerToken or "") and tostring(tf.persistenceToken or "")~=""
+              if ok then showMessage("GATE17_PHASE2_PASS|PERSISTENCE_REAL|"..tostring(status)) else fail("GATE17_PHASE2_FAIL",status) end
+            end
+          end,function() showMessage("GATE17_NDB_OPEN_FAIL") end)
+          '@|Set-Content $init -Encoding UTF8
+          $final=(Get-Content (Join-Path $env:RUNNER_TEMP 'final-rpk.txt') -Raw).Trim();$h=Join-Path $env:RUNNER_TEMP 'G17.rpk';$env:FINAL_RPK=$final;$env:HARNESS_RPK=$h;$env:G17_INIT=$init
+          @'
+          import zipfile,os
+          src=os.environ['FINAL_RPK'];out=os.environ['HARNESS_RPK'];ini=open(os.environ['G17_INIT'],'rb').read()
+          with zipfile.ZipFile(src) as zin,zipfile.ZipFile(out,'w',compression=zipfile.ZIP_DEFLATED) as zout:
+            for i in zin.infolist(): zout.writestr(i,ini if i.filename=='init.lua' else zin.read(i.filename))
+          '@|Set-Content (Join-Path $env:RUNNER_TEMP 'mk.py') -Encoding UTF8;py (Join-Path $env:RUNNER_TEMP 'mk.py');$h|Set-Content (Join-Path $env:RUNNER_TEMP 'harness.txt')
+      - name: Execute Gate17 twice and Gate18
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop';Add-Type -AssemblyName UIAutomationClient;Add-Type -AssemblyName UIAutomationTypes
+          $firecast=(Get-Content (Join-Path $env:RUNNER_TEMP 'firecast.txt') -Raw).Trim();$h=(Get-Content (Join-Path $env:RUNNER_TEMP 'harness.txt') -Raw).Trim();$final=(Get-Content (Join-Path $env:RUNNER_TEMP 'final-rpk.txt') -Raw).Trim();$ev=Join-Path $env:RUNNER_TEMP 'gate17-evidence.txt'
+          $plug=Join-Path $env:APPDATA 'Firecast\Plugins';New-Item -ItemType Directory -Force $plug|Out-Null;$dst=Join-Path $plug 'DigiTerionMon.EraDaDualidade.rpk'
+          function Wait-Marker($pattern,$seconds){$root=[Windows.Automation.AutomationElement]::RootElement;for($i=0;$i-lt $seconds;$i++){$all=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition);foreach($x in $all){try{$n=[string]$x.Current.Name;if($n-eq 'Error'){throw 'ERROR_WINDOW'};if($n-match $pattern){return $n}}catch{if($_.Exception.Message-eq 'ERROR_WINDOW'){throw}}};Start-Sleep 1};return ''}
+          function Dismiss-Close($p){$w=New-Object -ComObject WScript.Shell;[void]$w.AppActivate($p.Id);$w.SendKeys('{ENTER}');Start-Sleep 2;$p.Refresh();if(-not$p.HasExited){[void]$p.CloseMainWindow();if(-not$p.WaitForExit(15000)){throw 'graceful close failed'}}}
+          Get-Process Firecast -ErrorAction SilentlyContinue|Stop-Process -Force;Copy-Item $h $dst -Force
+          $p=Start-Process $firecast -PassThru;Start-Sleep 3;$m=Wait-Marker 'GATE17_(PHASE1_PASS|PHASE1_FAIL|NDB_OPEN_FAIL)' 300;"GATE17_PHASE1_MARKER=$m"|Add-Content $ev;if($m-notmatch 'GATE17_PHASE1_PASS'){throw "phase1: $m"};Dismiss-Close $p;"GATE17_PHASE1=PASS"|Add-Content $ev;Start-Sleep 4
+          $p=Start-Process $firecast -PassThru;Start-Sleep 3;$m=Wait-Marker 'GATE17_(PHASE2_PASS|PHASE2_FAIL|NDB_OPEN_FAIL)' 180;"GATE17_PHASE2_MARKER=$m"|Add-Content $ev;if($m-notmatch 'GATE17_PHASE2_PASS'){throw "phase2: $m"};Dismiss-Close $p;"GATE17=PASS"|Add-Content $ev
+          Copy-Item $final $dst -Force;$sha=(Get-FileHash $dst -Algorithm SHA256).Hash.ToLowerInvariant();if($sha-ne '2fc71a67cc988da637fce0d5d488a61ef807a00c675a32eb5c26334560704056'){throw 'final rpk restore sha'}
+          $p=Start-Process $firecast -PassThru;Start-Sleep 15;if($p.HasExited){throw 'final Firecast exited'};$root=[Windows.Automation.AutomationElement]::RootElement;$ec=[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Error');if($root.FindFirst([Windows.Automation.TreeScope]::Descendants,$ec)){throw 'final Error window'}
+          @("GATE18_FINAL_RPK_SHA256=$sha","GATE18_FINAL_ERROR=0","GATE18=PASS","OVERALL_18_OF_18=PASS")|Add-Content $ev
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: digimon-firecast-rpk-command-recovery
-          path: |
-            ${{ runner.temp }}/rpk-command-recovery.txt
-            ${{ runner.temp }}/firecast-help-probes.txt
+          name: digimon-gate17-autorun-evidence
+          path: ${{ runner.temp }}/gate17-evidence.txt
