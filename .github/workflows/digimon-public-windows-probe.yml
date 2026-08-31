@@ -1,12 +1,192 @@
-name: DIGIMON Temporary Windows Runner Stub
+name: DIGIMON Gate 17-18 Final Persistence Proof
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [digimon-ci-public-probe-20260830]
 
 jobs:
-  stub:
+  final-proof:
     runs-on: windows-latest
+    timeout-minutes: 45
     steps:
-      - name: Inert stub
+      - name: Install Firecast and RDK
         shell: pwsh
-        run: Write-Host "DIGIMON temporary validation completed; no payload URL stored here."
+        run: |
+          $ErrorActionPreference='Stop'
+          $fc=Join-Path $env:RUNNER_TEMP 'firecast.exe'
+          Invoke-WebRequest -UseBasicParsing 'https://firecast.app/downloads/firecast8_13_win64.exe' -OutFile $fc
+          $p=Start-Process $fc -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-') -Wait -PassThru
+          if($p.ExitCode-ne 0){throw "Firecast install failed $($p.ExitCode)"}
+          $ri=Join-Path $env:RUNNER_TEMP 'rdk-installer.exe'
+          Invoke-WebRequest -UseBasicParsing 'https://firecast.app/downloads/RDK3.7.b.exe' -OutFile $ri
+          $p=Start-Process $ri -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-') -Wait -PassThru
+          if($p.ExitCode-ne 0){throw "RDK install failed $($p.ExitCode)"}
+          $rdk=Join-Path $env:LOCALAPPDATA 'FirecastSDK3\rdk.exe'
+          $tester=Join-Path $env:LOCALAPPDATA 'FirecastSDK3\RRPGFichas.exe'
+          if(-not(Test-Path $rdk)){throw 'RDK missing'}
+          if(-not(Test-Path $tester)){throw 'RRPGFichas missing'}
+          $rdk|Set-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt')
+          $tester|Set-Content (Join-Path $env:RUNNER_TEMP 'tester.txt')
+          @('FIRECAST_INSTALL_EXIT=0','RDK_INSTALL_EXIT=0')|Set-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Download exact private runtime payload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $url='https://sdmntprbrazilsouth.oaiusercontent.com/files/00000000-fd18-820e-a65b-3e217c902270/raw?se=2026-08-31T01%3A05%3A36Z&sp=r&sv=2026-02-06&sr=b&scid=3b915889-510e-5551-8b5c-62aac9078c85&skoid=33096a49-a96b-4506-9fc4-04a7517f8175&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-30T22%3A30%3A32Z&ske=2026-08-31T22%3A30%3A32Z&sks=b&skv=2026-02-06&sig=VqR9oRc3BHZNuNYXXycAIBKOR1RCRmKsL2cecyi/8Ek%3D'
+          $payload=Join-Path $env:RUNNER_TEMP 'payload.zip'
+          Invoke-WebRequest -UseBasicParsing $url -OutFile $payload
+          $dir=Join-Path $env:RUNNER_TEMP 'payload';Expand-Archive $payload $dir -Force
+          $srcZip=Join-Path $dir 'final-source.zip'
+          $rpk=Join-Path $dir 'DIGIMON_ERA_DA_DUALIDADE_FINAL.rpk'
+          if(-not(Test-Path $srcZip)){throw 'final-source.zip missing'}
+          if(-not(Test-Path $rpk)){throw 'final RPK missing'}
+          $srcSha=(Get-FileHash $srcZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $rpkSha=(Get-FileHash $rpk -Algorithm SHA256).Hash.ToLowerInvariant()
+          if($srcSha-ne '0dde069bbe7a53e88d027f31d4ebfc4d25fee7f1f51b91fdd8e66199d2f65624'){throw "source SHA mismatch $srcSha"}
+          if($rpkSha-ne '2fc71a67cc988da637fce0d5d488a61ef807a00c675a32eb5c26334560704056'){throw "RPK SHA mismatch $rpkSha"}
+          $dst=Join-Path $env:RUNNER_TEMP 'src';Expand-Archive $srcZip $dst -Force
+          $proj=Join-Path $dst 'PROJETO_SDK3'
+          $proj|Set-Content (Join-Path $env:RUNNER_TEMP 'final-project.txt')
+          @("SOURCE_SHA256=$srcSha","FINAL_RPK_SHA256=$rpkSha")|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Revalidate exact final source Gates 14 and 15
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $rdk=(Get-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt') -Raw).Trim()
+          $proj=(Get-Content (Join-Path $env:RUNNER_TEMP 'final-project.txt') -Raw).Trim()
+          Push-Location $proj
+          try{
+            & $rdk -p; if($LASTEXITCODE-ne 0){throw 'rdk -p failed'}
+            & $rdk -c; if($LASTEXITCODE-ne 0){throw 'rdk -c failed'}
+            & $rdk -i; if($LASTEXITCODE-ne 0){throw 'rdk -i failed'}
+          }finally{Pop-Location}
+          @('GATE14_REVALIDATED=PASS','GATE15_REVALIDATED=PASS')|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Build Gate 17 autorun harness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $finalProj=(Get-Content (Join-Path $env:RUNNER_TEMP 'final-project.txt') -Raw).Trim()
+          $srcRoot=Join-Path $finalProj 'DigiTerionMon'
+          $proj=Join-Path $env:RUNNER_TEMP 'gate17-project';$plug=Join-Path $proj 'DigiTerionMon'
+          New-Item -ItemType Directory -Force $plug|Out-Null
+          Copy-Item (Join-Path $srcRoot 'data') (Join-Path $plug 'data') -Recurse -Force
+          New-Item -ItemType Directory -Force (Join-Path $plug 'scripts')|Out-Null
+          Copy-Item (Join-Path $srcRoot 'scripts\bootstrap.lua') (Join-Path $plug 'scripts\bootstrap.lua') -Force
+          @'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <module sdkVersion="3.7"><id>DigiTerionMon.EraDaDualidade</id><version>1.0.0</version><info lang="pt-BR"><name>DIGIMON — ERA DA DUALIDADE — GATE17</name><description>Persistence autorun harness</description><author>CI</author></info></module>
+          '@|Set-Content (Join-Path $proj 'module.xml') -Encoding UTF8
+          @'
+          require("vhd.lua")
+          VHD.addSearchPath("/DigiTerionMon")
+          VHD.addSearchPath("/DigiTerionMon/scripts")
+          require("ndb.lua")
+          local Bootstrap=require("scripts/bootstrap.lua")
+          local db=NDB.load("gate17_358.ndb")
+          local FRAG="06_ITENS/FRAGMENTOS_DETALHADOS/Fragmento_de_Agumon.md"
+          local NPC="07_NPCS/01_NPCS_BASE/Meramon.md"
+          local ORG="10_ORGANIZACOES/14_3_10_Circulo_da_Memoria_Restituida.md"
+          local MISSION="GATE17_MISSION"
+          local FACT="GATE17_FACT"
+          local ROUTE="GATE17_ROUTE"
+          local function fail(phase,msg) showMessage("GATE17_"..phase.."_FAIL|"..tostring(msg or "unknown")) end
+          NDB.onReady(db,function()
+            local sentinel=tostring(db.gate17Sentinel or "")
+            if sentinel=="" then
+              local ensured,res=Bootstrap.ensure(db)
+              local audit,status=Bootstrap.runtimeAudit(db)
+              if not ensured or not audit then fail("PHASE1",tostring(res).."|"..tostring(status));return end
+              local f,fe=Bootstrap.setFragmentState(db,FRAG,{descoberto=true,obtido=true,consumido=false,gate17Value="FRAGMENT_OK"})
+              local m,me=Bootstrap.setMissionState(db,MISSION,{ativa=true,estado="GATE17_ACTIVE",gate17Value="MISSION_OK"})
+              local x,xe=Bootstrap.setFactState(db,FACT,{descoberto=true,valor="GATE17_DISCOVERED",gate17Value="FACT_OK"})
+              local n,ne=Bootstrap.setNPCState(db,NPC,{ativo=true,ferimentos=2,relacao="GATE17_REL",gate17Value="NPC_OK"})
+              local r,re=Bootstrap.setRouteState(db,ROUTE,{descoberta=true,estado="GATE17_OPEN",gate17Value="ROUTE_OK"})
+              local o,oe=Bootstrap.setOrganizationState(db,ORG,{reputacao=17,hostil=true,estado="GATE17_HOSTILE",gate17Value="ORG_OK"})
+              if not f or not m or not x or not n or not r or not o then fail("PHASE1","state-write|"..tostring(fe).."|"..tostring(me).."|"..tostring(xe).."|"..tostring(ne).."|"..tostring(re).."|"..tostring(oe));return end
+              local tracker=Bootstrap.getTracker(db,"ESTADO_DA_SESSAO")
+              if not tracker or tostring(tracker.persistenceToken or "")=="" then fail("PHASE1","tracker-token-missing");return end
+              NDB.beginUpdate(db)
+              db.gate17Sentinel="DIGITERION_GATE17_358";db.gate17PhaseOne="PASS";db.gate17ExpectedBootstrap=Bootstrap.VERSION;db.gate17TrackerToken=tostring(tracker.persistenceToken);db.gate17AuditStatusPhase1=tostring(status)
+              NDB.endUpdate(db)
+              local audit2,status2=Bootstrap.runtimeAudit(db)
+              if not audit2 then fail("PHASE1","post-write-audit|"..tostring(status2));return end
+              showMessage("GATE17_PHASE1_PASS|"..tostring(status2))
+            else
+              local audit,status=Bootstrap.runtimeAudit(db)
+              local f=Bootstrap.getPersistentState(db,"FRAGMENTOS",FRAG);local m=Bootstrap.getPersistentState(db,"MISSOES",MISSION);local x=Bootstrap.getPersistentState(db,"FATOS",FACT);local n=Bootstrap.getPersistentState(db,"NPCS",NPC);local r=Bootstrap.getPersistentState(db,"ROTAS",ROUTE);local o=Bootstrap.getPersistentState(db,"ORGANIZACOES",ORG);local tracker=Bootstrap.getTracker(db,"ESTADO_DA_SESSAO")
+              local persistedOK,persistedSentinel=pcall(function() return NDB.getPersistedAttributeValue(db,"gate17Sentinel") end)
+              local ok=audit and sentinel=="DIGITERION_GATE17_358" and tostring(db.gate17PhaseOne or "")=="PASS" and tostring(db.gate17ExpectedBootstrap or "")==Bootstrap.VERSION and tostring(db.bootstrapVersion or "")==Bootstrap.VERSION and tracker~=nil and tostring(tracker.persistenceToken or "")==tostring(db.gate17TrackerToken or "") and f~=nil and f.descoberto==true and f.obtido==true and tostring(f.gate17Value or "")=="FRAGMENT_OK" and m~=nil and m.ativa==true and tostring(m.estado or "")=="GATE17_ACTIVE" and tostring(m.gate17Value or "")=="MISSION_OK" and x~=nil and x.descoberto==true and tostring(x.valor or "")=="GATE17_DISCOVERED" and tostring(x.gate17Value or "")=="FACT_OK" and n~=nil and n.ativo==true and tonumber(n.ferimentos or -1)==2 and tostring(n.relacao or "")=="GATE17_REL" and tostring(n.gate17Value or "")=="NPC_OK" and r~=nil and r.descoberta==true and tostring(r.estado or "")=="GATE17_OPEN" and tostring(r.gate17Value or "")=="ROUTE_OK" and o~=nil and tonumber(o.reputacao or -999)==17 and o.hostil==true and tostring(o.estado or "")=="GATE17_HOSTILE" and tostring(o.gate17Value or "")=="ORG_OK"
+              if ok then showMessage("GATE17_PHASE2_PASS|"..tostring(status).."|persistedAPI="..tostring(persistedOK and persistedSentinel or "unavailable")) else fail("PHASE2","audit="..tostring(audit).."|sentinel="..sentinel.."|persisted="..tostring(persistedOK and persistedSentinel or "unavailable").."|"..tostring(status)) end
+            end
+          end,function(err) showMessage("GATE17_NDB_OPEN_FAIL|"..tostring(err or "unknown")) end)
+          '@|Set-Content (Join-Path $proj 'init.lua') -Encoding UTF8
+          $rdk=(Get-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt') -Raw).Trim()
+          Push-Location $proj
+          try{
+            & $rdk -p; if($LASTEXITCODE-ne 0){throw 'Gate17 p failed'}
+            & $rdk -c; if($LASTEXITCODE-ne 0){throw 'Gate17 c failed'}
+            & $rdk -i; if($LASTEXITCODE-ne 0){throw 'Gate17 i failed'}
+          }finally{Pop-Location}
+          $proj|Set-Content (Join-Path $env:RUNNER_TEMP 'gate17-project.txt')
+          @('GATE17_RDK_P_EXIT=0','GATE17_RDK_C_EXIT=0','GATE17_INSTALL_EXIT=0')|Add-Content (Join-Path $env:RUNNER_TEMP 'evidence.txt')
+
+      - name: Gate 17 phase 1 write and close gracefully
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Add-Type -AssemblyName UIAutomationClient;Add-Type -AssemblyName UIAutomationTypes
+          $tester=(Get-Content (Join-Path $env:RUNNER_TEMP 'tester.txt') -Raw).Trim();$rdk=(Get-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt') -Raw).Trim();$proj=(Get-Content (Join-Path $env:RUNNER_TEMP 'gate17-project.txt') -Raw).Trim();$ev=Join-Path $env:RUNNER_TEMP 'evidence.txt'
+          $tp=Start-Process $tester -PassThru;Start-Sleep 8
+          Push-Location $proj;try{& $rdk -i;if($LASTEXITCODE-ne 0){throw 'Gate17 phase1 live install failed'}}finally{Pop-Location}
+          $root=[Windows.Automation.AutomationElement]::RootElement;$marker=''
+          for($i=0;$i-lt 900;$i++){$all=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition);foreach($e in $all){try{$n=[string]$e.Current.Name;if($n-match 'GATE17_(PHASE1_PASS|PHASE1_FAIL|NDB_OPEN_FAIL)'){$marker=$n;break}}catch{}};if($marker-ne ''){break};Start-Sleep 1}
+          $marker|Set-Content (Join-Path $env:RUNNER_TEMP 'phase1.txt');"GATE17_PHASE1_MARKER=$marker"|Add-Content $ev
+          if($marker-notmatch 'GATE17_PHASE1_PASS'){throw "Gate17 phase1 failed/timed out: $marker"}
+          $ws=New-Object -ComObject WScript.Shell;[void]$ws.AppActivate($tp.Id);$ws.SendKeys('{ENTER}');Start-Sleep 15;[void]$ws.AppActivate($tp.Id);$ws.SendKeys('%{F4}')
+          if(-not $tp.WaitForExit(30000)){throw 'phase1 did not close gracefully'}
+          @('GATE17_PHASE1_GRACEFUL_CLOSE=1','GATE17_PHASE1=PASS')|Add-Content $ev
+
+      - name: Gate 17 phase 2 fresh process reopens state
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Add-Type -AssemblyName UIAutomationClient;Add-Type -AssemblyName UIAutomationTypes
+          $tester=(Get-Content (Join-Path $env:RUNNER_TEMP 'tester.txt') -Raw).Trim();$ev=Join-Path $env:RUNNER_TEMP 'evidence.txt'
+          $tp=Start-Process $tester -PassThru;Start-Sleep 2
+          $root=[Windows.Automation.AutomationElement]::RootElement;$marker=''
+          for($i=0;$i-lt 900;$i++){$all=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition);foreach($e in $all){try{$n=[string]$e.Current.Name;if($n-match 'GATE17_(PHASE2_PASS|PHASE2_FAIL|NDB_OPEN_FAIL)'){$marker=$n;break}}catch{}};if($marker-ne ''){break};Start-Sleep 1}
+          $marker|Set-Content (Join-Path $env:RUNNER_TEMP 'phase2.txt');"GATE17_PHASE2_MARKER=$marker"|Add-Content $ev
+          if($marker-notmatch 'GATE17_PHASE2_PASS'){throw "Gate17 phase2 failed/timed out: $marker"}
+          $ws=New-Object -ComObject WScript.Shell;[void]$ws.AppActivate($tp.Id);$ws.SendKeys('{ENTER}');Start-Sleep 5;[void]$ws.AppActivate($tp.Id);$ws.SendKeys('%{F4}')
+          if(-not $tp.WaitForExit(30000)){throw 'phase2 did not close gracefully'}
+          @('GATE17_PHASE2_GRACEFUL_CLOSE=1','GATE17=PASS')|Add-Content $ev
+
+      - name: Gate 18 restore exact final plugin and smoke
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Add-Type -AssemblyName UIAutomationClient;Add-Type -AssemblyName UIAutomationTypes
+          $rdk=(Get-Content (Join-Path $env:RUNNER_TEMP 'rdk.txt') -Raw).Trim();$proj=(Get-Content (Join-Path $env:RUNNER_TEMP 'final-project.txt') -Raw).Trim();$tester=(Get-Content (Join-Path $env:RUNNER_TEMP 'tester.txt') -Raw).Trim();$ev=Join-Path $env:RUNNER_TEMP 'evidence.txt'
+          Push-Location $proj;try{& $rdk -i;if($LASTEXITCODE-ne 0){throw 'final restore failed'}}finally{Pop-Location}
+          $tp=Start-Process $tester -PassThru;Start-Sleep 10
+          Push-Location $proj;try{& $rdk -i;if($LASTEXITCODE-ne 0){throw 'final live restore failed'}}finally{Pop-Location};Start-Sleep 8
+          $root=[Windows.Automation.AutomationElement]::RootElement;$errCond=[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,'Error')
+          if($root.FindFirst([Windows.Automation.TreeScope]::Descendants,$errCond)){throw 'Error after final restore'}
+          if($tp.HasExited){throw 'RRPGFichas exited after final restore'}
+          @('GATE18_FINAL_ERROR=0','GATE18=PASS','OVERALL_18_OF_18=PASS')|Add-Content $ev
+
+      - name: Collect proof only
+        if: always()
+        shell: pwsh
+        run: |
+          $out=Join-Path $env:RUNNER_TEMP 'proof';New-Item -ItemType Directory -Force $out|Out-Null
+          foreach($f in @('evidence.txt','phase1.txt','phase2.txt')){$p=Join-Path $env:RUNNER_TEMP $f;if(Test-Path $p){Copy-Item $p $out -Force}}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: digimon-gate17-18-final-proof
+          path: ${{ runner.temp }}/proof
