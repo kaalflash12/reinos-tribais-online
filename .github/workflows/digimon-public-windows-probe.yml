@@ -17,7 +17,7 @@ jobs:
           $z=Join-Path $env:GITHUB_WORKSPACE 'gate17-bundle.zip'
           py -m gdown 'https://drive.google.com/uc?id=1LWaYGuvoVLQ-TP3Yj0nqVprosbmYe_1b' -O $z
           $sha=(Get-FileHash $z -Algorithm SHA256).Hash.ToLowerInvariant()
-          if($sha-ne '06a479588fcd822070449666e76509de52337927c0b0d960227228bd0ccf13ce'){throw "Unexpected bundle SHA $sha"}
+          if($sha-ne '6f81f37e59cd72a8e004cb286073f7c22237a22f42fa80df311612d603c7a3f6'){throw "Unexpected bundle SHA $sha"}
           Expand-Archive $z (Join-Path $env:GITHUB_WORKSPACE 'gate17-bundle') -Force
       - name: Execute Gate 17 and Gate 18
         shell: pwsh
