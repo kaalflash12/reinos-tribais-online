@@ -1,4 +1,4 @@
-name: DIGIMON Direct Plugin Folder Probe
+name: DIGIMON Firecast Tester Mode Probe
 
 on:
   push:
@@ -9,7 +9,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - name: Install Firecast from Store
+      - name: Install Firecast Store
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
@@ -17,48 +17,46 @@ jobs:
           $firecast=Join-Path $env:LOCALAPPDATA 'Firecast\Firecast.exe';if(-not(Test-Path $firecast)){throw 'Firecast missing'}
           $firecast|Set-Content (Join-Path $env:RUNNER_TEMP 'firecast.txt')
 
-      - name: Download exact RPK and make init probe
+      - name: Scan executable and resources for tester switches
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          $url='https://sdmntprbrazilsouth.oaiusercontent.com/files/00000000-18f8-820e-bdf8-914c893ffe22/raw?se=2026-08-31T03%3A09%3A09Z&sp=r&sv=2026-02-06&sr=b&scid=635502ab-9971-5a0d-881c-e5595ae894a2&skoid=33096a49-a96b-4506-9fc4-04a7517f8175&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-30T12%3A00%3A59Z&ske=2026-08-31T12%3A00%3A59Z&sks=b&skv=2026-02-06&sig=um2wtwK9mhIll6Ev04yylp5NS3B3aLMDjTV55h9mmfQ%3D'
-          $payload=Join-Path $env:RUNNER_TEMP 'runtime.zip';Invoke-WebRequest -UseBasicParsing $url -OutFile $payload
-          $sha=(Get-FileHash $payload -Algorithm SHA256).Hash.ToLowerInvariant();if($sha-ne '11772513bec42381a2f42b1583d0daed205627c9d328af0c6503d5e8c994af8a'){throw "payload sha $sha"}
-          $d=Join-Path $env:RUNNER_TEMP 'runtime';Expand-Archive $payload $d -Force;$final=Join-Path $d 'DIGIMON_ERA_DA_DUALIDADE_FINAL.rpk'
-          $rpksha=(Get-FileHash $final -Algorithm SHA256).Hash.ToLowerInvariant();if($rpksha-ne '2fc71a67cc988da637fce0d5d488a61ef807a00c675a32eb5c26334560704056'){throw "rpk sha $rpksha"}
-          $probe=Join-Path $env:RUNNER_TEMP 'DigiTerionMon.EraDaDualidade.rpk'
-          $env:FINAL_RPK=$final;$env:PROBE_RPK=$probe
-          @'
-          import zipfile,os
-          src=os.environ['FINAL_RPK'];out=os.environ['PROBE_RPK']
-          init='require("vhd.lua")\nVHD.addSearchPath("/DigiTerionMon")\nVHD.addSearchPath("/DigiTerionMon/scripts")\nshowMessage("GATE17_DIRECT_PLUGIN_INIT_OK")\n'
-          with zipfile.ZipFile(src,'r') as zin,zipfile.ZipFile(out,'w',compression=zipfile.ZIP_DEFLATED) as zout:
-              for info in zin.infolist():
-                  data=zin.read(info.filename)
-                  if info.filename=='init.lua': data=init.encode('utf-8')
-                  zout.writestr(info,data)
-          '@|Set-Content (Join-Path $env:RUNNER_TEMP 'make.py') -Encoding UTF8
-          py (Join-Path $env:RUNNER_TEMP 'make.py')
-          $probe|Set-Content (Join-Path $env:RUNNER_TEMP 'probe.txt')
-
-      - name: Copy RPK to Plugins and prove init loads
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
-          Add-Type -AssemblyName UIAutomationClient;Add-Type -AssemblyName UIAutomationTypes
-          $firecast=(Get-Content (Join-Path $env:RUNNER_TEMP 'firecast.txt') -Raw).Trim();$probe=(Get-Content (Join-Path $env:RUNNER_TEMP 'probe.txt') -Raw).Trim()
-          Get-Process Firecast -ErrorAction SilentlyContinue|Stop-Process -Force
-          $plugdir=Join-Path $env:APPDATA 'Firecast\Plugins';New-Item -ItemType Directory -Force $plugdir|Out-Null
-          $dst=Join-Path $plugdir 'DigiTerionMon.EraDaDualidade.rpk';Copy-Item $probe $dst -Force
-          "INSTALLED_RPK_SHA=$((Get-FileHash $dst -Algorithm SHA256).Hash.ToLowerInvariant())"
-          Start-Process $firecast;Start-Sleep 8
-          $root=[Windows.Automation.AutomationElement]::RootElement;$marker='';$err=''
-          for($i=0;$i-lt 60;$i++){
-            $all=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)
-            foreach($e in $all){try{$n=[string]$e.Current.Name;if($n-match 'GATE17_DIRECT_PLUGIN_INIT_OK'){$marker=$n};if($n-eq 'Error'){$err='Error'}}catch{}}
-            if($marker-or$err){break};Start-Sleep 1
-          }
-          "MARKER=$marker";"ERROR_WINDOW=$err"
-          if($err){throw 'Plugin produced Error window'}
-          if($marker-notmatch 'GATE17_DIRECT_PLUGIN_INIT_OK'){throw 'Direct plugin folder init marker not observed'}
-          Write-Host 'DIRECT_PLUGIN_FOLDER_PASS=1'
+          $firecast=(Get-Content (Join-Path $env:RUNNER_TEMP 'firecast.txt') -Raw).Trim()
+          $py=@'
+          import os,re,zipfile
+          exe=os.environ['FIRECAST_EXE']
+          data=open(exe,'rb').read()
+          def ascii_strings(b,minlen=4):
+              return (m.group().decode('latin1','ignore') for m in re.finditer(rb'[ -~]{%d,}'%minlen,b))
+          def utf16_strings(b,minlen=4):
+              pat=rb'(?:[ -~]\x00){%d,}'%minlen
+              return (m.group().decode('utf-16le','ignore') for m in re.finditer(pat,b))
+          terms=('rrpgfichas','sheettemplate','rpk','plugin','ficha','sheet','tester','teste','commandline','paramstr','--','/test','-test','sdk3')
+          seen=set();hits=[]
+          for s in list(ascii_strings(data))+list(utf16_strings(data)):
+              sl=s.lower()
+              if any(t in sl for t in terms):
+                  s=s.strip()
+                  if s and s not in seen:
+                      seen.add(s);hits.append(s)
+          print('=== FIRECAST EXE MATCHES ===')
+          for s in hits[:1200]: print(s[:500])
+          res=os.path.join(os.path.dirname(exe),'resource.zip')
+          print('=== RESOURCE ZIP ===')
+          if zipfile.is_zipfile(res):
+              with zipfile.ZipFile(res) as z:
+                  print('entries',len(z.namelist()))
+                  for n in z.namelist():
+                      nl=n.lower()
+                      if any(t in nl for t in ('plugin','ficha','sheet','sdk','rrpg')): print('NAME',n)
+                  for n in z.namelist():
+                      if n.lower().endswith(('.lua','.txt','.xml','.json')):
+                          try: s=z.read(n).decode('utf-8','ignore')
+                          except: continue
+                          if any(t in s.lower() for t in ('paramstr','commandline','rrpgfichas','sheettemplate','installplugin')):
+                              print('FILE',n)
+                              for line in s.splitlines():
+                                  if any(t in line.lower() for t in ('paramstr','commandline','rrpgfichas','sheettemplate','installplugin')):
+                                      print(line[:700])
+          '@
+          $env:FIRECAST_EXE=$firecast;$p=Join-Path $env:RUNNER_TEMP 'scan.py';$py|Set-Content $p -Encoding UTF8;py $p
