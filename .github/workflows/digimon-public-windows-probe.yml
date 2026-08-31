@@ -1,4 +1,4 @@
-name: DIGIMON Firecast Bootstrap Probe
+name: DIGIMON Manual RPK Probe
 
 on:
   push:
@@ -12,67 +12,73 @@ jobs:
       - name: Install Firecast from Microsoft Store
         shell: pwsh
         run: |
-          $ErrorActionPreference='Continue'
+          $ErrorActionPreference='Stop'
           winget source update
-          $o = winget install --id XP9B1DQSFR12KZ --source msstore --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-String
-          $o | Set-Content "$env:RUNNER_TEMP\winget-firecast.log"
-          Write-Host $o
-          Get-ChildItem "$env:LOCALAPPDATA" -Recurse -Filter 'RRPGFichas.exe' -ErrorAction SilentlyContinue | Select-Object -First 5 FullName,Length
-          Get-ChildItem "$env:LOCALAPPDATA" -Recurse -Filter 'Firecast*.exe' -ErrorAction SilentlyContinue | Select-Object -First 10 FullName,Length
+          winget install --id XP9B1DQSFR12KZ --source msstore --accept-source-agreements --accept-package-agreements --silent
+          $firecast=Join-Path $env:LOCALAPPDATA 'Firecast\Firecast.exe'
+          if(-not(Test-Path $firecast)){throw 'Firecast.exe missing'}
+          $v=(Get-Item $firecast).VersionInfo
+          "FIRECAST_FILE_VERSION=$($v.FileVersion)"
+          "FIRECAST_PRODUCT_VERSION=$($v.ProductVersion)"
+          $firecast|Set-Content (Join-Path $env:RUNNER_TEMP 'firecast-path.txt')
 
-      - name: Download RDK 3.7b through real Chromium
+      - name: Download exact final RPK and build init probe
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          py -m pip install --disable-pip-version-check --quiet selenium
-          $script = @'
-          import os,time,glob
-          from selenium import webdriver
-          from selenium.webdriver.chrome.options import Options
-          d=os.environ['RUNNER_TEMP']
-          opts=Options()
-          opts.add_argument('--headless=new')
-          opts.add_argument('--disable-gpu')
-          opts.add_argument('--no-sandbox')
-          opts.add_argument('--disable-dev-shm-usage')
-          opts.add_argument('--disable-blink-features=AutomationControlled')
-          opts.add_experimental_option('prefs', {'download.default_directory':d,'download.prompt_for_download':False,'download.directory_upgrade':True,'safebrowsing.enabled':True})
-          driver=webdriver.Chrome(options=opts)
-          try:
-              driver.get('https://firecast.app/downloads/RDK3.7.b.exe')
-              end=time.time()+120
-              while time.time()<end:
-                  hits=[p for p in glob.glob(os.path.join(d,'*')) if os.path.basename(p).lower().startswith('rdk3.7') and not p.endswith('.crdownload')]
-                  if hits and os.path.getsize(hits[0])>100000:
-                      print('RDK_BROWSER_DOWNLOAD='+hits[0])
-                      print('RDK_SIZE='+str(os.path.getsize(hits[0])))
-                      break
-                  time.sleep(2)
-              else:
-                  print('TITLE='+driver.title)
-                  print('URL='+driver.current_url)
-                  print('BODY='+driver.find_element('tag name','body').text[:1000])
-                  raise SystemExit('RDK browser download timeout')
-          finally:
-              driver.quit()
+          $url='https://sdmntprbrazilsouth.oaiusercontent.com/files/00000000-449c-820e-8547-60c744159c28/raw?se=2026-08-31T03%3A04%3A25Z&sp=r&sv=2026-02-06&sr=b&scid=52aa59e0-941c-5d27-8726-894693b83a3a&skoid=33096a49-a96b-4506-9fc4-04a7517f8175&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-08-30T18%3A47%3A19Z&ske=2026-08-31T18%3A47%3A19Z&sks=b&skv=2026-02-06&sig=Zp7icvZtXoOTSRV381%2BQiushby74fw4HseOGJ7GFLvI%3D'
+          $payload=Join-Path $env:RUNNER_TEMP 'runtime.zip'
+          Invoke-WebRequest -UseBasicParsing $url -OutFile $payload
+          $sha=(Get-FileHash $payload -Algorithm SHA256).Hash.ToLowerInvariant();"PAYLOAD_SHA=$sha"
+          if($sha-ne '11772513bec42381a2f42b1583d0daed205627c9d328af0c6503d5e8c994af8a'){throw "Unexpected payload SHA $sha"}
+          $d=Join-Path $env:RUNNER_TEMP 'runtime';Expand-Archive $payload $d -Force
+          $final=Join-Path $d 'DIGIMON_ERA_DA_DUALIDADE_FINAL.rpk'
+          if(-not(Test-Path $final)){throw 'final RPK missing'}
+          $rpksha=(Get-FileHash $final -Algorithm SHA256).Hash.ToLowerInvariant();"FINAL_RPK_SHA=$rpksha"
+          if($rpksha-ne '2fc71a67cc988da637fce0d5d488a61ef807a00c675a32eb5c26334560704056'){throw "Unexpected RPK SHA $rpksha"}
+          $probe=Join-Path $env:RUNNER_TEMP 'DIGIMON_GATE17_MANUAL_PROBE.rpk'
+          $py=@'
+          import zipfile,os
+          src=os.environ['FINAL_RPK']; out=os.environ['PROBE_RPK']
+          init='require("vhd.lua")\nVHD.addSearchPath("/DigiTerionMon")\nVHD.addSearchPath("/DigiTerionMon/scripts")\nshowMessage("GATE17_MANUAL_RPK_INIT_OK")\n'
+          with zipfile.ZipFile(src,'r') as zin, zipfile.ZipFile(out,'w',compression=zipfile.ZIP_DEFLATED) as zout:
+              for info in zin.infolist():
+                  data=zin.read(info.filename)
+                  if info.filename=='init.lua': data=init.encode('utf-8')
+                  zout.writestr(info,data)
+          with zipfile.ZipFile(out) as z:
+              bad=z.testzip()
+              if bad: raise SystemExit('bad zip '+bad)
           '@
-          $py=Join-Path $env:RUNNER_TEMP 'download_rdk.py';$script|Set-Content $py -Encoding UTF8
-          py $py
-          $rdki=Get-ChildItem $env:RUNNER_TEMP -Filter 'RDK3.7*.exe' -File | Select-Object -First 1
-          if(-not $rdki){throw 'RDK installer not downloaded'}
-          $p=Start-Process $rdki.FullName -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-') -Wait -PassThru
-          if($p.ExitCode-ne 0){throw "RDK install failed $($p.ExitCode)"}
-          $rdk=Join-Path $env:LOCALAPPDATA 'FirecastSDK3\rdk.exe'
-          $tester=Join-Path $env:LOCALAPPDATA 'FirecastSDK3\RRPGFichas.exe'
-          "RDK_EXISTS=$(Test-Path $rdk)"
-          "TESTER_EXISTS=$(Test-Path $tester)"
-          if(-not(Test-Path $rdk)){throw 'rdk.exe missing after install'}
-          if(-not(Test-Path $tester)){throw 'RRPGFichas.exe missing after install'}
-          & $rdk --version 2>&1 | Out-String | Write-Host
+          $env:FINAL_RPK=$final;$env:PROBE_RPK=$probe
+          $pys=Join-Path $env:RUNNER_TEMP 'make_probe.py';$py|Set-Content $pys -Encoding UTF8;py $pys
+          $probe|Set-Content (Join-Path $env:RUNNER_TEMP 'probe-path.txt')
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: digimon-firecast-bootstrap-probe
-          path: |
-            ${{ runner.temp }}/winget-firecast.log
+      - name: Install probe RPK manually and prove init executes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Add-Type -AssemblyName UIAutomationClient;Add-Type -AssemblyName UIAutomationTypes
+          $firecast=(Get-Content (Join-Path $env:RUNNER_TEMP 'firecast-path.txt') -Raw).Trim()
+          $probe=(Get-Content (Join-Path $env:RUNNER_TEMP 'probe-path.txt') -Raw).Trim()
+          function Find-Marker {
+            $root=[Windows.Automation.AutomationElement]::RootElement
+            $all=$root.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)
+            foreach($e in $all){try{$n=[string]$e.Current.Name;if($n-match 'GATE17_MANUAL_RPK_INIT_OK'){return $n}}catch{}}
+            return ''
+          }
+          Get-Process Firecast -ErrorAction SilentlyContinue|Stop-Process -Force
+          $p=Start-Process $firecast -ArgumentList @($probe) -PassThru
+          $marker=''
+          for($i=0;$i-lt 45;$i++){Start-Sleep 1;$marker=Find-Marker;if($marker){break}}
+          if(-not $marker){
+            Write-Host 'Direct Firecast argument produced no marker; trying shell-open .rpk'
+            try{Start-Process $probe}catch{Write-Host $_}
+            for($i=0;$i-lt 45;$i++){Start-Sleep 1;$marker=Find-Marker;if($marker){break}}
+          }
+          $root=[Windows.Automation.AutomationElement]::RootElement
+          $all=$root.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.Condition]::TrueCondition)
+          foreach($e in $all){try{Write-Host ('TOP_WINDOW='+[string]$e.Current.Name)}catch{}}
+          "MARKER=$marker"
+          if($marker-notmatch 'GATE17_MANUAL_RPK_INIT_OK'){throw 'Manual RPK init marker not observed'}
+          Write-Host 'MANUAL_RPK_INSTALL_PASS=1'
