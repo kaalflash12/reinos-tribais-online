@@ -1,31 +1,78 @@
-name: DIGIMON Gate 17-18 Temporary Runner
+name: DIGIMON Firecast Bootstrap Probe
 
 on:
   push:
     branches: [digimon-ci-public-probe-20260830]
 
 jobs:
-  gate17:
+  probe:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
-      - name: Download exact temporary private bundle
+      - name: Install Firecast from Microsoft Store
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Continue'
+          winget source update
+          $o = winget install --id XP9B1DQSFR12KZ --source msstore --accept-source-agreements --accept-package-agreements --silent 2>&1 | Out-String
+          $o | Set-Content "$env:RUNNER_TEMP\winget-firecast.log"
+          Write-Host $o
+          Get-ChildItem "$env:LOCALAPPDATA" -Recurse -Filter 'RRPGFichas.exe' -ErrorAction SilentlyContinue | Select-Object -First 5 FullName,Length
+          Get-ChildItem "$env:LOCALAPPDATA" -Recurse -Filter 'Firecast*.exe' -ErrorAction SilentlyContinue | Select-Object -First 10 FullName,Length
+
+      - name: Download RDK 3.7b through real Chromium
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
-          py -m pip install --disable-pip-version-check --quiet gdown
-          $z=Join-Path $env:GITHUB_WORKSPACE 'gate17-bundle.zip'
-          py -m gdown 'https://drive.google.com/uc?id=1LWaYGuvoVLQ-TP3Yj0nqVprosbmYe_1b' -O $z
-          $sha=(Get-FileHash $z -Algorithm SHA256).Hash.ToLowerInvariant()
-          if($sha-ne '42094ab528b6f2139b0f2b09ef6741fb3a5640b5ba0f45041270c9e1f3d70bdb'){throw "Unexpected bundle SHA $sha"}
-          Expand-Archive $z (Join-Path $env:GITHUB_WORKSPACE 'gate17-bundle') -Force
-      - name: Execute Gate 17 and Gate 18
-        shell: pwsh
-        run: |
-          & (Join-Path $env:GITHUB_WORKSPACE 'gate17-bundle\run_gate17.ps1')
-          if($LASTEXITCODE-ne 0){exit $LASTEXITCODE}
+          py -m pip install --disable-pip-version-check --quiet selenium
+          $script = @'
+          import os,time,glob
+          from selenium import webdriver
+          from selenium.webdriver.chrome.options import Options
+          d=os.environ['RUNNER_TEMP']
+          opts=Options()
+          opts.add_argument('--headless=new')
+          opts.add_argument('--disable-gpu')
+          opts.add_argument('--no-sandbox')
+          opts.add_argument('--disable-dev-shm-usage')
+          opts.add_argument('--disable-blink-features=AutomationControlled')
+          opts.add_experimental_option('prefs', {'download.default_directory':d,'download.prompt_for_download':False,'download.directory_upgrade':True,'safebrowsing.enabled':True})
+          driver=webdriver.Chrome(options=opts)
+          try:
+              driver.get('https://firecast.app/downloads/RDK3.7.b.exe')
+              end=time.time()+120
+              while time.time()<end:
+                  hits=[p for p in glob.glob(os.path.join(d,'*')) if os.path.basename(p).lower().startswith('rdk3.7') and not p.endswith('.crdownload')]
+                  if hits and os.path.getsize(hits[0])>100000:
+                      print('RDK_BROWSER_DOWNLOAD='+hits[0])
+                      print('RDK_SIZE='+str(os.path.getsize(hits[0])))
+                      break
+                  time.sleep(2)
+              else:
+                  print('TITLE='+driver.title)
+                  print('URL='+driver.current_url)
+                  print('BODY='+driver.find_element('tag name','body').text[:1000])
+                  raise SystemExit('RDK browser download timeout')
+          finally:
+              driver.quit()
+          '@
+          $py=Join-Path $env:RUNNER_TEMP 'download_rdk.py';$script|Set-Content $py -Encoding UTF8
+          py $py
+          $rdki=Get-ChildItem $env:RUNNER_TEMP -Filter 'RDK3.7*.exe' -File | Select-Object -First 1
+          if(-not $rdki){throw 'RDK installer not downloaded'}
+          $p=Start-Process $rdki.FullName -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-') -Wait -PassThru
+          if($p.ExitCode-ne 0){throw "RDK install failed $($p.ExitCode)"}
+          $rdk=Join-Path $env:LOCALAPPDATA 'FirecastSDK3\rdk.exe'
+          $tester=Join-Path $env:LOCALAPPDATA 'FirecastSDK3\RRPGFichas.exe'
+          "RDK_EXISTS=$(Test-Path $rdk)"
+          "TESTER_EXISTS=$(Test-Path $tester)"
+          if(-not(Test-Path $rdk)){throw 'rdk.exe missing after install'}
+          if(-not(Test-Path $tester)){throw 'RRPGFichas.exe missing after install'}
+          & $rdk --version 2>&1 | Out-String | Write-Host
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: digimon-gate17-18-final-evidence
-          path: ${{ github.workspace }}/gate17-bundle/gate17-output
+          name: digimon-firecast-bootstrap-probe
+          path: |
+            ${{ runner.temp }}/winget-firecast.log
