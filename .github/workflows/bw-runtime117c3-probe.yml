@@ -1,0 +1,26 @@
+name: BW Runtime117c3 Probe
+on:
+  push:
+    branches: [bw-v19-deploy-payload-20260901]
+    paths: ['.github/workflows/bw-runtime117c3-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE: https://bw117c3-runtime-8sfigr3tq-kaalflash12s-projects.vercel.app
+      SHARE: https://bw117c3-runtime-8sfigr3tq-kaalflash12s-projects.vercel.app/?_vercel_share=PjqsOrxJLZXrZyCU6Bjqhc9JQNFBRHAB
+    steps:
+      - name: Establish share session
+        run: curl -fsSL -c /tmp/cj -b /tmp/cj "$SHARE" -o /tmp/root
+      - name: Probe API contract
+        run: |
+          set -euo pipefail
+          for q in 'op=health' 'op=manifest' 'op=info' 'op=routes' 'op=source'; do
+            echo "=== $q ==="
+            curl -sS -L -c /tmp/cj -b /tmp/cj -D /tmp/h -o /tmp/b "$BASE/api/full?$q"
+            head -n 20 /tmp/h
+            head -c 1600 /tmp/b; echo
+          done
