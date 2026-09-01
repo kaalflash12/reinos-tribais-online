@@ -1,0 +1,25 @@
+name: BW Payload117c3 Probe
+on:
+  push:
+    branches: [bw-v19-deploy-payload-20260901]
+    paths: ['.github/workflows/bw-payload117c3-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE: https://bw117c3-payload-ea47pzpx0-kaalflash12s-projects.vercel.app
+      SHARE: https://bw117c3-payload-ea47pzpx0-kaalflash12s-projects.vercel.app/?_vercel_share=6CvbSDmonDTk1Vmtbs6cYFwdFvhafKqH
+    steps:
+      - run: curl -fsSL -c /tmp/cj -b /tmp/cj "$SHARE" -o /tmp/root
+      - run: |
+          set -euo pipefail
+          paths=(/ /meta.json /manifest.json /payload.json /metadata.json /index.json /chunk-0.txt /chunk-00.txt /chunks/0.txt /chunks/00.txt /payload/0.txt /payload/00.txt /c0 /c00 /api/meta /api/payload)
+          for p in "${paths[@]}"; do
+            code=$(curl -sS -L -c /tmp/cj -b /tmp/cj -o /tmp/b -w '%{http_code}' "$BASE$p")
+            bytes=$(wc -c </tmp/b)
+            echo "=== $p $code $bytes ==="
+            if [ "$code" != 404 ]; then head -c 2000 /tmp/b; echo; fi
+          done
