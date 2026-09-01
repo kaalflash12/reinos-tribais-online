@@ -1,0 +1,15 @@
+name: BW Deno Token Presence Probe
+on:
+  push:
+    branches: [bw-v19-deploy-payload-20260901]
+    paths: ['.github/workflows/bw-deno-token-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    env:
+      DENO_DEPLOY_TOKEN: ${{ secrets.DENO_DEPLOY_TOKEN }}
+    steps:
+      - run: |
+          if [ -n "$DENO_DEPLOY_TOKEN" ]; then echo DENO_TOKEN_PRESENT; else echo DENO_TOKEN_ABSENT; fi
