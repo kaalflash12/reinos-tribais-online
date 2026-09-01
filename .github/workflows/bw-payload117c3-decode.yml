@@ -8,15 +8,28 @@ jobs:
   decode:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch protected payload root
+      - name: Fetch and decode payload root
         env:
+          BASE: https://bw117c3-payload-ea47pzpx0-kaalflash12s-projects.vercel.app
           SHARE: https://bw117c3-payload-ea47pzpx0-kaalflash12s-projects.vercel.app/?_vercel_share=6CvbSDmonDTk1Vmtbs6cYFwdFvhafKqH
         run: |
           set -euo pipefail
-          curl -fsSL -c /tmp/cj -b /tmp/cj "$SHARE" -o /tmp/root.b64
+          curl -fsSL -c /tmp/cj -b /tmp/cj "$SHARE" -o /tmp/auth
+          curl -fsSL -L -c /tmp/cj -b /tmp/cj "$BASE/" -o /tmp/root.b64
           tr -d '\r\n' </tmp/root.b64 >/tmp/root.one
           echo "ROOT_B64_BYTES=$(wc -c </tmp/root.one)"
-          base64 -d /tmp/root.one >/tmp/root.gz
+          python - <<'PY'
+          import base64, pathlib
+          s=pathlib.Path('/tmp/root.one').read_text().strip()
+          print('PREFIX',repr(s[:80]))
+          print('SUFFIX',repr(s[-80:]))
+          try:
+              b=base64.b64decode(s, validate=True)
+          except Exception as e:
+              print('BASE64_ERROR',repr(e))
+              raise
+          pathlib.Path('/tmp/root.gz').write_bytes(b)
+          PY
           echo "ROOT_GZIP_BYTES=$(wc -c </tmp/root.gz)"
           sha256sum /tmp/root.gz
           file /tmp/root.gz
@@ -28,11 +41,10 @@ jobs:
           echo '--- FIRST 3000 DECODED BYTES ---'
           head -c 3000 /tmp/root.dec || true
           echo
-          echo '--- JSON/TEXT STRUCTURE ---'
+          echo '--- STRUCTURE ---'
           python - <<'PY'
-          import json, pathlib
-          p=pathlib.Path('/tmp/root.dec')
-          b=p.read_bytes()
+          import json, pathlib, re
+          b=pathlib.Path('/tmp/root.dec').read_bytes()
           try:
               x=json.loads(b)
               print('JSON_TYPE', type(x).__name__)
@@ -40,8 +52,7 @@ jobs:
                   print('TOP_KEYS', sorted(x.keys()))
                   for k,v in x.items():
                       if isinstance(v,(str,int,float,bool)) or v is None:
-                          s=repr(v)
-                          print('KEY',k,'=',s[:500])
+                          print('KEY',k,'=',repr(v)[:1000])
                       elif isinstance(v,(list,dict)):
                           print('KEY',k,'TYPE',type(v).__name__,'LEN',len(v))
               elif isinstance(x,list):
@@ -49,7 +60,6 @@ jobs:
           except Exception as e:
               print('NOT_JSON',repr(e))
               print('ASCII_STRINGS')
-              import re
-              for s in re.findall(rb'[ -~]{8,}', b)[:100]:
-                  print(s[:500].decode('ascii','replace'))
+              for s in re.findall(rb'[ -~]{8,}', b)[:150]:
+                  print(s[:1000].decode('ascii','replace'))
           PY
