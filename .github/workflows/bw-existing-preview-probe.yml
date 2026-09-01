@@ -1,0 +1,34 @@
+name: BW Existing V19 Site Preview Probe
+on:
+  push:
+    branches: [bw-v19-deploy-payload-20260901]
+    paths: ['.github/workflows/bw-existing-preview-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE: https://bacathegasworld-complete-oycf5ih21-kaalflash12s-projects.vercel.app
+      SHARE: https://bacathegasworld-complete-oycf5ih21-kaalflash12s-projects.vercel.app/?_vercel_share=aNDZoh3qVOshyl6sIcwpBw608F2WILHw
+    steps:
+      - name: Establish Vercel share session
+        run: |
+          set -euo pipefail
+          curl -fsSL -c /tmp/cj -b /tmp/cj "$SHARE" -o /tmp/root.html
+          echo "ROOT_BYTES=$(wc -c </tmp/root.html)"
+      - name: Probe routes
+        run: |
+          set -euo pipefail
+          for p in / /deep /finance /health; do
+            code=$(curl -sS -L -c /tmp/cj -b /tmp/cj -o "/tmp/out$(echo "$p"|tr / _).txt" -w '%{http_code}' "$BASE$p")
+            bytes=$(wc -c <"/tmp/out$(echo "$p"|tr / _).txt")
+            echo "ROUTE $p STATUS $code BYTES $bytes"
+            head -c 240 "/tmp/out$(echo "$p"|tr / _).txt" | tr '\n' ' '; echo
+          done
+      - name: Route assertions
+        run: |
+          set -euo pipefail
+          test "$(curl -sS -L -c /tmp/cj -b /tmp/cj -o /dev/null -w '%{http_code}' "$BASE/")" = 200
+          test "$(curl -sS -L -c /tmp/cj -b /tmp/cj -o /dev/null -w '%{http_code}' "$BASE/finance")" = 200
