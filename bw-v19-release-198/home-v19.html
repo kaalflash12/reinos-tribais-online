@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#071019">
+  <meta name="description" content="BacathegasWorld V19.8 — mundo brasileiro persistente, economia, relações, empresas, governo e legado.">
+  <title>BacathegasWorld — Mundo Vivo V19.8</title>
+  <link rel="stylesheet" href="/styles/v19-home.css">
+</head>
+<body>
+  <div id="authScreen" class="auth-screen" hidden>
+    <section class="auth-card">
+      <div class="brand-lockup"><span class="brand-mark">BW</span><div><strong>BacathegasWorld</strong><small>Mundo Vivo · V19.8</small></div></div>
+      <h1>Entre na sua vida.</h1>
+      <p>Seu personagem, patrimônio e mundo persistem entre sessões.</p>
+      <div class="auth-tabs"><button class="active" data-auth-tab="login">Entrar</button><button data-auth-tab="signup">Criar conta</button></div>
+      <form id="loginForm" class="auth-form">
+        <label>E-mail<input id="loginEmail" type="email" required autocomplete="email"></label>
+        <label>Senha<input id="loginPassword" type="password" required autocomplete="current-password"></label>
+        <button class="primary" type="submit">Entrar no mundo</button>
+      </form>
+      <form id="signupForm" class="auth-form" hidden>
+        <label>Nome<input id="signupName" required autocomplete="name"></label>
+        <label>E-mail<input id="signupEmail" type="email" required autocomplete="email"></label>
+        <label>Senha<input id="signupPassword" type="password" minlength="8" required autocomplete="new-password"></label>
+        <button class="primary" type="submit">Criar conta e começar</button>
+      </form>
+      <div id="authStatus" class="status-line"></div>
+    </section>
+  </div>
+
+  <div id="shell" class="shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="#inicio" data-nav="inicio"><span class="brand-mark">BW</span><span><strong>BacathegasWorld</strong><small>V19.8 · Mundo Vivo</small></span></a>
+      <nav class="nav">
+        <button class="active" data-nav="inicio"><span>⌂</span>Início</button>
+        <button data-nav="personagem"><span>◉</span>Personagem</button>
+        <button data-nav="mundo"><span>◎</span>Mundo Vivo</button>
+        <button data-nav="economia"><span>▥</span>Economia</button>
+        <button data-nav="governo"><span>◆</span>Governo</button>
+        <button data-nav="financas"><span>▤</span>Finanças</button>
+        <button data-nav="auditoria"><span>✓</span>Auditoria</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="live-pill"><i></i><span>Produção conectada</span></div>
+        <button id="logoutBtn" class="ghost">Sair</button>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <button id="menuBtn" class="menu-btn">☰</button>
+        <div><span id="viewKicker" class="kicker">VISÃO GERAL</span><h1 id="viewTitle">Sua vida continua aqui.</h1></div>
+        <div class="top-meta"><span id="worldClock">—</span><span id="versionBadge">V19.8</span></div>
+      </header>
+      <main class="content">
+        <div id="globalStatus" class="global-status">Conectando ao mundo persistente...</div>
+
+        <section class="view active" data-view="inicio">
+          <div class="hero-grid">
+            <article class="hero-card">
+              <span class="kicker">MUNDO PERSISTENTE</span>
+              <h2>Você não está numa tela de teste.</h2>
+              <p>Esta é a interface principal do BacathegasWorld V19.8. O estado carregado abaixo vem do mesmo runtime de produção usado pelas ações, economia, impostos e cron.</p>
+              <div class="hero-actions"><button class="primary" data-go="personagem">Ver personagem</button><button data-go="mundo">Abrir mundo vivo</button></div>
+            </article>
+            <article class="hero-card world-card"><span class="kicker">AGORA NO MUNDO</span><div id="worldNow" class="world-now"></div></article>
+          </div>
+          <div id="summaryCards" class="metric-grid"></div>
+          <div class="two-col">
+            <article class="panel"><div class="panel-head"><div><span class="kicker">SEU ESTADO</span><h3>Personagem</h3></div><button data-go="personagem">Detalhes</button></div><div id="homePlayer" class="rows"></div></article>
+            <article class="panel"><div class="panel-head"><div><span class="kicker">SOCIEDADE</span><h3>Mundo em movimento</h3></div><button id="catchupHome">Sincronizar</button></div><div id="homeWorld" class="rows"></div></article>
+          </div>
+        </section>
+
+        <section class="view" data-view="personagem">
+          <div class="section-grid">
+            <article class="panel span-2"><div class="panel-head"><div><span class="kicker">IDENTIDADE</span><h3>Seu personagem</h3></div><span id="characterId" class="mono-chip"></span></div><div id="playerStats" class="stat-grid"></div></article>
+            <article class="panel"><span class="kicker">VIDA</span><h3>Condição</h3><div id="conditionRows" class="rows"></div></article>
+            <article class="panel"><span class="kicker">CARREIRA</span><h3>Trabalho e reputação</h3><div id="careerRows" class="rows"></div></article>
+            <article class="panel span-2"><span class="kicker">AÇÕES RÁPIDAS</span><h3>Movimentar dinheiro</h3><div class="action-line"><input id="quickAmount" type="number" value="100" min="1"><button data-action="deposit">Depositar</button><button data-action="withdraw">Sacar</button><button class="primary" data-action="borrow">Pegar crédito</button></div></article>
+          </div>
+        </section>
+
+        <section class="view" data-view="mundo">
+          <div class="metric-grid" id="worldMetrics"></div>
+          <div class="two-col">
+            <article class="panel"><span class="kicker">MACROECONOMIA</span><h3>Brasil simulado</h3><div id="macroRows" class="rows"></div></article>
+            <article class="panel"><span class="kicker">AMBIENTE</span><h3>Clima e eventos</h3><div id="environmentRows" class="rows"></div></article>
+            <article class="panel span-2"><div class="panel-head"><div><span class="kicker">AUTONOMIA</span><h3>Relógio do mundo</h3></div><button id="catchupWorld" class="primary">Executar catch-up</button></div><div id="autonomyRows" class="rows"></div></article>
+          </div>
+        </section>
+
+        <section class="view" data-view="economia">
+          <div id="economyMetrics" class="metric-grid"></div>
+          <article class="panel"><div class="panel-head"><div><span class="kicker">EMPRESAS</span><h3>Mercado ativo</h3></div><span id="companyCount" class="mono-chip"></span></div><div class="table-wrap"><table><thead><tr><th>Empresa</th><th>Setor</th><th>Status</th><th>Caixa</th><th>Empregados</th></tr></thead><tbody id="companyTable"></tbody></table></div></article>
+        </section>
+
+        <section class="view" data-view="governo">
+          <div class="two-col">
+            <article class="panel"><span class="kicker">POLÍTICAS</span><h3>Governo</h3><div id="policyRows" class="rows"></div></article>
+            <article class="panel"><span class="kicker">INFRAESTRUTURA</span><h3>Serviços públicos</h3><div id="infraRows" class="rows"></div></article>
+            <article class="panel span-2"><span class="kicker">TRIBUTAÇÃO</span><h3>Regime e calendário</h3><div id="taxGovernmentRows" class="rows"></div></article>
+          </div>
+        </section>
+
+        <section class="view" data-view="financas">
+          <div id="financeMetrics" class="metric-grid"></div>
+          <div class="two-col">
+            <article class="panel"><span class="kicker">IMPOSTOS</span><h3>Obrigações</h3><div id="taxRows" class="rows"></div><div class="action-line"><select id="taxRegime"><option>MEI</option><option>SIMPLES</option><option>PRESUMIDO</option><option>REAL</option></select><button id="changeTaxRegime">Alterar regime</button><button id="payOpenTax" class="primary">Pagar imposto aberto</button></div></article>
+            <article class="panel"><span class="kicker">CARTÃO</span><h3>Crédito</h3><div id="cardRows" class="rows"></div><div class="action-line"><input id="cardAmount" type="number" value="120"><input id="cardInstallments" type="number" min="1" max="24" value="3"><button id="buyCard">Comprar</button><button id="payCard">Pagar R$ 100</button></div></article>
+            <article class="panel"><span class="kicker">INVESTIMENTOS</span><h3>Aplicações</h3><div id="investmentRows" class="rows"></div><div class="action-line"><input id="investAmount" type="number" value="200"><button id="investBtn" class="primary">Investir</button><button id="redeemBtn">Resgatar R$ 100</button></div></article>
+            <article class="panel"><span class="kicker">SEGUROS</span><h3>Proteção</h3><div id="insuranceRows" class="rows"></div><div class="action-line"><button id="insuranceBtn">Contratar seguro</button><button id="claimBtn">Registrar sinistro</button></div></article>
+          </div>
+        </section>
+
+        <section class="view" data-view="auditoria">
+          <article class="panel audit-panel"><div class="audit-mark" id="auditMark">✓</div><div><span class="kicker">INTEGRIDADE</span><h2 id="auditTitle">Verificando mundo...</h2><p id="auditText"></p></div></article>
+          <div id="auditMetrics" class="metric-grid"></div>
+          <article class="panel"><span class="kicker">BUILD</span><h3>Release em execução</h3><div id="buildRows" class="rows"></div></article>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script type="module" src="/js/v19-home.js"></script>
+</body>
+</html>
